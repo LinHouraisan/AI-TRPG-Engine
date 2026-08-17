@@ -113,32 +113,60 @@ Active Context Store 保存当前回合或场景已经装载的信息。它受 A
 - Checkpoint / 检查点
 - State Hash / 状态哈希
 
-## 标准回合数据流
+## 总体数据流
 
 ```text
 Player Client
-    ↓ 玩家输入
+      │
+      │ 玩家输入
+      ▼
 Turn Router
-    ↓ 选择处理路径
-Coordinator / Game Runtime
-    ├─→ Context Broker → 权威数据、领域视图、记忆和关系索引
-    │                         ↓
-    │                 Active Context Manager
-    │                         ↓ 选择、排序和淘汰建议
-    │                 Active Context Store
-    ├─→ Rule Engine + RNG Service
-    ├─→ 相关领域模块与可选 AI Analyzer
-    ├─→ Scenario Runtime
-    └─→ Validator + Visibility Policy
-              ↓
-        原子提交状态和事件
-              ↓
-          刷新派生视图
-              ↓
-            GM AI
-              ↓
-        叙述结果并交出行动权
+      │
+      │ 选择处理路径
+      ▼
+Runtime / Coordinator
+      │
+      ├── Context Subsystem
+      │   ├── Context Broker
+      │   ├── Active Context Manager
+      │   └── Active Context Store
+      │
+      ├── Rule Engine / RNG Service
+      ├── Scenario Runtime
+      │
+      └── Domain Modules
+          ├── NPC Domain
+          ├── Item Domain
+          ├── Scene Domain
+          ├── World Domain
+          └── Scenario Domain
+      │
+      │ 经过校验的状态变化
+      ▼
+Validator / Atomic Commit
+      │
+      ▼
+Authoritative Data
+├── Current State Store
+└── Immutable Event Log
+      │
+      ├── 已提交的公开结果 ───→ GM AI ───→ Player Client
+      ├── 剧情相关事件 ───────→ Director AI
+      │                              │
+      │                    带来源的剧情候选
+      │                              └──→ Runtime / Coordinator
+      │
+      └── 事件与状态 ─────────→ Memory AI
+                                     │
+                           带来源的记忆候选
+                                     └──→ Runtime / Coordinator
 ```
+
+总体数据流包含三个闭环：
+
+1. **回合闭环**：Player Client → Runtime → Atomic Commit → GM AI → Player Client。
+2. **上下文闭环**：Runtime 通过 Context Broker 请求信息，Active Context Manager 提出选择、排序、补充和淘汰建议，程序将通过权限和版本检查的数据装载到 Active Context Store。
+3. **后台智能闭环**：Director AI 和 Memory AI 读取已提交的数据并生成带来源的候选，再交回 Runtime 校验；它们不能直接写入权威数据。
 
 回合的硬边界是先裁定并提交，后生成正式叙事。叙事失败可以根据同一已提交结果重试，但不得重复裁定、掷骰或提交事件。
 
