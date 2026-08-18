@@ -1,0 +1,135 @@
+---
+const samples = [
+  {
+    verb: "观察",
+    target: "书桌锁",
+    need: "调查员与道具在同一房间",
+    result: "记下线索，道具位置不变。",
+    kind: "look",
+  },
+  {
+    verb: "检定",
+    target: "书桌锁",
+    need: "对着这件道具掷技能检定",
+    result: "成败写进事件记录；失败则锁仍然锁着，账本取不出来。",
+    kind: "check",
+    skill: "开锁",
+    roll: 42,
+    dc: 60,
+    ok: false,
+  },
+  {
+    verb: "取走",
+    target: "黑色账本",
+    need: "书桌已开，账本仍在房间",
+    result: "道具从房间转入背包，房间里不再画出这本账本。",
+    kind: "take",
+  },
+  {
+    verb: "阅读",
+    target: "黑色账本",
+    need: "账本在背包",
+    result: "记下秘密线索；如果规则要求，再另走一次「改资源」来扣理智。",
+    kind: "read",
+  },
+  {
+    verb: "被拒",
+    target: "黑色账本",
+    need: "想取走，但锁未开",
+    result: "位置不变，事件记录里写下「行动被拒：书桌未开」。",
+    kind: "deny",
+  },
+];
+---
+
+<div class="demo" id="item-actions" data-samples={JSON.stringify(samples)}>
+  <div class="flow" id="item-verbs"></div>
+  <div class="act-card" id="item-card"></div>
+</div>
+
+<script>
+  const root = document.getElementById("item-actions");
+  if (root) {
+    const samples = JSON.parse(root.dataset.samples ?? "[]");
+    let i = 0;
+    const verbs = document.getElementById("item-verbs");
+    const card = document.getElementById("item-card");
+
+    function meter(s) {
+      if (s.kind !== "check") return "";
+      return `<div class="meter" style="margin:0.7rem 0 0.2rem">
+        <div class="meter-track">
+          <div class="meter-fill" style="width:${s.dc}%"></div>
+          <span class="meter-mark" style="left:${s.skill === "开锁" ? 45 : s.dc}%">技能 45</span>
+          <span class="meter-mark roll" style="left:${s.roll}%;top:1.5rem">掷出 ${s.roll}</span>
+          <span class="meter-mark" style="left:${s.dc}%">难度 ${s.dc}</span>
+        </div>
+      </div>`;
+    }
+
+    function stage(s) {
+      if (s.kind === "look") {
+        return `<div class="act-stage">
+          <div class="prop-box on">书桌锁 · 锁着</div>
+          <span class="act-arrow">观察</span>
+          <div class="chip on">线索：书桌锁很难开</div>
+        </div>`;
+      }
+      if (s.kind === "check") {
+        return `<div class="act-stage">
+          <div class="prop-box fail">书桌锁 · 检定中</div>
+          <span class="act-arrow">开锁</span>
+          <div class="chip warn">失败 · 仍锁着</div>
+        </div>${meter(s)}`;
+      }
+      if (s.kind === "take") {
+        return `<div class="act-stage">
+          <div class="prop-box">书房 · （空）</div>
+          <span class="act-arrow">取走</span>
+          <div class="prop-box on">背包 · 黑色账本</div>
+        </div>`;
+      }
+      if (s.kind === "read") {
+        return `<div class="act-stage">
+          <div class="prop-box on">背包 · 黑色账本</div>
+          <span class="act-arrow">阅读</span>
+          <div class="chip on">线索：港口交易在凌晨三点</div>
+          <div class="chip warn">理智 −5</div>
+        </div>`;
+      }
+      return `<div class="act-stage">
+        <div class="prop-box fail">书桌锁 · 未开</div>
+        <span class="act-arrow">取走</span>
+        <div class="chip warn">被拒 · 账本仍在桌里</div>
+      </div>`;
+    }
+
+    function draw() {
+      const s = samples[i];
+      if (!verbs || !card) return;
+      verbs.innerHTML = samples
+        .map(
+          (x, n) =>
+            `<button type="button" class="${n === i ? "on" : ""}" data-i="${n}"><span class="n">对道具</span><strong>${x.verb}</strong></button>`,
+        )
+        .join("");
+      card.innerHTML = `
+        <div class="act-head">
+          <span class="badge">${s.verb}</span>
+          <strong>目标：${s.target}</strong>
+        </div>
+        ${stage(s)}
+        <p class="step-label" style="margin:0.7rem 0 0.15rem">条件 · ${s.need}</p>
+        <p class="step-label" style="margin:0">结果 · ${s.result}</p>
+      `;
+    }
+
+    verbs?.addEventListener("click", (e) => {
+      const t = e.target.closest("[data-i]");
+      if (!t) return;
+      i = Number(t.dataset.i);
+      draw();
+    });
+    draw();
+  }
+</script>

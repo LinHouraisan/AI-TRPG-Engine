@@ -1,0 +1,67 @@
+<div class="demo" id="cond-flow">
+  <div class="demo-toolbar">
+    <button type="button" data-prev>上一步</button>
+    <button type="button" data-next>下一步</button>
+    <span class="step-label" data-label></span>
+  </div>
+  <div class="cond">
+    <div class="cond-col">
+      <div class="cond-box" data-a>
+        <div class="kicker">条件一</div>
+        <strong>开锁检定失败</strong>
+        <p class="step-label" style="margin:0.2rem 0 0" data-a-txt></p>
+      </div>
+      <div class="cond-box" data-b>
+        <div class="kicker">条件二</div>
+        <strong>时间已过三分钟</strong>
+        <p class="step-label" style="margin:0.2rem 0 0" data-b-txt></p>
+      </div>
+    </div>
+    <div class="cond-arrow">→</div>
+    <div class="cond-col">
+      <div class="cond-box" data-c>
+        <div class="kicker">改动</div>
+        <strong>女房东走到门厅</strong>
+      </div>
+      <div class="cond-box" data-d>
+        <div class="kicker">改动</div>
+        <strong>标记「女房东已警戒」</strong>
+      </div>
+    </div>
+  </div>
+  <p class="step-label" data-note></p>
+</div>
+
+<script>
+  const root = document.getElementById("cond-flow");
+  if (root) {
+    const steps = [
+      { a: false, b: false, fire: false, label: "刚进书房", aTxt: "尚未检定", bTxt: "已过 1 分钟", note: "两条条件都不成立，女房东仍在楼梯平台。" },
+      { a: true, b: false, fire: false, label: "开锁失败，时间未到", aTxt: "掷出 42 / 难度 60", bTxt: "已过 2 分钟", note: "只有检定失败这一条成立，时间还差一分钟，因此不触发。" },
+      { a: true, b: true, fire: true, label: "两条条件同时成立", aTxt: "掷出 42 / 难度 60", bTxt: "已过 3 分钟", note: "同一笔提交里既让女房东走到门厅，又加上标记；玩家并没有另外下一道命令。" },
+    ];
+    let i = 0;
+
+    function render() {
+      const s = steps[i];
+      root.querySelector("[data-label]").textContent = `${i + 1} / ${steps.length} · ${s.label}`;
+      root.querySelector("[data-note]").textContent = s.note;
+      root.querySelector("[data-a]").classList.toggle("on", s.a);
+      root.querySelector("[data-b]").classList.toggle("on", s.b);
+      root.querySelector("[data-c]").classList.toggle("on", s.fire);
+      root.querySelector("[data-d]").classList.toggle("on", s.fire);
+      root.querySelector("[data-a-txt]").textContent = s.aTxt;
+      root.querySelector("[data-b-txt]").textContent = s.bTxt;
+    }
+
+    root.querySelector("[data-prev]")?.addEventListener("click", () => {
+      i = Math.max(0, i - 1);
+      render();
+    });
+    root.querySelector("[data-next]")?.addEventListener("click", () => {
+      i = Math.min(steps.length - 1, i + 1);
+      render();
+    });
+    render();
+  }
+</script>

@@ -1,0 +1,19 @@
+[
+  {
+    "id": "node.open_desk",
+    "title": "打开写字台",
+    "doneWhen": { "unlocked": "lock.desk" }
+  },
+  {
+    "id": "node.read_ledger",
+    "title": "读懂交易时间",
+    "doneWhen": { "all": [{ "flag": "ledger.read" }, { "known": "fact.dock_time" }] }
+  },
+  {
+    "id": "node.go_docks",
+    "title": "动身去码头",
+    "doneWhen": {
+      "all": [{ "known": "fact.dock_time" }, { "has": "item.ledger" }, { "clockGte": 10 }]
+    }
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "id": "cond.alarm",
+    "title": "撬锁的声响惊动女房东",
+    "once": true,
+    "when": {
+      "all": [
+        { "flag": "lock.desk.failed" },
+        { "clockGte": 3 },
+        { "not": { "flag": "alarm.raised" } },
+        { "not": { "npcAt": { "npc": "npc.landlady", "room": "loc.hall" } } }
+      ]
+    },
+    "effects": [
+      {
+        "event": { "type": "npc_moved", "npc": "npc.landlady", "to": "loc.hall" },
+        "summary": "条件成立：撬锁出过声，且已经过去三分钟——女房东下楼，守在门厅。",
+        "narration": "楼梯上传来脚步声。女房东走下来，站在门厅，朝你这边看了一眼。"
+      },
+      {
+        "event": { "type": "flag_set", "flag": "alarm.raised", "value": true },
+        "summary": "剧情标记「女房东警戒」打开。"
+      }
+    ]
+  },
+  {
+    "id": "cond.san_broken",
+    "title": "理智归零",
+    "once": true,
+    "when": { "resource": { "which": "san", "lte": 0 } },
+    "effects": [
+      {
+        "event": { "type": "flag_set", "flag": "ending.broken", "value": true },
+        "summary": "条件成立：理智归零，本场以调查员崩溃收场。"
+      }
+    ]
+  }
+]

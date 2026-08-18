@@ -1,0 +1,31 @@
+---
+import Doc from "../layouts/Doc.astro";
+import ConditionFlow from "../components/ConditionFlow.astro";
+import SchemaSheet from "../components/SchemaSheet.astro";
+---
+
+<Doc title="条件" wide>
+  <h1>条件</h1>
+  <p class="lead">
+    条件是逐条对照已经提交的状态来判定的：有没有拿到某件道具、人在不在某个房间、数值有没有过线、标记开没开、线索知不知道、时间过了没有、上一次检定是不是失败了。多条条件之间可以并且、或者，也可以取反。
+  </p>
+  <p>条件一旦成立，它带来的改动会和那一回合的其他写入合并为同一笔提交。事件记录里同时加上一条「条件触发」，写明是哪条条件、改了什么。</p>
+  <ConditionFlow />
+  <h2>数据怎么写</h2>
+  <SchemaSheet id="condition" />
+  <h2>账本和理智</h2>
+  <div class="split">
+    <div class="callout">
+      <strong>可读账本</strong>
+      <p>条件是背包里有黑色账本，满足之后才允许调用「阅读账本」；背包里没有账本时，这次调用会被拒绝。</p>
+    </div>
+    <div class="callout warn">
+      <strong>理智过低</strong>
+      <p>理智小于等于 0 时，本局的关键情节记为已失败。叙述可以写眼前发黑，但只要没有「改资源」这笔提交，就不能把生命值一并改掉。</p>
+    </div>
+  </div>
+  <div class="callout warn">
+    <strong>气氛到了</strong>
+    <p>这类句子无法检验，因此不能拿来当条件。条件必须能对照当前状态给出成立或不成立。</p>
+  </div>
+</Doc>

@@ -1,0 +1,79 @@
+---
+const proposal = `{
+  "who": "林晚",
+  "skill": "开锁",
+  "target": "书桌锁"
+}`;
+
+const result = `{
+  "who": "林晚",
+  "skill": "开锁",
+  "target": "书桌锁",
+  "skillValue": 45,
+  "die": "1d100",
+  "roll": 42,
+  "dc": 60,
+  "ok": false,
+  "outcome": "failure"
+}`;
+---
+
+<div class="demo" id="check-pipe">
+  <div class="flow">
+    <button type="button" class="on" data-step="0">
+      <span class="n">第 1 步</span>
+      <strong>模型只提议</strong>
+    </button>
+    <button type="button" data-step="1">
+      <span class="n">第 2 步</span>
+      <strong>程序查卡</strong>
+    </button>
+    <button type="button" data-step="2">
+      <span class="n">第 3 步</span>
+      <strong>程序查目标</strong>
+    </button>
+    <button type="button" data-step="3">
+      <span class="n">第 4 步</span>
+      <strong>程序掷骰并比对</strong>
+    </button>
+    <button type="button" data-step="4">
+      <span class="n">第 5 步</span>
+      <strong>界面画出结果</strong>
+    </button>
+  </div>
+  <div class="act-card" id="pipe-body"></div>
+</div>
+
+<script define:vars={{ proposal, result }}>
+  const notes = [
+    { title: "工具调用只带谁、技能、目标", body: "不准带点数，也不准带成败。", code: proposal },
+    { title: "从调查员卡取技能", body: "林晚的开锁是 45，模型说成 80 也不作数；卡上没有这项技能就直接拒绝，不掷骰。", code: "" },
+    { title: "从目标表取难度", body: "书桌锁要求开锁，难度 60；技能 45 低于 60，说明这把锁对她来说太难。", code: "" },
+    { title: "程序掷 1d100", body: "掷出 42，技能不足以达到难度，因此记为失败，账本位置也没有改变。", code: result },
+    { title: "对话里画检定尺", body: "技能、掷出、难度、成败排在同一行；叙述只能写锁没开。", code: "" },
+  ];
+  const root = document.getElementById("check-pipe");
+  const body = document.getElementById("pipe-body");
+  let i = 0;
+
+  function draw() {
+    if (!root || !body) return;
+    root.querySelectorAll("[data-step]").forEach((el) => {
+      el.classList.toggle("on", Number(el.getAttribute("data-step")) === i);
+    });
+    const n = notes[i];
+    body.innerHTML = `<strong>${n.title}</strong><p class="step-label" style="margin:0.35rem 0 0">${n.body}</p>${
+      n.code ? `<pre style="margin:0.7rem 0 0"><code></code></pre>` : ""
+    }`;
+    const code = body.querySelector("code");
+    if (code) code.textContent = n.code;
+  }
+
+  root?.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-step]");
+    if (!t) return;
+    i = Number(t.getAttribute("data-step"));
+    draw();
+  });
+  draw();
+</script>

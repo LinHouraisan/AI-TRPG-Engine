@@ -1,0 +1,24 @@
+{
+  "id": "boarding-house",
+  "title": "寄宿公寓账本",
+  "version": "0.2.0",
+  "kind": "one-shot",
+  "rules": "percentile",
+  "opening": "钟停在九点。你按响门铃的时候，雨已经把外套下摆浸透了。女房东只开了半扇门，把钥匙塞给你，说楼上那间空着，别往书房去。",
+  "investigator": {
+    "id": "pc.linwan",
+    "name": "林晚",
+    "occupation": "记者",
+    "hp": 11,
+    "san": 65,
+    "sanMax": 99,
+    "startAt": "loc.hall",
+    "skills": {
+      "开锁": 45,
+      "侦查": 60,
+      "图书馆使用": 70,
+      "话术": 55,
+      "聆听": 50
+    }
+  }
+}
