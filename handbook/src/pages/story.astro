@@ -1,0 +1,32 @@
+---
+import Doc from "../layouts/Doc.astro";
+import StoryGraph from "../components/StoryGraph.astro";
+import SchemaSheet from "../components/SchemaSheet.astro";
+---
+
+<Doc title="剧情与标记" wide>
+  <h1>剧情与标记</h1>
+  <p class="lead">
+    剧情要拆成若干关键情节，每条情节都带有自己的状态：未开放、可进行、已完成、已失败、被替代。至于世界上已经发生过什么，则用标记来记录。
+  </p>
+  <p>点「下一步」可以看到：锁住的情节会变成可进行，做完之后记为已完成；如果走了另一条路，就记为被替代。</p>
+  <StoryGraph />
+  <h2>标记与线索</h2>
+  <div class="split">
+    <div class="callout">
+      <strong>标记</strong>
+      <p><code>alarm.raised</code> 在界面上写作「女房东已警戒」，实现时就是一只<a href="/switches">事件开关</a>。它打开之后，女房东这个事件改用第 2 页，人在门厅；叙述便不能再写成她仍在楼上织毛衣。</p>
+    </div>
+    <div class="callout">
+      <strong>线索</strong>
+      <p>「港口交易在凌晨三点」在开场时是秘密。玩家没有读过账本之前，模型不得在叙述里主动说出来。读档之后，只要已知线索里已经有这一条，叙述就可以提起它。</p>
+    </div>
+  </div>
+  <div class="callout warn">
+    <strong>被替代</strong>
+    <p>如果玩家把账本交给女房东，关键情节「自己读懂交易时间」就变为被替代，并另记一条「账本已交还」。不要让这两条同时算作完成。</p>
+  </div>
+  <h2>关键情节怎么写</h2>
+  <SchemaSheet id="story" />
+</Doc>
+

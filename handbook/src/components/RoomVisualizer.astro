@@ -1,0 +1,215 @@
+---
+import { beats } from "../data/boarding-house";
+
+const { id = "visualizer" } = Astro.props;
+---
+
+<div class="demo" id={id} data-beats={JSON.stringify(beats)}>
+  <div class="demo-toolbar">
+    <button type="button" data-prev>上一步</button>
+    <button type="button" data-next>下一步</button>
+    <button type="button" class="ghost" data-reset>回到开场</button>
+    <span class="step-label" data-label></span>
+  </div>
+  <p class="step-label" data-narration></p>
+  <p class="step-label" data-log></p>
+
+  <div class="legend">
+    <span><i class="pc"></i>调查员</span>
+    <span><i class="npc"></i>女房东</span>
+    <span><i class="item"></i>账本</span>
+    <span>深色房间 = 调查员所在</span>
+  </div>
+
+  <div class="sheet-wrap">
+    <div>
+    <svg class="house" viewBox="0 0 560 360" role="img" aria-label="三个房间的平面示意">
+      <rect class="floor" data-floor="loc.landing" x="40" y="24" width="200" height="100" />
+      <rect class="floor" data-floor="loc.hall" x="40" y="168" width="200" height="150" />
+      <rect class="floor" data-floor="loc.study" x="320" y="168" width="200" height="150" />
+      <line class="stair" x1="140" y1="124" x2="140" y2="168" />
+      <line class="door" x1="240" y1="243" x2="320" y2="243" />
+      <text class="label" x="140" y="48" text-anchor="middle">楼梯平台</text>
+      <text class="label" x="140" y="188" text-anchor="middle">门厅</text>
+      <text class="label" x="420" y="188" text-anchor="middle">书房</text>
+      <text class="via" x="140" y="150" text-anchor="middle">楼梯</text>
+      <text class="via" x="280" y="234" text-anchor="middle">房门</text>
+      <g id={`${id}-desk`} opacity="0">
+        <rect class="desk" x="360" y="278" width="120" height="28" />
+        <text class="item-label" x="420" y="296" text-anchor="middle">书桌</text>
+        <g id={`${id}-lock`}>
+          <rect class="lock-icon" x="372" y="258" width="12" height="10" rx="1" />
+          <path class="lock-icon" d="M375 258 v-5 a3 3 0 0 1 6 0 v5" fill="none" stroke="#57534e" stroke-width="1.6" />
+          <text class="item-label" x="378" y="276" text-anchor="middle">锁</text>
+        </g>
+        <rect id={`${id}-item`} class="token-dot" width="16" height="11" fill="#1d4ed8" stroke="#fff" x="430" y="262" />
+        <text class="item-label" id={`${id}-item-label`} x="438" y="256" text-anchor="middle">账本</text>
+      </g>
+      <circle id={`${id}-pc`} class="token-dot" r="9" fill="#1c1917" stroke="#fff" />
+      <circle id={`${id}-npc`} class="token-dot" r="9" fill="#9a3412" stroke="#fff" />
+    </svg>
+    <div class="act-card" data-act></div>
+    </div>
+
+    <article class="sheet">
+      <header>
+        <h4>林晚</h4>
+        <span>记者 · 只读</span>
+      </header>
+      <div class="stats">
+        <div class="stat"><b>50</b><span>力量</span></div>
+        <div class="stat"><b>60</b><span>敏捷</span></div>
+        <div class="stat"><b>70</b><span>智力</span></div>
+        <div class="stat"><b>75</b><span>教育</span></div>
+      </div>
+      <div class="bar-row">
+        <span>生命值</span>
+        <div class="bar"><i data-hp-bar></i></div>
+        <b data-hp></b>
+      </div>
+      <div class="bar-row">
+        <span>理智</span>
+        <div class="bar san"><i data-san-bar></i></div>
+        <b data-san></b>
+      </div>
+      <p class="step-label" style="margin:0.55rem 0 0.2rem">技能 · 开锁 45 · 图书馆 60</p>
+      <p class="step-label" style="margin:0.2rem 0">当前位置 · <b data-pc-loc></b></p>
+      <p class="step-label" style="margin:0.45rem 0 0.2rem">背包</p>
+      <div class="chips" data-bag></div>
+      <p class="step-label" style="margin:0.45rem 0 0.2rem">已知线索</p>
+      <div class="chips" data-known></div>
+      <p class="step-label" style="margin:0.45rem 0 0.2rem">标记</p>
+      <div class="chips" data-flags></div>
+      <p class="step-label" style="margin:0.45rem 0 0">时间 · <span data-clock></span> · 女房东在 <b data-npc-loc></b></p>
+    </article>
+  </div>
+</div>
+
+<script>
+  const roots = document.querySelectorAll("[data-beats]");
+  const pos = {
+    "loc.landing": [140, 86],
+    "loc.hall": [140, 250],
+    "loc.study": [420, 250],
+    "inv.pc": [420, 40],
+  };
+  const titles = {
+    "loc.hall": "门厅",
+    "loc.study": "书房",
+    "loc.landing": "楼梯平台",
+    "inv.pc": "背包",
+  };
+  const factName = {
+    "fact.lock_dc": "书桌锁很难开",
+    "fact.dock_time": "港口交易在凌晨三点",
+  };
+  const flagName = {
+    "alarm.raised": "女房东已警戒",
+    study_unlocked: "书桌已开",
+    "ending.can_go_docks": "可去码头",
+  };
+
+  function chips(el, items, cls) {
+    el.innerHTML = items.length
+      ? items.map((t) => `<span class="chip ${cls}">${t}</span>`).join("")
+      : `<span class="chip empty">（无）</span>`;
+  }
+
+  function place(el, id, offset) {
+    const p = pos[id];
+    if (!p || !el) {
+      if (el) el.setAttribute("opacity", "0");
+      return;
+    }
+    el.setAttribute("opacity", "1");
+    if (el.tagName === "rect") {
+      el.setAttribute("x", String(p[0] + offset[0] - 7));
+      el.setAttribute("y", String(p[1] + offset[1] - 5));
+    } else {
+      el.setAttribute("cx", String(p[0] + offset[0]));
+      el.setAttribute("cy", String(p[1] + offset[1]));
+    }
+  }
+
+  for (const root of roots) {
+    const beats = JSON.parse(root.dataset.beats ?? "[]");
+    let i = 0;
+    const uid = root.id;
+
+    function render() {
+      const b = beats[i];
+      root.querySelector("[data-label]").textContent = `${i + 1} / ${beats.length} · ${b.label}`;
+      root.querySelector("[data-narration]").textContent = b.narration;
+      root.querySelector("[data-log]").textContent = b.log;
+      root.querySelector("[data-hp]").textContent = `${b.hp} / 11`;
+      root.querySelector("[data-san]").textContent = `${b.san} / 65`;
+      root.querySelector("[data-hp-bar]").style.width = `${(b.hp / 11) * 100}%`;
+      root.querySelector("[data-san-bar]").style.width = `${(b.san / 65) * 100}%`;
+      root.querySelector("[data-pc-loc]").textContent = titles[b.pc];
+      root.querySelector("[data-npc-loc]").textContent = titles[b.landlady];
+      root.querySelector("[data-clock]").textContent = `已过 ${b.clock} 分钟`;
+      chips(root.querySelector("[data-bag]"), b.ledger === "inv.pc" ? ["黑色账本"] : [], "on");
+      chips(root.querySelector("[data-known]"), b.known.map((k) => factName[k] ?? k), "on");
+      chips(root.querySelector("[data-flags]"), b.flags.map((f) => flagName[f] ?? f), "warn");
+
+      for (const floor of root.querySelectorAll("[data-floor]")) {
+        floor.classList.toggle("here", floor.getAttribute("data-floor") === b.pc);
+      }
+      place(document.getElementById(`${uid}-pc`), b.pc, [0, 0]);
+      place(document.getElementById(`${uid}-npc`), b.landlady, [18, 0]);
+
+      const desk = document.getElementById(`${uid}-desk`);
+      const lock = document.getElementById(`${uid}-lock`);
+      const item = document.getElementById(`${uid}-item`);
+      const itemLabel = document.getElementById(`${uid}-item-label`);
+      const inStudy = b.pc === "loc.study" || b.ledger === "loc.study" || b.lock !== "hidden";
+      desk?.setAttribute("opacity", inStudy ? "1" : "0.25");
+      const lockState = b.lock ?? "hidden";
+      for (const el of lock?.querySelectorAll(".lock-icon") ?? []) {
+        el.setAttribute("class", `lock-icon ${lockState}`);
+      }
+      lock?.setAttribute("opacity", lockState === "hidden" ? "0" : "1");
+      const showLedger = b.ledger === "loc.study";
+      item?.setAttribute("opacity", showLedger ? "1" : "0");
+      itemLabel?.setAttribute("opacity", showLedger ? "1" : "0");
+
+      const act = root.querySelector("[data-act]");
+      if (act) {
+        const a = b.action ?? { verb: "无", target: "", result: "" };
+        const meter =
+          a.verb === "检定" || (a.verb === "取走" && a.roll != null)
+            ? `<div class="meter" style="margin:0.55rem 0 0.15rem">
+                <div class="meter-track">
+                  <div class="meter-fill" style="width:${a.dc}%"></div>
+                  <span class="meter-mark" style="left:45%">技能 45</span>
+                  <span class="meter-mark roll" style="left:${a.roll}%;top:1.5rem">掷出 ${a.roll}</span>
+                  <span class="meter-mark" style="left:${a.dc}%">难度 ${a.dc}</span>
+                </div>
+              </div>`
+            : "";
+        act.innerHTML = `
+          <div class="act-head">
+            <span class="badge">${a.verb === "无" ? "不对道具动手" : a.verb}</span>
+            ${a.target ? `<strong>目标：${a.target}</strong>` : ""}
+          </div>
+          ${meter}
+          <p class="step-label" style="margin:0">${a.result}</p>
+        `;
+      }
+    }
+
+    root.querySelector("[data-prev]")?.addEventListener("click", () => {
+      i = Math.max(0, i - 1);
+      render();
+    });
+    root.querySelector("[data-next]")?.addEventListener("click", () => {
+      i = Math.min(beats.length - 1, i + 1);
+      render();
+    });
+    root.querySelector("[data-reset]")?.addEventListener("click", () => {
+      i = 0;
+      render();
+    });
+    render();
+  }
+</script>
