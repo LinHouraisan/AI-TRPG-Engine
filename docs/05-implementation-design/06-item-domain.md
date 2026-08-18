@@ -1,8 +1,8 @@
 # Item Domain
 
-Status: Draft  
-Implements: 道具系统  
-Depends On: [公共约定](00-common-conventions.md)、[事件与状态](04-event-state.md)  
+Status: Draft
+Implements: 道具系统
+Depends On: [公共约定](00-common-conventions.md)、[事件与状态](04-event-state.md)
 Consumed By: Runtime、Rules、Scenario、Context、UI
 
 ## 1. 定义与实例
@@ -70,4 +70,3 @@ InventoryView 按 location 查询并分页。容器展开深度默认 5，超过
 错误码：`ITEM_NOT_FOUND`、`ITEM_LOCATION_CONFLICT`、`ITEM_QUANTITY_INVALID`、`ITEM_STACK_INCOMPATIBLE`、`ITEM_CONTAINER_CYCLE`、`ITEM_CAPACITY_EXCEEDED`、`ITEM_NOT_ACCESSIBLE`、`ITEM_TERMINAL_STATE`。
 
 性质测试验证 split/merge 数量守恒、任意转移序列不形成容器环、失败事务不丢失物品。集成测试覆盖角色与场景跨领域引用、消耗与效果原子性、并发转移仅一方成功。
-

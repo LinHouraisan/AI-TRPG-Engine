@@ -1,8 +1,8 @@
 # AI Orchestrator
 
-Status: Draft  
-Implements: AI 任务、Prompt 契约、路由、预算和失败策略  
-Depends On: 公共约定、Model Providers、Context/Memory  
+Status: Draft
+Implements: AI 任务、Prompt 契约、路由、预算和失败策略
+Depends On: 公共约定、Model Providers、Context/Memory
 Consumed By: Application Runtime、Content System
 
 ## 1. 任务注册表
@@ -82,4 +82,3 @@ fallback 必须由用户预先配置，不能静默把内容发给另一供应�
 错误码：`AI_ROUTE_NOT_CONFIGURED`、`AI_CAPABILITY_MISSING`、`AI_CONTEXT_TOO_LARGE`、`AI_TIMEOUT`、`AI_RATE_LIMITED`、`AI_AUTH_FAILED`、`AI_QUOTA_EXHAUSTED`、`AI_MODEL_NOT_FOUND`、`AI_OUTPUT_INVALID`、`AI_CONTENT_REFUSED`、`AI_CANCELLED`。
 
 契约测试覆盖每任务 schema、Prompt 区域隔离、repair、fallback 授权、取消、usage、流中断和脱敏。评测集检查行动目标、隐藏信息、无来源变化、提交结果服从和中文叙事质量。
-

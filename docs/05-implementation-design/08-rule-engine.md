@@ -1,8 +1,8 @@
 # Rule Engine 与 RNG
 
-Status: Draft  
-Implements: 规则系统与确定性裁定  
-Depends On: [公共约定](00-common-conventions.md)、[事件与状态](04-event-state.md)、Content System  
+Status: Draft
+Implements: 规则系统与确定性裁定
+Depends On: [公共约定](00-common-conventions.md)、[事件与状态](04-event-state.md)、Content System
 Consumed By: Application Runtime、Character、Item、Scenario
 
 ## 1. 职责
@@ -79,4 +79,3 @@ UI 明确操作携带 ruleId；自然语言 Candidate 提供 actionType 和目�
 错误码：`RULE_PACK_NOT_BOUND`、`RULE_NOT_FOUND`、`RULE_NOT_APPLICABLE`、`RULE_AMBIGUOUS`、`RULE_EXPRESSION_INVALID`、`RULE_LIMIT_EXCEEDED`、`RULE_STATE_PATH_DENIED`、`RNG_DECISION_CONFLICT`。
 
 测试包括 AST 每个操作符、限制、性质测试、golden Rule Pack、固定 seed 重放、modifier trace、同 decision 幂等、不同 branch 分离、Effect 仍被领域拒绝的集成测试。验收要求相同快照、输入、Rule Pack 版本和 Decision ID 产生字节等价 Decision。
-

@@ -1,8 +1,8 @@
 # Scene 与 World Domain
 
-Status: Draft  
-Implements: 场景与世界系统  
-Depends On: [公共约定](00-common-conventions.md)、[事件与状态](04-event-state.md)  
+Status: Draft
+Implements: 场景与世界系统
+Depends On: [公共约定](00-common-conventions.md)、[事件与状态](04-event-state.md)
 Consumed By: Character、Scenario、Rules、Context、UI
 
 ## 1. 模型
@@ -67,4 +67,3 @@ SceneDefinition 来自内容且不可在运行时任意改写；SceneState 只�
 错误码：`SCENE_NOT_FOUND`、`SCENE_INVALID_TRANSITION`、`SCENE_PRESENCE_CONFLICT`、`SCENE_FEATURE_UNKNOWN`、`WORLD_TIME_REVERSED`、`WORLD_FLAG_UNDECLARED`。
 
 测试覆盖场景切换的跨实体原子性、世界时间触发顺序、destroyed 不可恢复、同 tick 多触发器的稳定排序、隐藏 feature 可见性和重放哈希。
-

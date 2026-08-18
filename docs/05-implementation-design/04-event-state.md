@@ -1,8 +1,8 @@
 # 事件、权威状态、快照与分支
 
-Status: Draft  
-Implements: 事件模型、权威状态、保存与分支设计  
-Depends On: [公共约定](00-common-conventions.md)、[Persistence](03-persistence.md)  
+Status: Draft
+Implements: 事件模型、权威状态、保存与分支设计
+Depends On: [公共约定](00-common-conventions.md)、[Persistence](03-persistence.md)
 Consumed By: 所有领域、Runtime、Context、UI 时间线
 
 ## 1. 权威模型
@@ -113,4 +113,3 @@ type ProjectEvent<TState, TEvent> = (state: TState | null, event: TEvent) => TSt
 - 快照损坏回退到更早快照；
 - 未知事件和 sequence gap 必须停止恢复；
 - 50,000 事件恢复满足性能目标并且内存峰值有记录。
-

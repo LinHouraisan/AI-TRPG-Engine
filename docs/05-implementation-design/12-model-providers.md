@@ -1,8 +1,8 @@
 # Model Providers 与能力协商
 
-Status: Draft  
-Implements: 多供应商和本地接口  
-Depends On: 公共约定  
+Status: Draft
+Implements: 多供应商和本地接口
+Depends On: 公共约定
 Consumed By: AI Orchestrator、设置 UI
 
 ## 1. Adapter

@@ -1,8 +1,8 @@
 # Desktop Shell 与进程生命周期
 
-Status: Draft  
-Implements: V1.0 技术设计第 4、5、14 节  
-Depends On: [公共约定](00-common-conventions.md)、[Platform Security](16-platform-security.md)  
+Status: Draft
+Implements: V1.0 技术设计第 4、5、14 节
+Depends On: [公共约定](00-common-conventions.md)、[Platform Security](16-platform-security.md)
 Consumed By: IPC、Player UI、发布系统
 
 ## 1. 职责
@@ -133,4 +133,3 @@ interface ResourceRequest {
 - CSP 测试禁止 `unsafe-eval`、远程 script 和任意 connect；
 - 主窗口冷启动目标普通 SSD 小于 5 秒；
 - 验收时 Main 文件只做生命周期和组装，不出现 SQL、领域规则或 Prompt。
-

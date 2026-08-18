@@ -1,8 +1,8 @@
 # 公共约定与跨模块类型
 
-Status: Draft  
-Implements: V1.0 技术设计第 4、6、7、15 节  
-Depends On: 产品与总体架构文档  
+Status: Draft
+Implements: V1.0 技术设计第 4、6、7、15 节
+Depends On: 产品与总体架构文档
 Consumed By: 所有实现模块
 
 ## 1. 目标与非职责

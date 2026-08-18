@@ -1,8 +1,8 @@
 # Content System
 
-Status: Draft  
-Implements: 文字卡、Scenario Pack、Rule Pack、导入与绑定  
-Depends On: 公共约定、Persistence、Rule Engine、Scenario Runtime、Platform Security  
+Status: Draft
+Implements: 文字卡、Scenario Pack、Rule Pack、导入与绑定
+Depends On: 公共约定、Persistence、Rule Engine、Scenario Runtime、Platform Security
 Consumed By: Runtime、Content Library UI、AI Content Tasks
 
 ## 1. 内容等级

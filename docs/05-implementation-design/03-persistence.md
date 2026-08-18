@@ -1,8 +1,8 @@
 # Persistence 与 SQLite
 
-Status: Draft  
-Implements: V1.0 技术设计第 8、14 节  
-Depends On: [公共约定](00-common-conventions.md)  
+Status: Draft
+Implements: V1.0 技术设计第 8、14 节
+Depends On: [公共约定](00-common-conventions.md)
 Consumed By: Event/State、Application Runtime、Content、Context/Memory
 
 ## 1. 职责与边界

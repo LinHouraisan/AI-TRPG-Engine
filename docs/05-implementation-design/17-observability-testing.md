@@ -1,8 +1,8 @@
 # Observability、Testing 与质量门槛
 
-Status: Draft  
-Implements: 日志、指标、测试、故障注入与性能  
-Depends On: 所有模块设计  
+Status: Draft
+Implements: 日志、指标、测试、故障注入与性能
+Depends On: 所有模块设计
 Consumed By: CI、发布、故障支持
 
 ## 1. 结构化日志
@@ -68,4 +68,3 @@ PR：format、lint、typecheck、unit、contract、SQLite integration、replay�
 ## 9. 发布阻断
 
 Critical 安全/数据损坏、重放不确定、migration 失败、secret 泄漏、认证 Provider 核心路径失败、主流程 E2E 失败均阻断。Flaky test 不允许简单重跑隐藏；必须隔离、记录 owner 和修复期限，核心数据测试不得 quarantine。
-

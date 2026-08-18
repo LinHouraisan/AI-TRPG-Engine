@@ -1,8 +1,8 @@
 # Scenario Runtime
 
-Status: Draft  
-Implements: 剧本节点、线索和进度  
-Depends On: [公共约定](00-common-conventions.md)、[事件与状态](04-event-state.md)、[Rule Engine](08-rule-engine.md)、Content System  
+Status: Draft
+Implements: 剧本节点、线索和进度
+Depends On: [公共约定](00-common-conventions.md)、[事件与状态](04-event-state.md)、[Rule Engine](08-rule-engine.md)、Content System
 Consumed By: Application Runtime、Director、Context、UI
 
 ## 1. 状态
@@ -52,4 +52,3 @@ Director 输出 `ScenarioSuggestion`：目标节点、理由、SourceReferences�
 错误码：`SCENARIO_NOT_BOUND`、`SCENARIO_NODE_UNKNOWN`、`SCENARIO_TRANSITION_INVALID`、`SCENARIO_CONDITION_INVALID`、`SCENARIO_TRANSITION_LOOP`、`SCENARIO_EFFECT_REJECTED`、`SCENARIO_ENDING_CONFLICT`。
 
 测试覆盖每条转换、互斥节点、同一事件多节点稳定顺序、循环检测、隐藏节点可见性、时间触发、effect 被领域拒绝时整个提交回滚，以及从开场到每个正式结局的 golden path。
-

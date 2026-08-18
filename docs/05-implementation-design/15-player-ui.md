@@ -1,8 +1,8 @@
 # Player UI
 
-Status: Draft  
-Implements: 首页、主持桌、时间线、内容库和设置  
-Depends On: IPC Contracts、公共约定  
+Status: Draft
+Implements: 首页、主持桌、时间线、内容库和设置
+Depends On: IPC Contracts、公共约定
 Consumed By: 玩家
 
 ## 1. 技术与状态
@@ -75,4 +75,3 @@ delta 只显示为带“生成中”的临时块。收到 completed 后以 Main 
 - E2E 覆盖首次创建、完整回合、澄清、叙事重试、分支和恢复；
 - axe 或等价检查无严重可访问性问题；
 - 安全测试确保 Renderer 无 Node 和通用 IPC。
-

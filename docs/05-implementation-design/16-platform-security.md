@@ -1,8 +1,8 @@
 # Windows Platform、凭据、备份与安全
 
-Status: Draft  
-Implements: Windows 路径、密钥、备份、恢复与安全  
-Depends On: 公共约定  
+Status: Draft
+Implements: Windows 路径、密钥、备份、恢复与安全
+Depends On: 公共约定
 Consumed By: Desktop、Persistence、Providers、Release
 
 ## 1. 路径
@@ -65,4 +65,3 @@ manifest 包含 formatVersion、campaignId、appVersion、DB/domain versions、c
 错误码：`PLATFORM_PATH_OUTSIDE_ROOT`、`CREDENTIAL_STORAGE_UNAVAILABLE`、`CREDENTIAL_NOT_FOUND`、`NETWORK_ENDPOINT_BLOCKED`、`NETWORK_TLS_FAILED`、`BACKUP_CREATE_FAILED`、`BACKUP_CHECKSUM_FAILED`、`RESTORE_INCOMPATIBLE`、`RESTORE_INTEGRITY_FAILED`。
 
 测试覆盖 Windows 保留名/尾点/ADS/UNC、DPAPI fake、secret 扫描、重定向 SSRF、正在写入时备份、缺文件/篡改恢复、磁盘满和杀进程。安全发布前运行恶意包与 XSS E2E。
-

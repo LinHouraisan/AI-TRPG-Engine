@@ -1,8 +1,8 @@
 # Context Broker、Active Context 与 Memory
 
-Status: Draft  
-Implements: 上下文、检索和长期记忆  
-Depends On: 公共约定、Event/State、AI Orchestrator、Persistence  
+Status: Draft
+Implements: 上下文、检索和长期记忆
+Depends On: 公共约定、Event/State、AI Orchestrator、Persistence
 Consumed By: Runtime、GM、Director、Content AI
 
 ## 1. ContextPackage
@@ -81,4 +81,3 @@ FTS5 索引只保存允许检索的 summary，并能从 memory/event 重建。
 错误码：`CONTEXT_REQUIRED_SOURCE_MISSING`、`CONTEXT_BUDGET_EXCEEDED`、`CONTEXT_VISIBILITY_DENIED`、`CONTEXT_STALE`、`MEMORY_SOURCE_INVALID`、`MEMORY_CONFLICTED`、`MEMORY_JOB_FAILED`。
 
 测试覆盖可见性矩阵、必需项不可裁剪、token 边界、缓存失效、无来源拒绝、冲突优先级、FTS/关系索引删除后重建。Context 构建本地部分 P95 < 200 ms（不含 AI 排序），Memory 失败不阻塞回合。
-

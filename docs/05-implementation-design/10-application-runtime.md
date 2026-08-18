@@ -1,8 +1,8 @@
 # Application Runtime 与回合编排
 
-Status: Draft  
-Implements: Runtime、Turn Router、原子提交流程  
-Depends On: IPC、Persistence、Event/State、所有 Game Domains、Rule Engine、Scenario Runtime、AI Orchestrator、Context/Memory  
+Status: Draft
+Implements: Runtime、Turn Router、原子提交流程
+Depends On: IPC、Persistence、Event/State、所有 Game Domains、Rule Engine、Scenario Runtime、AI Orchestrator、Context/Memory
 Consumed By: Desktop Main、Player UI
 
 ## 1. 职责
@@ -93,4 +93,3 @@ interface TurnApplicationService {
 - Validator 顺序和错误上限；
 - fake model + fixture scenario 完成完整回合；
 - 故障测试证明不存在部分提交和静默状态漂移。
-

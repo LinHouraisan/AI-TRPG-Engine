@@ -1,8 +1,8 @@
 # Release、Migration 与 Compatibility
 
-Status: Draft  
-Implements: Windows 发布、更新、兼容与 V1.0 验收  
-Depends On: Desktop、Persistence、Content、Platform Security、Testing  
+Status: Draft
+Implements: Windows 发布、更新、兼容与 V1.0 验收
+Depends On: Desktop、Persistence、Content、Platform Security、Testing
 Consumed By: 发布维护者和用户支持
 
 ## 1. 版本
@@ -73,4 +73,3 @@ UI 和文档明确列出：Windows x64；认证 Provider 及测试日期；Ollam
 ## 9. 不兼容处理
 
 任何无法安全迁移的数据都进入只读模式，提供诊断和导出，不猜测转换。内容、规则或 Provider 能力不足时显示具体缺失能力，不能把降级体验宣传为完整兼容。
-

@@ -1,8 +1,8 @@
 # Character 与 NPC Domain
 
-Status: Draft  
-Implements: 玩家角色与 NPC 游戏系统  
-Depends On: [公共约定](00-common-conventions.md)、[事件与状态](04-event-state.md)、[Rule Engine](08-rule-engine.md)  
+Status: Draft
+Implements: 玩家角色与 NPC 游戏系统
+Depends On: [公共约定](00-common-conventions.md)、[事件与状态](04-event-state.md)、[Rule Engine](08-rule-engine.md)
 Consumed By: Runtime、Scenario、Context、UI
 
 ## 1. 状态模型
@@ -85,4 +85,3 @@ interface CharacterPublicView {
 错误码：`CHARACTER_NOT_FOUND`、`CHARACTER_INVALID_STATUS_TRANSITION`、`CHARACTER_RESOURCE_CONFLICT`、`CHARACTER_RESOURCE_OUT_OF_RANGE`、`CHARACTER_LOCATION_INVALID`、`CHARACTER_CONDITION_CONFLICT`、`CHARACTER_FACT_SOURCE_REQUIRED`、`CHARACTER_RELATIONSHIP_INVALID`。
 
 测试覆盖资源边界、死亡不可逆、condition stackPolicy、知识可见性、关系 before/after、承诺状态机、并发 revision 冲突和事件重放。验收要求所有角色状态变化都对应领域事件，AI 不能直接写 `CharacterState`。
-

@@ -1,8 +1,8 @@
 # IPC Contracts
 
-Status: Draft  
-Implements: V1.0 技术设计第 5、6、12 节  
-Depends On: [公共约定](00-common-conventions.md)、[Desktop Shell](01-desktop-shell.md)  
+Status: Draft
+Implements: V1.0 技术设计第 5、6、12 节
+Depends On: [公共约定](00-common-conventions.md)、[Desktop Shell](01-desktop-shell.md)
 Consumed By: Renderer、Application Runtime、Content、Model Settings
 
 ## 1. 目标
