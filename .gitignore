@@ -16,6 +16,9 @@ dist-ssr
 # 导出的手册压缩包等构建产物
 *.zip
 
+# TypeScript 增量编译缓存
+*.tsbuildinfo
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

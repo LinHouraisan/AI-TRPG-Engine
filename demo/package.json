@@ -9,14 +9,20 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "smoke": "bun scripts/smoke.ts"
+    "pack:lint": "bun scripts/pack-lint.ts",
+    "keeper:check": "bun scripts/keeper-check.ts",
+    "store:check": "bun scripts/store-check.ts",
+    "smoke": "bun scripts/pack-lint.ts && bun scripts/smoke.ts && bun scripts/keeper-check.ts"
   },
   "dependencies": {
+    "@sqlite.org/sqlite-wasm": "^3.53.0-build1",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@types/bun": "^1.3.14",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",

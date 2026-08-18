@@ -1,8 +1,9 @@
-import { investigator } from "@/data/boarding-house";
+import { pack } from "@/engine/pack";
 import type { GameState } from "@/engine/types";
 import { Meter, Panel, Row } from "./Panel";
 
 export function InvestigatorSheet({ state }: { state: GameState }) {
+  const investigator = pack.manifest.investigator;
   return (
     <Panel title="调查员卡" hint="数值只能由程序改">
       <div className="flex items-baseline justify-between">
@@ -11,7 +12,7 @@ export function InvestigatorSheet({ state }: { state: GameState }) {
       </div>
       <div className="mt-2">
         <Meter label="生命值" value={state.hp} max={state.hpMax} tone="blood" />
-        <Meter label="理智" value={state.san} max={investigator.san} tone="moss" />
+        <Meter label="理智" value={state.san} max={state.sanMax} tone="moss" />
       </div>
       <div className="mt-3 border-t border-line/50 pt-2">
         {Object.entries(state.skills).map(([name, value]) => (

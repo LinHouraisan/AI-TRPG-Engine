@@ -15,9 +15,9 @@ export function Panel({
     <section
       className={`rounded-lg border border-line/60 bg-ink-2/70 backdrop-blur-sm ${className}`}
     >
-      <header className="flex items-baseline justify-between border-b border-line/50 px-3 py-2">
-        <h2 className="text-xs font-medium tracking-widest text-brass">{title}</h2>
-        {hint ? <span className="text-[11px] text-muted">{hint}</span> : null}
+      <header className="flex min-w-0 items-baseline justify-between gap-2 border-b border-line/50 px-3 py-2">
+        <h2 className="shrink-0 text-xs font-medium tracking-widest text-brass">{title}</h2>
+        {hint ? <span className="min-w-0 truncate text-[11px] text-muted">{hint}</span> : null}
       </header>
       <div className="p-3">{children}</div>
     </section>

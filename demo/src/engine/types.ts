@@ -57,6 +57,8 @@ export type EventDraft = {
   visibility?: "public" | "secret";
   /** 这条变化是谁引起的：玩家行动、条件、还是剧本运行时 */
   cause: string;
+  /** 作者在资料包里写好的叙述。留空则由主持人自己组织语言 */
+  narration?: string;
 };
 
 /** 已提交的事件。只追加，不可原地修改，也不可删除。 */
@@ -69,6 +71,9 @@ export type GameEvent = EventDraft & {
   visibility: "public" | "secret";
 };
 
+/** 查询是问「我现在知道什么」，不是行动：不掷骰、不提交、也不走团内时间。 */
+export type QueryTopic = "inventory" | "sheet" | "clues" | "time" | "exits" | "recap";
+
 export type Intent =
   | { kind: "move"; to: string }
   | { kind: "observe"; target: string }
@@ -76,6 +81,7 @@ export type Intent =
   | { kind: "take"; item: string }
   | { kind: "read"; item: string }
   | { kind: "talk"; text: string }
+  | { kind: "query"; topic: QueryTopic }
   | { kind: "unclear"; text: string };
 
 export type Suggestion = {

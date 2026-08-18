@@ -1,0 +1,41 @@
+[
+  {
+    "id": "item.book",
+    "title": "预约簿",
+    "aliases": ["预约簿", "簿子", "登记簿", "名册"],
+    "at": "loc.shop",
+    "observed": "今天这一页撕得只剩装订线。纸毛边还是新的，撕的人很急。背面隐约压出几个字：阿桂，晚班。",
+    "keeperNote": "阿桂是店主的学徒，三天前失踪。店主让妹妹对外只说他回乡了。",
+    "observeGrants": "fact.name_torn",
+    "portable": false
+  },
+  {
+    "id": "item.cabinet_lock",
+    "title": "显影柜的锁",
+    "aliases": ["锁", "柜锁", "挂锁", "木柜", "显影柜"],
+    "at": "loc.darkroom",
+    "observed": "一把小号挂锁，锁梁上有一圈锈。锁孔里还留着半截折断的铁丝——有人已经试过，没成功。",
+    "keeperNote": "铁丝是阿桂自己留下的。他藏相片之前被人打断了。",
+    "observeGrants": "fact.lock_picked_before",
+    "portable": false
+  },
+  {
+    "id": "item.wet_print",
+    "title": "未干的相片",
+    "aliases": ["相片", "照片", "相纸", "底片"],
+    "at": "loc.darkroom",
+    "observed": "相纸还潮着，指一碰就留下指纹。影像是店堂的玻璃柜，柜前站着一个年轻人，脸被闪光灯照得发白——正是预约簿上那个被撕掉的名字。",
+    "keeperNote": "这是阿桂失踪前最后一张自拍。他想留下证据，说明有人在打烊后进来过。",
+    "portable": true,
+    "lockedBy": "lock.cabinet",
+    "takeText": "你用指尖拈起还潮的相片，塞进信封里免得蹭花。",
+    "read": {
+      "text": "相片背面用铅笔写着：他不是客人。灯亮着。",
+      "afterText": "你忽然想起进门时那盏红灯是热的。胃里往下沉了一寸。",
+      "grants": "fact.not_a_customer",
+      "sanLoss": 4,
+      "flag": "print.read",
+      "alreadyText": "背面那行字你已经看过了。"
+    }
+  }
+]

@@ -1,5 +1,6 @@
-import { storyNodes } from "@/data/boarding-house";
+import { evaluate } from "./conditions";
 import { applyEvent } from "./events";
+import { pack } from "./pack";
 import type { EventDraft, GameEvent, GameState } from "./types";
 
 /**
@@ -45,42 +46,62 @@ export function commit(params: {
   return { state: next, log: [...log, ...committed], committed };
 }
 
-/** 确定性触发。条件不存在于模型的脑子里，只对着已提交的状态逐条判定。 */
+/**
+ * 确定性触发：条件与剧情节点都写在资料包里，这里只负责对着已提交的状态求值。
+ * 一条条件的效果可能让另一条成立，所以要跑到不动点为止（设上限防止作者写出死循环）。
+ */
 function evaluateConditions(state: GameState): EventDraft[] {
   const drafts: EventDraft[] = [];
   let projected = state;
 
-  // 撬锁弄出了声响，三分钟之后女房东下楼，守在门厅。
-  if (
-    projected.flags["lock.desk.failed"] &&
-    projected.clock >= 3 &&
-    !projected.flags["alarm.raised"] &&
-    projected.npcAt["npc.landlady"] !== "loc.hall"
-  ) {
-    const moved: EventDraft = {
-      payload: { type: "npc_moved", npc: "npc.landlady", to: "loc.hall" },
-      summary: "条件成立：撬锁出过声，且已经过去三分钟——女房东下楼，守在门厅。",
-      cause: "condition:alarm",
-    };
-    const flagged: EventDraft = {
-      payload: { type: "flag_set", flag: "alarm.raised", value: true },
-      summary: "剧情标记「女房东警戒」打开。",
-      cause: "condition:alarm",
-    };
-    drafts.push(moved, flagged);
-    projected = applyEvent(applyEvent(projected, moved.payload), flagged.payload);
-  }
+  for (let pass = 0; pass < 5; pass += 1) {
+    const round: EventDraft[] = [];
 
-  for (const node of storyNodes) {
-    if (projected.flags[`node.${node.id}.done`]) continue;
-    if (!node.doneWhen(projected.flags)) continue;
-    const draft: EventDraft = {
-      payload: { type: "node_done", node: node.id },
-      summary: `剧情节点「${node.title}」完成。`,
-      cause: `scenario:${node.id}`,
-    };
-    drafts.push(draft);
-    projected = applyEvent(projected, draft.payload);
+    for (const condition of pack.conditions) {
+      const firedFlag = `${condition.id}.fired`;
+      if (condition.once && projected.flags[firedFlag]) continue;
+      if (!evaluate(condition.when, projected)) continue;
+
+      for (const effect of condition.effects) {
+        round.push({
+          payload: effect.event,
+          summary: effect.summary,
+          visibility: effect.visibility,
+          narration: effect.narration,
+          cause: `condition:${condition.id}`,
+        });
+      }
+      if (condition.once) {
+        round.push({
+          payload: { type: "flag_set", flag: firedFlag, value: true },
+          summary: `条件「${condition.title}」已触发过，不再重复。`,
+          cause: `condition:${condition.id}`,
+        });
+      }
+    }
+
+    for (const node of pack.story) {
+      const doneFlag = `${node.id}.done`;
+      const failedFlag = `${node.id}.failed`;
+      if (!projected.flags[doneFlag] && evaluate(node.doneWhen, projected)) {
+        round.push({
+          payload: { type: "node_done", node: node.id },
+          summary: `剧情节点「${node.title}」完成。`,
+          cause: `scenario:${node.id}`,
+        });
+      }
+      if (node.failedWhen && !projected.flags[failedFlag] && evaluate(node.failedWhen, projected)) {
+        round.push({
+          payload: { type: "flag_set", flag: failedFlag, value: true },
+          summary: `剧情节点「${node.title}」已失败。`,
+          cause: `scenario:${node.id}`,
+        });
+      }
+    }
+
+    if (round.length === 0) break;
+    for (const draft of round) projected = applyEvent(projected, draft.payload);
+    drafts.push(...round);
   }
 
   return drafts;

@@ -1,0 +1,17 @@
+[
+  {
+    "id": "fact.name_torn",
+    "title": "预约簿上「阿桂，晚班」被人撕掉了",
+    "visibility": "public"
+  },
+  {
+    "id": "fact.lock_picked_before",
+    "title": "显影柜的锁被人用铁丝撬过，没有成功",
+    "visibility": "public"
+  },
+  {
+    "id": "fact.not_a_customer",
+    "title": "相片背面写着：他不是客人。灯亮着。",
+    "visibility": "secret"
+  }
+]

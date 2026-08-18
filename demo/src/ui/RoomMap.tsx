@@ -1,5 +1,5 @@
-import { npcs, rooms } from "@/data/boarding-house";
-import { itemsInRoom, npcsInRoom } from "@/engine/state";
+import { pack, packIndex } from "@/engine/pack";
+import { npcsInRoom, visibleItemsInRoom } from "@/engine/state";
 import type { GameState } from "@/engine/types";
 import { Panel } from "./Panel";
 
@@ -8,15 +8,15 @@ export function RoomMap({ state }: { state: GameState }) {
   return (
     <Panel title="当前场景" hint={`团内时间 +${state.clock} 分钟`}>
       <div className="flex flex-col gap-1.5">
-        {rooms.map((room) => {
+        {pack.rooms.map((room) => {
           const here = state.pcAt === room.id;
-          const people = npcsInRoom(state, room.id).map((id) => npcs[id]?.title ?? id);
-          const things = itemsInRoom(state, room.id).length;
+          const people = npcsInRoom(state, room.id).map((id) => packIndex.npc(id)?.title ?? id);
+          const things = visibleItemsInRoom(state, room.id).length;
           const seen = state.visited[room.id];
           return (
             <div
               key={room.id}
-              className={`rounded-md border px-2.5 py-1.5 text-sm ${
+              className={`rounded-md border px-2.5 py-1.5 text-sm break-words ${
                 here
                   ? "border-brass/70 bg-brass/10"
                   : seen

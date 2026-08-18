@@ -1,0 +1,12 @@
+[
+  {
+    "id": "fact.lock_scratched",
+    "title": "锁孔有新划痕，最近有人开过",
+    "visibility": "public"
+  },
+  {
+    "id": "fact.dock_time",
+    "title": "码头的交易在凌晨三点",
+    "visibility": "secret"
+  }
+]

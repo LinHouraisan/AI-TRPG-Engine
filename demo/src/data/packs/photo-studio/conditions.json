@@ -1,0 +1,25 @@
+[
+  {
+    "id": "cond.sister_watches",
+    "title": "撬锁出声，妹妹跟到暗房门口",
+    "once": true,
+    "when": {
+      "all": [
+        { "flag": "lock.cabinet.failed" },
+        { "clockGte": 2 },
+        { "not": { "flag": "sister.watching" } }
+      ]
+    },
+    "effects": [
+      {
+        "event": { "type": "npc_moved", "npc": "npc.meimei", "to": "loc.darkroom" },
+        "summary": "条件成立：撬锁出过声——店主的妹妹跟到暗房门口。",
+        "narration": "门帘被掀开一条缝。她站在红光里，没进来，只问你是不是找错了柜子。"
+      },
+      {
+        "event": { "type": "flag_set", "flag": "sister.watching", "value": true },
+        "summary": "剧情标记「妹妹在看」打开。"
+      }
+    ]
+  }
+]

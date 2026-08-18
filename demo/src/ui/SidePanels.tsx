@@ -1,5 +1,5 @@
-import { items, storyNodes } from "@/data/boarding-house";
 import { factTitle } from "@/engine/narrate";
+import { pack, packIndex } from "@/engine/pack";
 import { itemsInRoom } from "@/engine/state";
 import type { GameEvent, GameState } from "@/engine/types";
 import { Panel } from "./Panel";
@@ -13,8 +13,8 @@ export function Inventory({ state }: { state: GameState }) {
       ) : (
         <ul className="flex flex-col gap-1 text-sm">
           {bag.map((id) => (
-            <li key={id} className="rounded bg-ink-3/50 px-2 py-1">
-              {items[id]?.title ?? id}
+            <li key={id} className="rounded bg-ink-3/50 px-2 py-1 break-words">
+              {packIndex.item(id)?.title ?? id}
             </li>
           ))}
         </ul>
@@ -45,8 +45,8 @@ export function StoryFlags({ state }: { state: GameState }) {
   return (
     <Panel title="剧情标记" hint="由条件判定，主持人改不了">
       <ul className="flex flex-col gap-1 text-sm">
-        {storyNodes.map((node) => {
-          const done = Boolean(state.flags[`node.${node.id}.done`]);
+        {pack.story.map((node) => {
+          const done = Boolean(state.flags[`${node.id}.done`]);
           return (
             <li key={node.id} className="flex items-center justify-between">
               <span className={done ? "" : "text-muted"}>{node.title}</span>
@@ -56,14 +56,20 @@ export function StoryFlags({ state }: { state: GameState }) {
             </li>
           );
         })}
-        <li className="flex items-center justify-between border-t border-line/50 pt-1">
-          <span className={state.flags["alarm.raised"] ? "" : "text-muted"}>女房东警戒</span>
-          <span
-            className={`text-[11px] ${state.flags["alarm.raised"] ? "text-blood" : "text-muted"}`}
-          >
-            {state.flags["alarm.raised"] ? "已触发" : "未触发"}
-          </span>
-        </li>
+        {pack.conditions.map((condition) => {
+          const fired = Boolean(state.flags[`${condition.id}.fired`]);
+          return (
+            <li
+              key={condition.id}
+              className="flex items-center justify-between border-t border-line/50 pt-1"
+            >
+              <span className={fired ? "" : "text-muted"}>{condition.title}</span>
+              <span className={`text-[11px] ${fired ? "text-blood" : "text-muted"}`}>
+                {fired ? "已触发" : "未触发"}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </Panel>
   );
@@ -83,7 +89,7 @@ export function EventLog({ log }: { log: GameEvent[] }) {
             .map((event) => (
               <li key={event.id} className="flex gap-2">
                 <span className="shrink-0 tabular-nums text-muted">#{event.seq}</span>
-                <span>
+                <span className="min-w-0 break-words">
                   {event.summary}
                   <span className="ml-1 text-[11px] text-muted">v{event.versionAfter}</span>
                 </span>

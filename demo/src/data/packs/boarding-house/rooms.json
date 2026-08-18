@@ -1,0 +1,23 @@
+[
+  {
+    "id": "loc.hall",
+    "title": "门厅",
+    "intro": "门厅的挂钟停在九点。墙纸上有一圈水渍，楼梯往上没有灯。",
+    "exits": [
+      { "to": "loc.study", "via": "房门" },
+      { "to": "loc.landing", "via": "楼梯" }
+    ]
+  },
+  {
+    "id": "loc.study",
+    "title": "书房",
+    "intro": "窗帘没拉开。写字台上压着一把黄铜锁，锁后面像是塞着一本册子。",
+    "exits": [{ "to": "loc.hall", "via": "房门" }]
+  },
+  {
+    "id": "loc.landing",
+    "title": "楼梯平台",
+    "intro": "平台上摆着一张藤椅，椅子上搁着没织完的毛衣，针还插在上面。",
+    "exits": [{ "to": "loc.hall", "via": "楼梯" }]
+  }
+]

@@ -36,9 +36,10 @@ export function applyEvent(state: GameState, payload: EventPayload): GameState {
     case "npc_moved":
       return { ...state, npcAt: { ...state.npcAt, [payload.npc]: payload.to } };
     case "node_done":
+      // 节点编号本身就带 node. 前缀，这里只补一个 .done。
       return {
         ...state,
-        flags: { ...state.flags, [`node.${payload.node}.done`]: true },
+        flags: { ...state.flags, [`${payload.node}.done`]: true },
       };
     case "action_rejected":
       // 被拒绝的行动同样进事件记录，但它本身不改变任何事实。
