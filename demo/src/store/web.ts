@@ -5,7 +5,7 @@ import type { Driver, Row, SqlValue } from "./driver";
  * 浏览器里的 SQLite。
  *
  * 走 kvvfs：数据库本身落在 localStorage 里，不需要跨源隔离头，刷新页面也还在。
- * 等 Demo 搬进 Tauri，这一层换成真正的 SQLite 文件，上面的仓储代码一行都不用改。
+ * Electron 主进程另有 better-sqlite3 + V1 DDL。浏览器这条路径只服务无壳试玩。
  */
 export async function createWebDriver(name = "local"): Promise<Driver> {
   const sqlite3 = await sqlite3InitModule();

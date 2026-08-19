@@ -9,6 +9,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "desktop": "bun run --cwd electron dev",
+    "desktop:check": "bun run --cwd electron persist:check",
     "tauri": "tauri",
     "handbook": "bun ./handbook/node_modules/.bin/astro dev --root ./handbook"
   },

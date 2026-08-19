@@ -84,7 +84,7 @@
 ## 文档约束
 
 - `docs/00-product/` 到 `docs/04-game-system/` 描述逻辑职责与边界，不把每个组件拆成独立进程。
-- `docs/05-implementation-design/` 是 V1.0 的物理绑定（Draft）：Electron 主进程、`better-sqlite3`、类型化 IPC、Windows x64。它覆盖本仓库早期「外壳用 Tauri」的选型，但**尚未 Accepted**。冲突先改上层文档，禁止在代码里静默改权威边界。
+- `docs/05-implementation-design/` 是 V1.0 的物理绑定。外壳已锁定 Electron（`electron/`），模块正文状态仍是 Draft。冲突先改上层文档，禁止在代码里静默改权威边界。
 - 已确认的产品原则与总体架构优先于局部候选方案。
 - 具体字段、容量、模型调用频率和性能目标应由原型实验或后续实现规格决定。
 - 若设计发生变化，应同步更新受影响文档并明确记录新的权威边界，避免让叙事、缓存、摘要或派生索引成为竞争事实源。

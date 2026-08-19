@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { GameEvent, GameState, Suggestion } from "@/engine/types";
 import { useSession } from "@/session";
+import { CampaignDock } from "@/ui/CampaignDock";
 import { Composer } from "@/ui/Composer";
 import { ContextUsagePanel } from "@/ui/ContextUsage";
 import { InvestigatorSheet } from "@/ui/InvestigatorSheet";
@@ -52,6 +53,7 @@ export default function App() {
     <div className="flex h-full max-w-full flex-col overflow-x-hidden">
       <header className="flex h-12 shrink-0 flex-nowrap items-center gap-2 border-b border-line/60 px-3 md:h-auto md:gap-4 md:px-6 md:py-2.5">
         <div className="min-w-0 flex-1">
+          <CampaignDock />
           <PackSelector
             campaignVersion={session.state.version}
             campaignEvents={session.log.length}
