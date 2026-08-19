@@ -9,6 +9,6 @@ bun run persist:check   # 不启窗口，验 DDL／迁移／不可变事件
 bun run dev             # 拉起 Demo Vite + Electron 窗口
 ```
 
-已经接通：`app:*`、`campaign:*`、`settings:*`。`turn:submitAction` 等仍返回 `IPC_METHOD_UNAVAILABLE`——回合内核还在 Demo 进程里，下一步才搬进主进程。
+已经接通：`app:*`、`campaign:*`、`settings:*`、`turn:submitAction`、`operation:get`、`timeline:page`。主进程跑 `playTurn`（路由／裁定／提交／模板叙述），事件进 `campaign.sqlite`。主持人润色仍可在渲染进程做，改不了已落的事实。
 
 `src-tauri/` 是旧外壳，不再跟。

@@ -1,7 +1,7 @@
 import { ipcMain } from "electron";
 import { z } from "zod";
-import { API_VERSION } from "../../shared/api";
-import { asCampaignId } from "../../shared/ids";
+import { API_VERSION, type SubmitActionInput } from "../../shared/api";
+import { asBranchId, asCampaignId } from "../../shared/ids";
 import { fail, ok, unavailable, type Result } from "../../shared/result";
 import type { Clock } from "../clock";
 import type { Composition } from "../composition";
@@ -25,8 +25,8 @@ function tooBig(payload: unknown): boolean {
   return Buffer.byteLength(JSON.stringify(payload ?? null), "utf8") > MAX_BYTES;
 }
 
-function wrap(fn: (payload: unknown) => Result<unknown>) {
-  return (_event: unknown, payload: unknown): Result<unknown> => {
+function wrap(fn: (payload: unknown) => Result<unknown> | Promise<Result<unknown>>) {
+  return async (_event: unknown, payload: unknown): Promise<Result<unknown>> => {
     try {
       if (tooBig(payload)) {
         return fail({
@@ -35,7 +35,7 @@ function wrap(fn: (payload: unknown) => Result<unknown>) {
           retryable: false,
         });
       }
-      return fn(payload);
+      return await fn(payload);
     } catch {
       return fail({
         code: "IPC_INTERNAL_ERROR",
@@ -156,10 +156,75 @@ export function registerIpc(
     return ok(undefined);
   });
 
-  handle("turn:submitAction", () => unavailable());
-  handle("timeline:page", () => unavailable());
+  const submitSchema = z
+    .object({
+      campaignId: z.string().min(1),
+      branchId: z.string().min(1),
+      actorId: z.string().min(1),
+      controllerId: z.string().min(1),
+      expectedStateVersion: z.number().int().nonnegative(),
+      commandId: z.string().min(1),
+      text: z.string(),
+    })
+    .strict();
+
+  handle("turn:submitAction", (payload) => {
+    const parsed = submitSchema.safeParse(payload);
+    if (!parsed.success) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "ipc.invalid_request",
+        retryable: false,
+      });
+    }
+    return composition.turns.submit({
+      ...parsed.data,
+      campaignId: asCampaignId(parsed.data.campaignId),
+      branchId: asBranchId(parsed.data.branchId),
+      actorId: parsed.data.actorId as SubmitActionInput["actorId"],
+      expectedStateVersion: parsed.data.expectedStateVersion as SubmitActionInput["expectedStateVersion"],
+    });
+  });
+
+  handle("timeline:page", (payload) => {
+    const parsed = z
+      .object({
+        campaignId: z.string().min(1),
+        branchId: z.string().min(1),
+        page: pageSchema,
+      })
+      .strict()
+      .safeParse(payload);
+    if (!parsed.success) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "ipc.invalid_request",
+        retryable: false,
+      });
+    }
+    return composition.turns.timeline(
+      asCampaignId(parsed.data.campaignId),
+      parsed.data.branchId,
+      parsed.data.page.limit,
+    );
+  });
+
+  handle("operation:get", (payload) => {
+    const parsed = z
+      .object({ operationId: z.string().min(1), campaignId: z.string().min(1) })
+      .strict()
+      .safeParse(payload);
+    if (!parsed.success) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "ipc.invalid_request",
+        retryable: false,
+      });
+    }
+    return composition.turns.get(parsed.data.operationId, asCampaignId(parsed.data.campaignId));
+  });
+
   handle("content:list", () => unavailable());
   handle("model:list", () => unavailable());
   handle("backup:export", () => unavailable());
-  handle("operation:get", () => unavailable());
 }

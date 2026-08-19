@@ -113,6 +113,37 @@ function scanPacksWithBun(): Record<string, unknown> {
   return result;
 }
 
+function isElectronProcess(): boolean {
+  return typeof process !== "undefined" && Boolean(process.versions?.electron);
+}
+
+/** Electron 主进程：按目录读 JSON。打包后用 AI_TRPG_PACKS_DIR 指到资料包。 */
+function scanPacksWithNode(): Record<string, unknown> {
+  const fs = process.getBuiltinModule?.("fs") as {
+    readdirSync: (dir: string) => string[];
+    readFileSync: (file: string, enc: string) => string;
+    statSync: (file: string) => { isDirectory(): boolean };
+  };
+  const path = process.getBuiltinModule?.("path") as {
+    join: (...parts: string[]) => string;
+  };
+  const root = process.env.AI_TRPG_PACKS_DIR;
+  if (!fs || !path || !root) {
+    throw new Error("主进程找不到资料包目录（AI_TRPG_PACKS_DIR）。");
+  }
+  const result: Record<string, unknown> = {};
+  for (const dir of fs.readdirSync(root)) {
+    const folder = path.join(root, dir);
+    if (!fs.statSync(folder).isDirectory()) continue;
+    for (const file of fs.readdirSync(folder)) {
+      if (!file.endsWith(".json")) continue;
+      const absolute = path.join(folder, file);
+      result[absolute] = JSON.parse(fs.readFileSync(absolute, "utf8"));
+    }
+  }
+  return result;
+}
+
 function readUtf8(path: string): string {
   // 不用 `import ... from "node:fs"`：Vite 会试图把 node:fs 打进浏览器包。
   const getBuiltin = (globalThis as {
@@ -128,7 +159,9 @@ function readUtf8(path: string): string {
 const globbedJson: Record<string, unknown> =
   typeof Bun !== "undefined"
     ? scanPacksWithBun()
-    : import.meta.glob("../data/packs/*/*.json", { eager: true });
+    : isElectronProcess()
+      ? scanPacksWithNode()
+      : import.meta.glob("../data/packs/*/*.json", { eager: true });
 
 type Discovered = { dir: string; source: PackSource };
 

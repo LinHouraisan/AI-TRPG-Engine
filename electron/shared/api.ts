@@ -91,11 +91,19 @@ export interface DesktopApi {
   campaign: CampaignApi;
   settings: SettingsApi;
   turn: { submitAction(input: SubmitActionInput): Promise<Result<OperationAccepted>> };
-  timeline: { page(): Promise<Result<never>> };
+  timeline: {
+    page(input: {
+      campaignId: CampaignId;
+      branchId: BranchId;
+      page: PageRequest;
+    }): Promise<Result<Page<{ kind: string; turnId: string; summary: string; occurredAt: string }>>>;
+  };
   content: { list(): Promise<Result<never>> };
   model: { list(): Promise<Result<never>> };
   backup: { exportCampaign(): Promise<Result<never>> };
-  operation: { get(): Promise<Result<never>> };
+  operation: {
+    get(input: { operationId: OperationId; campaignId: CampaignId }): Promise<Result<unknown>>;
+  };
 }
 
 export const API_VERSION: ApiVersion = { major: 1, minor: 0 };

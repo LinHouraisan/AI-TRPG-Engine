@@ -15,6 +15,7 @@ import {
   getCatalog,
   insertCatalog,
   listCatalog,
+  setCatalogHead,
   setTrashed,
   touchOpened,
 } from "../persist/catalog";
@@ -27,7 +28,7 @@ export class CampaignService {
   private readonly openCampaigns = new Map<string, Driver>();
 
   constructor(
-    private readonly settings: Driver,
+    readonly settings: Driver,
     private readonly paths: AppPaths,
     private readonly clock: Clock,
     private readonly openDriver: OpenDriver,
@@ -145,6 +146,28 @@ export class CampaignService {
     }
     setTrashed(this.settings, campaignId, null, this.clock.nowIso());
     return ok(undefined);
+  }
+
+  driver(campaignId: CampaignId): Driver | undefined {
+    return this.openCampaigns.get(campaignId);
+  }
+
+  ensureOpen(campaignId: CampaignId): Result<Driver> {
+    const opened = this.open(campaignId);
+    if (!opened.ok) return opened;
+    const driver = this.openCampaigns.get(campaignId);
+    if (!driver) {
+      return fail({
+        code: "IPC_INTERNAL_ERROR",
+        messageKey: "campaign.not_open",
+        retryable: false,
+      });
+    }
+    return ok(driver);
+  }
+
+  setHead(campaignId: CampaignId, version: number): void {
+    setCatalogHead(this.settings, campaignId, version, this.clock.nowIso());
   }
 
   dispose(): void {

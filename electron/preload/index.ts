@@ -28,7 +28,7 @@ const desktopApi: DesktopApi = {
     submitAction: (input) => invoke("turn:submitAction", input),
   },
   timeline: {
-    page: () => invoke("timeline:page"),
+    page: (input) => invoke("timeline:page", input),
   },
   content: {
     list: () => invoke("content:list"),
@@ -40,7 +40,7 @@ const desktopApi: DesktopApi = {
     exportCampaign: () => invoke("backup:export"),
   },
   operation: {
-    get: () => invoke("operation:get"),
+    get: (input) => invoke("operation:get", input),
   },
 };
 

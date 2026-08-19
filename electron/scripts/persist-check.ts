@@ -7,8 +7,13 @@ import { resolvePaths } from "../main/paths";
 import { openBun } from "../main/persist/bun-driver";
 import { checksum } from "../main/persist/migrate";
 import { CampaignService } from "../main/services/campaigns";
+import { TurnService } from "../main/services/turns";
 import { applyInit } from "../main/persist/migrate";
 import { getSetting, setSetting } from "../main/persist/catalog";
+import { asBranchId, asStateVersion, type EntityId } from "../shared/ids";
+import { loadGameEvents } from "../main/persist/turns";
+
+const actor = "pc.linwan" as EntityId;
 
 const root = mkdtempSync(join(tmpdir(), "ai-trpg-electron-"));
 const clock = fixedClock("2026-08-19T00:00:00.000Z");
@@ -93,8 +98,23 @@ try {
     `INSERT INTO events (
       event_id, branch_id, sequence, turn_id, event_type, entity_type, entity_id,
       state_version, schema_version, source_json, audience_json, payload_json, occurred_at
-    ) VALUES (?, ?, 1, 't1', 'scene.entered', 'scene', 'loc.hall', 1, 1, '{}', '{}', '{}', ?)`,
-    ["e1", branch?.branch_id, clock.nowIso()],
+    ) VALUES (?, ?, 1, 't1', 'action_rejected', NULL, NULL, 1, 1, '{}', '{}', ?, ?)`,
+    [
+      "e1",
+      branch?.branch_id,
+      JSON.stringify({
+        payload: { type: "action_rejected", reason: "probe" },
+        summary: "探测不可变",
+        cause: "test",
+        id: "e1",
+        seq: 0,
+        turnId: "t1",
+        versionAfter: 1,
+        clock: 0,
+        visibility: "public",
+      }),
+      clock.nowIso(),
+    ],
   );
 
   let immutable = false;
@@ -123,6 +143,54 @@ try {
   campaigns.restoreFromTrash(created.value.campaignId);
   const afterRestore = campaigns.list({ limit: 20 });
   assert(afterRestore.ok && afterRestore.value.items.length === 1, "恢复之后重新出现");
+
+  const turns = new TurnService(campaigns, clock);
+  const fresh = campaigns.create("回合探测");
+  assert(fresh.ok, "另开一场做回合探测");
+  const live = fresh.ok ? fresh.value : undefined;
+  if (live) {
+    const conflict = turns.submit({
+      campaignId: live.campaignId,
+      branchId: live.headBranchId,
+      actorId: actor,
+      controllerId: "player",
+      expectedStateVersion: asStateVersion(99),
+      commandId: "cmd-conflict",
+      text: "往书房走",
+    });
+    assert(!conflict.ok && conflict.error.code === "TURN_VERSION_CONFLICT", "版本对不上就拒写");
+
+    const moved = turns.submit({
+      campaignId: live.campaignId,
+      branchId: asBranchId(live.headBranchId),
+      actorId: actor,
+      controllerId: "player",
+      expectedStateVersion: asStateVersion(live.headStateVersion),
+      commandId: "cmd-move-study",
+      text: "往书房走",
+    });
+    assert(moved.ok, "主进程提交移动");
+    if (moved.ok) {
+      const again = turns.submit({
+        campaignId: live.campaignId,
+        branchId: live.headBranchId,
+        actorId: actor,
+        controllerId: "player",
+        expectedStateVersion: asStateVersion(live.headStateVersion),
+        commandId: "cmd-move-study",
+        text: "往书房走",
+      });
+      assert(
+        again.ok && again.value.operationId === moved.value.operationId,
+        "同一 commandId 幂等",
+      );
+      const view = turns.get(moved.value.operationId, live.campaignId);
+      assert(view.ok && view.value.kind === "committed" && view.value.events.length > 0, "operation.get 带回已提交事件");
+      const db = campaigns.driver(live.campaignId);
+      const events = db ? loadGameEvents(db, live.headBranchId) : [];
+      assert(events.some((event) => event.payload.type === "moved"), "events 表里有 moved");
+    }
+  }
 
   campaigns.dispose();
   settings.close();

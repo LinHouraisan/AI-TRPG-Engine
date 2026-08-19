@@ -51,6 +51,9 @@ function createWindow(): void {
 
 function boot(): void {
   lifecycle.set("initializing_platform");
+  if (!process.env.AI_TRPG_PACKS_DIR) {
+    process.env.AI_TRPG_PACKS_DIR = join(app.getAppPath(), "../demo/src/data/packs");
+  }
   const paths = resolvePaths(app.getPath("userData"));
   composition = createComposition({
     paths,

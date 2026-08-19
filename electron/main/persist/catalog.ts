@@ -87,6 +87,18 @@ export function getCatalog(settings: Driver, campaignId: CampaignId): CatalogRow
   );
 }
 
+export function setCatalogHead(
+  settings: Driver,
+  campaignId: CampaignId,
+  headStateVersion: number,
+  now: string,
+): void {
+  settings.run(
+    "UPDATE campaign_catalog SET head_state_version = ?, updated_at = ? WHERE campaign_id = ?",
+    [headStateVersion, now, campaignId],
+  );
+}
+
 export function touchOpened(settings: Driver, campaignId: CampaignId, now: string): void {
   settings.run(
     "UPDATE campaign_catalog SET last_opened_at = ?, updated_at = ? WHERE campaign_id = ?",

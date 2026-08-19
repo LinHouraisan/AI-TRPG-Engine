@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { answerQuery, narrate, openingLine, suggest } from "@/engine/narrate";
+import { ensureDesktopCampaign, loadDesktopEvents, submitDesktopTurn, tryDesktopApi } from "@/desktop-play";
+import { narrate, openingLine, suggest } from "@/engine/narrate";
 import { pack, packIndex } from "@/engine/pack";
-import { resolveIntent } from "@/engine/resolve";
+import { playTurn } from "@/engine/play-turn";
 import { route } from "@/engine/router";
 import { thresholdFor } from "@/engine/rules";
-import { commit, replay, stateHash } from "@/engine/runtime";
+import { replay, stateHash } from "@/engine/runtime";
 import { initialState } from "@/engine/state";
 import type { CheckResult, GameEvent, GameState, Intent } from "@/engine/types";
 import { loadConfig, saveConfig, type KeeperConfig } from "@/keeper/config";
@@ -225,6 +226,37 @@ export function useSession() {
     let cancelled = false;
 
     void (async () => {
+      const remote = tryDesktopApi();
+      if (remote) {
+        setStoreBackend("electron-main");
+        setStoreDurable(true);
+        setStoreNote("权威在主进程。");
+        const desk = await ensureDesktopCampaign(remote);
+        if (cancelled) return;
+        if (desk) {
+          setCampaignId(desk.campaign.campaignId);
+          setBranchId(desk.branchId);
+          const events = await loadDesktopEvents(
+            remote,
+            desk.campaign.campaignId,
+            desk.branchId,
+          );
+          if (cancelled) return;
+          if (events.length > 0) {
+            const restored = replay(origin.current, events);
+            adopt({ state: restored, log: events });
+            pushNotice(
+              `已续上主进程里的上一场：重放 ${events.length} 条事件，回到版本 v${restored.version}。`,
+              restored.version,
+            );
+          } else {
+            pushNotice("主进程新开一场。事件会写进 campaign.sqlite。", 0);
+          }
+        }
+        if (!cancelled) setReady(true);
+        return;
+      }
+
       const opened = await openStore();
       if (cancelled) return;
       store.current = opened.store;
@@ -306,11 +338,101 @@ export function useSession() {
       });
       push({ role: "pl", text: spoken, stateVersion: state.version });
 
-      // 查询只把已经知道的事再说一遍：不掷骰、不提交，也不走团内时间。
-      if (intent.kind === "query") {
+      const remote = tryDesktopApi();
+      if (remote && campaignId && branchId) {
+        const view = await submitDesktopTurn({
+          api: remote,
+          campaignId,
+          branchId,
+          expectedStateVersion: state.version,
+          text: spoken,
+        });
+        if ("error" in view) {
+          pushNotice(`这一回合没能落盘：${view.error}`, state.version);
+          reveal();
+          setPending(null);
+          setBusy(false);
+          if (!held) inflight.current = false;
+          return;
+        }
+        if (view.kind !== "committed") {
+          push({ role: "kp", text: view.narration, stateVersion: state.version, source: "程序" });
+          reveal();
+          setPending(null);
+          setBusy(false);
+          if (!held) inflight.current = false;
+          return;
+        }
+        const nextLog = [...log, ...view.events];
+        const nextState = replay(origin.current, nextLog);
+        authoritative.current = { state: nextState, log: nextLog };
+        const check = view.check as import("@/engine/types").CheckResult | undefined;
+        const fallback = view.narration;
+        const remoteIntent = (view.intent as Intent | undefined) ?? intent;
+        lastTurn.current = {
+          state: nextState,
+          events: view.events,
+          intent: remoteIntent,
+          spoken,
+          fallback,
+        };
+        try {
+          if (!config.enabled) {
+            push({
+              role: "kp",
+              text: fallback,
+              check,
+              stateVersion: nextState.version,
+              source: "模板",
+            });
+            return;
+          }
+          setStatus("主持人正在组织语言…");
+          const narration = await keeperNarrate({
+            config,
+            state: nextState,
+            events: view.events,
+            intent: remoteIntent,
+            spoken,
+            fallback,
+            onStream: onNarrationStream,
+          });
+          setStatus(null);
+          rememberUsage(narration.usage);
+          setNarrationDraft(null);
+          push({
+            role: "kp",
+            text: narration.text,
+            check,
+            stateVersion: nextState.version,
+            source: narration.source,
+            note: narration.note,
+          });
+        } catch (error) {
+          setStatus(null);
+          setNarrationDraft(null);
+          push({
+            role: "kp",
+            text: fallback,
+            check,
+            stateVersion: nextState.version,
+            source: "模板",
+            note: error instanceof Error ? error.message : String(error),
+          });
+        } finally {
+          reveal();
+          setPending(null);
+          setBusy(false);
+          if (!held) inflight.current = false;
+        }
+        return;
+      }
+
+      const outcome = playTurn({ text: spoken, state, log, intent });
+      if (outcome.kind === "query" || outcome.kind === "clarification") {
         push({
           role: "kp",
-          text: answerQuery({ state, log, topic: intent.topic }),
+          text: outcome.text,
           stateVersion: state.version,
           source: "程序",
         });
@@ -321,52 +443,37 @@ export function useSession() {
         return;
       }
 
-      const turnId = `turn-${state.turn + 1}`;
-      const { drafts, check, clarification } = resolveIntent({ intent, state, turnId });
-
-      // 追问不掷骰、不提交，回合停在这里等玩家把话说清楚。
-      if (clarification) {
-        push({ role: "kp", text: clarification, stateVersion: state.version, source: "程序" });
-        reveal();
-        setPending(null);
-        setBusy(false);
-        if (!held) inflight.current = false;
-        return;
-      }
-
-      // 先裁定、先提交，然后才轮到叙述。叙述失败不影响已经落下的事实。
-      // 权威状态立刻改；已呈现状态等叙述落笔再追上。
-      const result = commit({ state, log, drafts, turnId });
-      authoritative.current = { state: result.state, log: result.log };
+      const { state: nextState, log: nextLog, committed, check, narration: fallback } = outcome;
+      authoritative.current = { state: nextState, log: nextLog };
 
       const db = store.current;
       if (db && branchId) {
         try {
-          await db.appendEvents(branchId, result.committed);
+          await db.appendEvents(branchId, committed);
           await db.saveCheckpoint({
             branchId,
-            cursor: result.log.length - 1,
-            stateVersion: result.state.version,
-            stateHash: stateHash(result.state),
+            cursor: nextLog.length - 1,
+            stateVersion: nextState.version,
+            stateHash: stateHash(nextState),
             packRef: pack.ref,
           });
           if (campaignId) await refreshBranches(campaignId);
         } catch (error) {
           pushNotice(
             `这一回合没能落盘：${error instanceof Error ? error.message : String(error)}`,
-            result.state.version,
+            nextState.version,
           );
         }
       }
 
-      const fallback = narrate({ state: result.state, events: result.committed, intent });
       lastTurn.current = {
-        state: result.state,
-        events: result.committed,
+        state: nextState,
+        events: committed,
         intent,
         spoken,
         fallback,
       };
+      const result = { state: nextState, committed };
 
       try {
         if (!config.enabled) {

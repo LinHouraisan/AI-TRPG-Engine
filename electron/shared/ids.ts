@@ -20,6 +20,9 @@ export function asBranchId(value: string): BranchId {
 export function asOperationId(value: string): OperationId {
   return value as OperationId;
 }
+export function asTurnId(value: string): TurnId {
+  return value as TurnId;
+}
 export function asStateVersion(value: number): StateVersion {
   return value as StateVersion;
 }

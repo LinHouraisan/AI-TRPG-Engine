@@ -7,10 +7,12 @@ import { getSetting, setSetting } from "./persist/catalog";
 import type { Driver } from "./persist/driver";
 import { applyInit } from "./persist/migrate";
 import { CampaignService, type OpenDriver } from "./services/campaigns";
+import { TurnService } from "./services/turns";
 
 export interface Composition {
   settings: Driver;
   campaigns: CampaignService;
+  turns: TurnService;
   dispose(): void;
 }
 
@@ -33,9 +35,11 @@ export function createComposition(input: {
     input.openDriver,
     campaignSql,
   );
+  const turns = new TurnService(campaigns, input.clock);
   return {
     settings,
     campaigns,
+    turns,
     dispose() {
       campaigns.dispose();
       settings.close();

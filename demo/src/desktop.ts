@@ -17,6 +17,30 @@ export interface DesktopApi {
     list(input: { limit: number }): Promise<DesktopResult<{ items: DesktopCampaign[] }>>;
     open(input: { campaignId: string }): Promise<DesktopResult<DesktopCampaign>>;
   };
+  turn: {
+    submitAction(input: {
+      campaignId: string;
+      branchId: string;
+      actorId: string;
+      controllerId: string;
+      expectedStateVersion: number;
+      commandId: string;
+      text: string;
+    }): Promise<DesktopResult<{ operationId: string; turnId?: string }>>;
+  };
+  timeline: {
+    page(input: {
+      campaignId: string;
+      branchId: string;
+      page: { limit: number };
+    }): Promise<DesktopResult<{ items: unknown[]; events?: unknown[] }>>;
+  };
+  operation: {
+    get(input: {
+      operationId: string;
+      campaignId: string;
+    }): Promise<DesktopResult<unknown>>;
+  };
 }
 
 export function desktopApi(): DesktopApi | undefined {

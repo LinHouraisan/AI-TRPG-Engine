@@ -33,6 +33,7 @@ const electron = spawn(electronBin, ["."], {
   env: {
     ...process.env,
     ELECTRON_RENDERER_URL: "http://127.0.0.1:1421",
+    AI_TRPG_PACKS_DIR: join(repo, "demo/src/data/packs"),
   },
 });
 

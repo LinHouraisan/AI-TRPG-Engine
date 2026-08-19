@@ -14,6 +14,9 @@ await build({
   format: "cjs",
   outfile: join(out, "main.cjs"),
   external: ["electron", "better-sqlite3"],
+  alias: {
+    "@": join(root, "../demo/src"),
+  },
 });
 
 await build({
