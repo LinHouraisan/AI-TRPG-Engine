@@ -20,6 +20,10 @@ dist-ssr
 # TypeScript 增量编译缓存
 *.tsbuildinfo
 
+# Isolated worktrees / plugin cache
+.worktrees/
+.superpowers/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

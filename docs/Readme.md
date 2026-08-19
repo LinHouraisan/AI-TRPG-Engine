@@ -54,6 +54,22 @@
 - [剧本系统](04-game-system/scenario.md)
 - [世界系统](04-game-system/world.md)
 
+## V1.0 模块实现设计
+
+以下文档把已确认的产品、逻辑架构和技术基线细化到模块接口、SQLite DDL、状态机、错误码、测试与验收要求：
+
+- [模块实现设计索引](05-implementation-design/README.md)
+- [公共约定与跨模块类型](05-implementation-design/00-common-conventions.md)
+- [Desktop Shell](05-implementation-design/01-desktop-shell.md)
+- [IPC Contracts](05-implementation-design/02-ipc-contracts.md)
+- [Persistence](05-implementation-design/03-persistence.md)
+- [事件与权威状态](05-implementation-design/04-event-state.md)
+- [Application Runtime](05-implementation-design/10-application-runtime.md)
+- [AI Orchestrator](05-implementation-design/11-ai-orchestrator.md)
+- [Content System](05-implementation-design/14-content-system.md)
+- [Player UI](05-implementation-design/15-player-ui.md)
+- [测试与发布](05-implementation-design/17-observability-testing.md)
+
 ## 文档约束
 
 - 文档描述逻辑职责与边界，不提前锁定技术栈和部署拓扑。
