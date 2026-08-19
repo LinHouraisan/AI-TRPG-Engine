@@ -27,7 +27,9 @@ src/data/packs/
 
 扫描阶段一份坏掉的模组只让它自己不可用：`listPacks()` 会把它标成不可用并写明原因，其它完好的模组照常列出，程序也开得了团。真正选中某一份来开团时（`loadPackById`，以及当前生效的那一份）则不同——模式不对或引用残缺都是致命错误，引擎不会带着半份资料往下跑。
 
-换一份模组不需要改引擎代码。把新目录丢进 `src/data/packs/`，体检能扫到就算数。界面上的模组选择器还没接上，目前默认开的是 `boarding-house`。
+换一份模组不需要改引擎代码。把新目录丢进 `src/data/packs/`，体检能扫到就算数。界面选择器会整页重载来切包；默认开的是 `boarding-house`。
+
+V1 分发格式是 ZIP `.scenario-pack`，带 `manifest.json` 与逐文件 SHA-256，目录树是 `entities/`、`story/nodes.json`、`world/initial-state.json`（见 [`docs/05-implementation-design/14-content-system.md`](../../../../docs/05-implementation-design/14-content-system.md)）。本规范的八个扁平 JSON 是编辑器与 Demo 的工作拷贝，不是最终安装包。迁过去时：`pack.json` 的 `id` + 版本对 `ContentManifest.contentId`；房间／NPC／道具进 `entities/`；`story.json` 进 `story/nodes.json`；可见性字段（`hidden`／`revealedWhen`／`lockedBy`）必须原样保留，那是防泄底的数据，不是提示词。
 
 ## 编号约定
 

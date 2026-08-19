@@ -4,6 +4,8 @@
 
 技术栈是 Bun + Vite + React 19 + Tailwind CSS v4 + TypeScript，不依赖 Tauri，浏览器里就能跑。
 
+相对 [PRD W1–W4](../PRD/06-实现计划.md) 已经做完。相对 [V1 模块实现设计](../docs/05-implementation-design/README.md) 还只是子集：事件信封更扁、没有 `turns`／`state_entities`／`rule_decisions` 表、资料包是八个 JSON 而不是带哈希的 `.scenario-pack`、掷骰是 mulberry32 而不是 `xoshiro256ss-v1`。下一步见 PRD **W0**，不要把这套浏览器库当成 V1 验收。
+
 ## 跑起来
 
 ```bash
@@ -48,7 +50,7 @@ bun run build          # tsc -b && vite build
 
 一份模组就是 `src/data/packs/<模组编号>/` 下的八个 JSON。仓库里可以并排放多份，引擎按目录扫描，不需要为换模组改代码。加载时先过 Zod 模式，再查引用完整性。坏掉的那一份只会被标成不可用，其它完好的照常列出；真正拿来开团的那一份有一处错误就拒绝，不做静默降级。字段规范写在 [`src/data/packs/SPEC.md`](src/data/packs/SPEC.md)，将来的故事编辑器也照它生成与报错。
 
-目前有两份：`boarding-house`（《寄宿公寓账本》，默认开这一份）和 `photo-studio`（《雨夜照相馆》，用来证明扫描是真的在扫）。界面上的模组选择器还没接，第二份只出现在 `listPacks()` 和 `bun run pack:lint` 的报告里。
+目前有两份：`boarding-house`（《寄宿公寓账本》，默认开这一份）和 `photo-studio`（《雨夜照相馆》，用来证明扫描是真的在扫）。界面上的模组选择器会整页重载来切包，避免一半旧一半新。V1 的 ZIP 资料包格式见 [14-content-system](../docs/05-implementation-design/14-content-system.md)；当前 `SPEC.md` 是编辑器能用的扁平规范，不是最终分发格式。
 
 ```
 src/data/packs/<模组编号>/

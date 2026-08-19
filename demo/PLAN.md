@@ -2,7 +2,7 @@
 
 对应 [PRD/05-里程碑.md](../PRD/05-里程碑.md) 的 M0（原型）与 M1（试玩），以及 [PRD/06-实现计划.md](../PRD/06-实现计划.md) 的 W1–W4。
 
-这一份计划只管 `demo/` 这个目录：Bun + Vite + React 19 + Tailwind v4，先在浏览器里跑通，跑通之后再决定要不要搬回 Tauri 外壳。
+这一份计划只管 `demo/` 这个目录：Bun + Vite + React 19 + Tailwind v4。D1–D4 已完成。下一档不是继续在浏览器里加功能，而是对照 [`docs/05-implementation-design/`](../docs/05-implementation-design/README.md) 把内核搬进 V1 主进程（见 PRD W0）。相对 W1–W4：已完成；相对 V1 Accepted：还没有。
 
 ## 0. 为什么另开一个目录
 
@@ -72,7 +72,7 @@
 
 已经落地的部分（`src/store/`）：
 
-- 表结构照 [PRD/04-技术选型.md](../PRD/04-技术选型.md) §4：`campaign`、`branch`、`event`、`checkpoint` 是权威的，`message` 只是让叙述读起来连贯，读档从不依赖它。
+- 表结构是 [V1 Persistence](../docs/05-implementation-design/03-persistence.md) Campaign DDL 的子集：`campaign`、`branch`、`event`、`checkpoint` 是权威的，`message` 只是让叙述读起来连贯，读档从不依赖它。还缺 `turns`、`operations`、`state_entities`、`rule_decisions`、`narrations`。
 - 事件的不可修改由触发器钉死：`UPDATE` 和 `DELETE` 直接 `RAISE(ABORT)`，重复写同一条被主键挡住。不靠自觉。
 - 检查点记着事件游标、状态版本、状态哈希、资料包引用；快照只当缓存。
 - 回滚不改历史：从那一刻分出一条新分支，把之前的事件原样搬过去，旧分支一个字都不动。
@@ -99,7 +99,7 @@ D1 留下的「按目录扫描模组」已经做完。`session.ts` 也接上了�
 ## 3. 需要先定下来的问题
 
 1. **检定难度怎么写。** [PRD/03-内容与规则.md](../PRD/03-内容与规则.md) §6 写的是「开锁检定，难度 60」，那是 d20 式的目标值；Demo 现在按《克苏鲁的呼唤》原生的三档难度（普通看技能值、困难看一半、极难看五分之一）实现。两者必须统一：要么 PRD 改成难度档位，要么规则资料包同时支持「目标值门槛」。倾向前者，因为演示走的是百分规则。
-2. **Demo 与 `src/` 的归并时机。** 是把 `demo/` 的引擎搬进 Tauri 程序，还是把 Tauri 外壳套到 `demo/` 上？建议等 D2 做完再决定，那时候模型接入的形状才清楚。
+2. **Demo 与桌面的归并。** V1 Draft 已经回答「怎么合」：权威在主进程，渲染只走 `DesktopApi`。还没回答的是外壳——V1 写 Electron，仓库里是 Tauri。这是程序决策，不是时间问题。没写成 Accepted 之前，Demo 继续当参考实现，不要把内核塞进渲染进程直连的 `plugin-sql`。
 3. ~~**浏览器持久化选型。**~~ 已定：官方 `@sqlite.org/sqlite-wasm` 走 kvvfs。PGlite 为了一个三间房的 Demo 背几 MB 的 WASM 不值当；OPFS 虽然更正经，但要跨源隔离头加 Worker，等真需要更大的库再换——驱动已经抽象出来了，换的时候只动一个文件。
 
 ## 4. 风险
