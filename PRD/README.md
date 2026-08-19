@@ -12,7 +12,8 @@
 4. [04-技术选型.md](04-技术选型.md)：仓库里已经落地的栈，以及它和 V1 Draft 的分歧
 5. [05-里程碑.md](05-里程碑.md)：原型 → 试玩 → V0.1 → V0.x → V1.0
 6. [06-实现计划.md](06-实现计划.md)：与现有代码的差距，以及工单的先后顺序
-7. 落地 V1.0 时改读 [`docs/05-implementation-design/`](../docs/05-implementation-design/README.md)，那才是模块接口、DDL 和 IPC 的规格
+7. [07-从文档对齐到现在.md](07-从文档对齐到现在.md)：从拉入 `docs/05`、迁 Electron，到 W0 完成与人设卡原型
+8. 落地 V1.0 时改读 [`docs/05-implementation-design/`](../docs/05-implementation-design/README.md)，那才是模块接口、DDL 和 IPC 的规格
 
 早期的英文文件名（`01-product.md` 等）已经作废，一切以本目录里的中文文件为准。
 

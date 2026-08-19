@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import type { GameEvent, GameState, Suggestion } from "@/engine/types";
 import { useSession } from "@/session";
 import { CampaignDock } from "@/ui/CampaignDock";
+import { CardImport } from "@/ui/CardImport";
 import { Composer } from "@/ui/Composer";
 import { ContextUsagePanel } from "@/ui/ContextUsage";
 import { InvestigatorSheet } from "@/ui/InvestigatorSheet";
@@ -70,6 +71,7 @@ export default function App() {
         />
 
         <div className="flex shrink-0 items-center gap-1.5 text-[13px] md:gap-2">
+          <CardImport />
           <KeeperSettings config={session.config} onChange={session.setConfig} />
           <button
             type="button"

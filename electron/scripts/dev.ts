@@ -24,17 +24,18 @@ async function waitFor(url: string): Promise<void> {
   throw new Error(`等不到 ${url}`);
 }
 
-await waitFor("http://127.0.0.1:1421");
+await waitFor("http://127.0.0.1:1421/");
 
 const electronBin = join(root, "node_modules/.bin/electron");
+const env = { ...process.env };
+delete env.ELECTRON_RUN_AS_NODE;
+env.ELECTRON_RENDERER_URL = "http://127.0.0.1:1421";
+env.AI_TRPG_PACKS_DIR = join(repo, "demo/src/data/packs");
+
 const electron = spawn(electronBin, ["."], {
   cwd: root,
   stdio: "inherit",
-  env: {
-    ...process.env,
-    ELECTRON_RENDERER_URL: "http://127.0.0.1:1421",
-    AI_TRPG_PACKS_DIR: join(repo, "demo/src/data/packs"),
-  },
+  env,
 });
 
 const stop = () => {

@@ -4,7 +4,7 @@
 
 技术栈是 Bun + Vite + React 19 + Tailwind CSS v4 + TypeScript，不依赖 Tauri，浏览器里就能跑。
 
-相对 [PRD W1–W4](../PRD/06-实现计划.md) 已经做完。相对 [V1 模块实现设计](../docs/05-implementation-design/README.md) 还只是子集：事件信封更扁、没有 `turns`／`state_entities`／`rule_decisions` 表、资料包是八个 JSON 而不是带哈希的 `.scenario-pack`、掷骰是 mulberry32 而不是 `xoshiro256ss-v1`。下一步见 PRD **W0**，不要把这套浏览器库当成 V1 验收。
+相对 [PRD W1–W4](../PRD/06-实现计划.md) 已经做完。桌面侧 [W0](../PRD/06-实现计划.md) 也完成了（Electron 主进程提交，见 `electron/`）。相对 [V1 模块实现设计](../docs/05-implementation-design/README.md) 还只是子集：事件信封更扁、没有完整 V1 事件登记、资料包是八个 JSON 而不是运行时加载 `.scenario-pack`、掷骰是 mulberry32 而不是 `xoshiro256ss-v1`。下一步见 PRD **W5**，不要把这套浏览器库当成 V1 验收。
 
 ## 跑起来
 
@@ -12,8 +12,9 @@
 cd demo
 bun install
 cp .env.example .env.local   # 填上 Ollama 的地址
-bun run dev            # http://localhost:1421
+bun run dev            # http://127.0.0.1:1421
 bun run pack:lint      # 资料包体检：模式校验加引用完整性
+bun run card:check     # 酒馆卡原型：解析 V1/V2/PNG + 自动车确定性
 bun run keeper:check   # 主持人契约测试：假模型怎么乱说都动不了状态
 bun run store:check    # 存储层测试：改不动、删不掉、重放一致、回滚分支
 bun run smoke          # 上面几项加金样冒烟，跑完整条路径并校验重放
@@ -104,10 +105,12 @@ src/
     web.ts                 浏览器侧 sqlite-wasm（kvvfs）
     memory.ts              兜底的内存库，加载不了 WASM 时用
     bun.ts                 脚本侧 bun:sqlite，专供测试
+  cards/                   酒馆卡原型：解析 + CoC 自动车（不进战役）
   ui/                      跑团桌：叙述列、检定尺、调查员卡、房间、时间线、事件记录
   session.ts               一场团的状态、提交、续场、分支
 scripts/
   pack-lint.ts             资料包体检（逐份汇报，含体检自身的自检）
+  card-check.ts            人设卡原型自检
   smoke.ts                 金样冒烟
   keeper-check.ts          主持人契约测试（假模型 + 可选真机）
   store-check.ts           存储层测试（bun:sqlite，与浏览器同一份 SQL）
@@ -115,6 +118,6 @@ scripts/
 
 ## 还没做的（见 PLAN.md）
 
-- 导演与记忆、人设卡导入。
+- 导演与记忆。人设卡：酒馆卡解析 + 自动车原型已有（`cards/`，`bun run card:check`），未写入战役、未升级模组。
 - 上下文预算：房间和线索多起来之后要裁剪，现在是整份塞进去。
 - 存储换成 OPFS：kvvfs 借的是 localStorage，容量只有几 MB，长战役迟早不够。

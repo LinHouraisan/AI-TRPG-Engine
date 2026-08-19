@@ -39,7 +39,7 @@ Demo 不依赖 Tauri，直接在浏览器里跑。守秘人叙述接本地 Ollam
 
 ## 说明
 
-- **权威内核在 `demo/`**：事件只追加、重放对账、主持人写不了事实。桌面程序的战役／对话／人物表是旧聊天模型，读档不要拿它当事实源。
+- **权威内核在 `demo/` 的事件循环**：浏览器里自己提交；Electron 里走主进程 `turn:submitAction`。主持人写不了事实。`src/` 旧聊天壳不要当事实源。这一段做了什么见 [PRD/07](PRD/07-从文档对齐到现在.md)。
 - V1.0 见 [`docs/05-implementation-design/`](docs/05-implementation-design/README.md)。外壳已锁定 Electron。正式分发目标是 Windows x64。
 - Demo 与桌面的 API 密钥都不进数据库。桌面走系统钥匙串；Demo 接本地 Ollama，默认不存云端密钥。
 - 随包的规则文本只有 5e SRD，本产品与《龙与地下城》没有官方关系。试玩切片走的是《克苏鲁的呼唤》式百分规则，文本是自写的。

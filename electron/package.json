@@ -7,7 +7,10 @@
   "scripts": {
     "build:main": "bun scripts/build.ts",
     "dev": "bun scripts/dev.ts",
+    "rebuild:native": "bun scripts/rebuild-native.ts",
+    "postinstall": "bun scripts/rebuild-native.ts",
     "persist:check": "bun scripts/persist-check.ts",
+    "gold": "bun scripts/gold-path.ts",
     "content:pack": "bun scripts/scenario-pack.ts pack boarding-house",
     "content:check": "bun scripts/scenario-pack.ts check"
   },

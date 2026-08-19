@@ -3,7 +3,7 @@
  * 掷出来的点数不会变——重掷一次骰子必须是显式的新回合。
  */
 
-function hash(text: string): number {
+export function hashText(text: string): number {
   let h = 2166136261;
   for (let i = 0; i < text.length; i += 1) {
     h ^= text.charCodeAt(i);
@@ -23,7 +23,11 @@ function mulberry32(seed: number): () => number {
   };
 }
 
+export function rngFrom(seed: string): () => number {
+  return mulberry32(hashText(seed));
+}
+
 export function rollFor(seed: string, turnId: string, sides: number): number {
-  const next = mulberry32(hash(`${seed}:${turnId}`));
+  const next = rngFrom(`${seed}:${turnId}`);
   return 1 + Math.floor(next() * sides);
 }

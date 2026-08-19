@@ -116,7 +116,7 @@ export class TurnService {
     const turnId =
       outcome.kind === "committed" && outcome.committed[0]
         ? outcome.committed[0].turnId
-        : `turn-${state.turn + 1}`;
+        : `turn-ask-${operationId}`;
 
     const view: TurnView = {
       kind: outcome.kind,

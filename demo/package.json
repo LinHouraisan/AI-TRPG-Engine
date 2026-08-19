@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "pack:lint": "bun scripts/pack-lint.ts",
+    "card:check": "bun scripts/card-check.ts",
     "keeper:check": "bun scripts/keeper-check.ts",
     "store:check": "bun scripts/store-check.ts",
     "smoke": "bun scripts/pack-lint.ts && bun scripts/smoke.ts && bun scripts/keeper-check.ts"
