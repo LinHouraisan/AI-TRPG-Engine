@@ -1,38 +1,20 @@
+// 旧壳。写库工具已禁用。权威提交只在 electron/ 主进程。
 import { tool } from "ai";
 import type { QueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import {
-  addCombatant,
-  createNote,
-  endCombat,
-  getActiveEncounter,
-  listCharacters,
-  searchSrd,
-  startCombat,
-  updateCharacter,
-  updateCombatant,
-} from "@/lib/db";
+import { listCharacters, searchSrd } from "@/lib/db";
 import { getItem, keeperItemView, listItems } from "@/data/items";
 import { executeCheck } from "@/lib/check";
 import { rollDice } from "@/lib/dice";
+
+const SHELL_WRITE_DISABLED =
+  "旧 Tauri 外壳已停用：主持人不能写库。请用 Electron 主进程的 turn:submitAction。";
 
 export type GameScope = {
   campaignId: string;
   sessionId: string;
   queryClient: QueryClient;
 };
-
-function invalidateGame(scope: GameScope) {
-  void scope.queryClient.invalidateQueries({
-    queryKey: ["characters", scope.campaignId],
-  });
-  void scope.queryClient.invalidateQueries({
-    queryKey: ["combat", scope.campaignId],
-  });
-  void scope.queryClient.invalidateQueries({
-    queryKey: ["notes", scope.campaignId],
-  });
-}
 
 async function findCharacter(campaignId: string, nameOrId: string) {
   const characters = await listCharacters(campaignId);
@@ -90,55 +72,14 @@ export function createGameTools(scope: GameScope) {
           .optional(),
         removeItem: z.string().optional(),
       }),
-      execute: async (input) => {
-        const character = await findCharacter(scope.campaignId, input.name);
-        if (!character) {
-          return { error: `没有找到名为 ${input.name} 的角色` };
-        }
-        let inventory = character.inventory;
-        if (input.addItem) {
-          const existing = inventory.find(
-            (item) => item.name.toLowerCase() === input.addItem!.name.toLowerCase(),
-          );
-          inventory = existing
-            ? inventory.map((item) =>
-                item === existing
-                  ? { ...item, qty: item.qty + input.addItem!.qty }
-                  : item,
-              )
-            : [...inventory, input.addItem];
-        }
-        if (input.removeItem) {
-          inventory = inventory.filter(
-            (item) => item.name.toLowerCase() !== input.removeItem!.toLowerCase(),
-          );
-        }
-        const updated = await updateCharacter(character.id, {
-          hp: input.hp,
-          maxHp: input.maxHp,
-          ac: input.ac,
-          conditions: input.conditions,
-          notes: input.notes,
-          inventory,
-        });
-        invalidateGame(scope);
-        return updated;
-      },
+      execute: async () => ({ error: SHELL_WRITE_DISABLED }),
     }),
     start_combat: tool({
       description: "开始一场遭遇战，并把队伍成员加进先攻表。",
       inputSchema: z.object({
         name: z.string().optional().describe("遭遇战名称"),
       }),
-      execute: async ({ name }) => {
-        const result = await startCombat({
-          campaignId: scope.campaignId,
-          sessionId: scope.sessionId,
-          name,
-        });
-        invalidateGame(scope);
-        return result;
-      },
+      execute: async () => ({ error: SHELL_WRITE_DISABLED }),
     }),
     add_combatant: tool({
       description: "把一个怪物或 NPC 加入当前进行中的遭遇战。",
@@ -148,18 +89,7 @@ export function createGameTools(scope: GameScope) {
         ac: z.number().int().optional(),
         initiative: z.number().int().optional(),
       }),
-      execute: async (input) => {
-        const active = await getActiveEncounter(scope.campaignId);
-        if (!active) {
-          return { error: "当前没有进行中的遭遇战，请先调用 start_combat。" };
-        }
-        const combatant = await addCombatant({
-          encounterId: active.encounter.id,
-          ...input,
-        });
-        invalidateGame(scope);
-        return combatant;
-      },
+      execute: async () => ({ error: SHELL_WRITE_DISABLED }),
     }),
     set_initiative: tool({
       description: "为当前遭遇战中的某个参战者设置先攻值。",
@@ -167,19 +97,7 @@ export function createGameTools(scope: GameScope) {
         name: z.string(),
         initiative: z.number().int(),
       }),
-      execute: async ({ name, initiative }) => {
-        const active = await getActiveEncounter(scope.campaignId);
-        if (!active) return { error: "当前没有进行中的遭遇战。" };
-        const needle = name.toLowerCase();
-        const combatant = active.combatants.find(
-          (item) =>
-            item.id === name || item.name.toLowerCase().includes(needle),
-        );
-        if (!combatant) return { error: `没有找到名为 ${name} 的参战者` };
-        const updated = await updateCombatant(combatant.id, { initiative });
-        invalidateGame(scope);
-        return updated;
-      },
+      execute: async () => ({ error: SHELL_WRITE_DISABLED }),
     }),
     update_combatant: tool({
       description: "修改某个参战者的生命值或状态。",
@@ -188,28 +106,12 @@ export function createGameTools(scope: GameScope) {
         hp: z.number().int().optional(),
         conditions: z.array(z.string()).optional(),
       }),
-      execute: async ({ name, hp, conditions }) => {
-        const active = await getActiveEncounter(scope.campaignId);
-        if (!active) return { error: "当前没有进行中的遭遇战。" };
-        const needle = name.toLowerCase();
-        const combatant = active.combatants.find(
-          (item) =>
-            item.id === name || item.name.toLowerCase().includes(needle),
-        );
-        if (!combatant) return { error: `没有找到名为 ${name} 的参战者` };
-        const updated = await updateCombatant(combatant.id, { hp, conditions });
-        invalidateGame(scope);
-        return updated;
-      },
+      execute: async () => ({ error: SHELL_WRITE_DISABLED }),
     }),
     end_combat: tool({
       description: "结束当前进行中的遭遇战。",
       inputSchema: z.object({}),
-      execute: async () => {
-        await endCombat(scope.campaignId);
-        invalidateGame(scope);
-        return { ok: true };
-      },
+      execute: async () => ({ error: SHELL_WRITE_DISABLED }),
     }),
     lookup_item: tool({
       description:
@@ -254,16 +156,7 @@ export function createGameTools(scope: GameScope) {
         title: z.string(),
         body: z.string(),
       }),
-      execute: async ({ title, body }) => {
-        const note = await createNote({
-          campaignId: scope.campaignId,
-          sessionId: scope.sessionId,
-          title,
-          body,
-        });
-        invalidateGame(scope);
-        return note;
-      },
+      execute: async () => ({ error: SHELL_WRITE_DISABLED }),
     }),
   };
 }

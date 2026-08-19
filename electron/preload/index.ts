@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { API_VERSION, type DesktopApi } from "../shared/api";
+import {
+  API_VERSION,
+  OPERATION_EVENT_CHANNEL,
+  isOperationEvent,
+  type DesktopApi,
+} from "../shared/api";
 import type { Result } from "../shared/result";
 
 function invoke<T>(channel: string, payload?: unknown): Promise<Result<T>> {
@@ -23,6 +28,9 @@ const desktopApi: DesktopApi = {
   settings: {
     get: (input) => invoke("settings:get", input),
     set: (input) => invoke("settings:set", input),
+    setSecret: (input) => invoke("settings:setSecret", input),
+    hasSecret: (input) => invoke("settings:hasSecret", input),
+    deleteSecret: (input) => invoke("settings:deleteSecret", input),
   },
   turn: {
     submitAction: (input) => invoke("turn:submitAction", input),
@@ -41,6 +49,18 @@ const desktopApi: DesktopApi = {
   },
   operation: {
     get: (input) => invoke("operation:get", input),
+    subscribe: (input) => invoke("operation:subscribe", input),
+    unsubscribe: (input) => invoke("operation:unsubscribe", input),
+    onEvent: (cb) => {
+      const listener = (_event: unknown, payload: unknown) => {
+        if (!isOperationEvent(payload)) return;
+        cb(payload);
+      };
+      ipcRenderer.on(OPERATION_EVENT_CHANNEL, listener);
+      return () => {
+        ipcRenderer.removeListener(OPERATION_EVENT_CHANNEL, listener);
+      };
+    },
   },
 };
 

@@ -12,7 +12,11 @@
     "esModuleInterop": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
-    "types": ["bun"]
+    "types": ["bun"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../demo/src/*"]
+    }
   },
   "include": ["main", "preload", "shared", "scripts"]
 }

@@ -52,6 +52,64 @@ export interface OperationAccepted {
   turnId?: TurnId;
 }
 
+export type NarrationKind = "模型" | "模板" | "程序";
+
+export interface TurnView {
+  kind: "query" | "clarification" | "committed";
+  narration: string;
+  narrationKind: NarrationKind;
+  narrationNote?: string;
+  events: unknown[];
+  stateVersion: number;
+  check?: unknown;
+  intent: unknown;
+}
+
+export interface OperationView {
+  operationId: OperationId | string;
+  type: string;
+  status: "queued" | "running" | "waiting_for_user" | "succeeded" | "failed" | "cancelled";
+  progress: { phase: string; completed?: number; total?: number };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type OperationEvent =
+  | { type: "operation.status"; operation: OperationView }
+  | {
+      type: "narration.delta";
+      operationId: OperationId | string;
+      turnId: TurnId | string;
+      sequence: number;
+      text: string;
+    }
+  | {
+      type: "narration.completed";
+      operationId: OperationId | string;
+      turnId: TurnId | string;
+      narrationId: string;
+    }
+  | {
+      type: "campaign.changed";
+      campaignId: CampaignId | string;
+      branchId: BranchId | string;
+      stateVersion: number;
+    };
+
+export const OPERATION_EVENT_CHANNEL = "operation:event";
+
+const OPERATION_EVENT_TYPES = new Set([
+  "operation.status",
+  "narration.delta",
+  "narration.completed",
+  "campaign.changed",
+]);
+
+export function isOperationEvent(value: unknown): value is OperationEvent {
+  if (typeof value !== "object" || value === null || !("type" in value)) return false;
+  return OPERATION_EVENT_TYPES.has((value as { type: string }).type);
+}
+
 export interface AppState {
   lifecycle:
     | "cold"
@@ -83,6 +141,9 @@ export interface CampaignApi {
 export interface SettingsApi {
   get(input: { key: string }): Promise<Result<unknown>>;
   set(input: { key: string; value: unknown }): Promise<Result<void>>;
+  setSecret(input: { credentialId?: string; value: string }): Promise<Result<{ credentialId: string }>>;
+  hasSecret(input: { credentialId: string }): Promise<Result<{ present: boolean }>>;
+  deleteSecret(input: { credentialId: string }): Promise<Result<void>>;
 }
 
 export interface DesktopApi {
@@ -102,7 +163,10 @@ export interface DesktopApi {
   model: { list(): Promise<Result<never>> };
   backup: { exportCampaign(): Promise<Result<never>> };
   operation: {
-    get(input: { operationId: OperationId; campaignId: CampaignId }): Promise<Result<unknown>>;
+    get(input: { operationId: OperationId; campaignId: CampaignId }): Promise<Result<TurnView>>;
+    subscribe(input: { operationId: OperationId | string }): Promise<Result<{ subscriptionId: string }>>;
+    unsubscribe(input: { subscriptionId: string }): Promise<Result<void>>;
+    onEvent(cb: (event: OperationEvent) => void): () => void;
   };
 }
 
@@ -119,7 +183,14 @@ export const CHANNELS = {
   "campaign:restoreFromTrash": true,
   "settings:get": true,
   "settings:set": true,
+  "settings:setSecret": true,
+  "settings:hasSecret": true,
+  "settings:deleteSecret": true,
   "turn:submitAction": true,
+  "timeline:page": true,
+  "operation:get": true,
+  "operation:subscribe": true,
+  "operation:unsubscribe": true,
 } as const;
 
 export type Channel = keyof typeof CHANNELS;

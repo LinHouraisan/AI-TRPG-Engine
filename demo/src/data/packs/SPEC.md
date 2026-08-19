@@ -29,7 +29,22 @@ src/data/packs/
 
 换一份模组不需要改引擎代码。把新目录丢进 `src/data/packs/`，体检能扫到就算数。界面选择器会整页重载来切包；默认开的是 `boarding-house`。
 
-V1 分发格式是 ZIP `.scenario-pack`，带 `manifest.json` 与逐文件 SHA-256，目录树是 `entities/`、`story/nodes.json`、`world/initial-state.json`（见 [`docs/05-implementation-design/14-content-system.md`](../../../../docs/05-implementation-design/14-content-system.md)）。本规范的八个扁平 JSON 是编辑器与 Demo 的工作拷贝，不是最终安装包。迁过去时：`pack.json` 的 `id` + 版本对 `ContentManifest.contentId`；房间／NPC／道具进 `entities/`；`story.json` 进 `story/nodes.json`；可见性字段（`hidden`／`revealedWhen`／`lockedBy`）必须原样保留，那是防泄底的数据，不是提示词。
+V1 分发格式是 ZIP `.scenario-pack`，带 `manifest.json` 与逐文件 SHA-256，目录树是 `entities/`、`story/nodes.json`、`world/initial-state.json`（见 [`docs/05-implementation-design/14-content-system.md`](../../../../docs/05-implementation-design/14-content-system.md)）。本规范的八个扁平 JSON 是编辑器与 Demo 的工作拷贝，不是最终安装包。迁过去时只搬家、不改字段；可见性字段（`hidden`／`revealedWhen`／`lockedBy`）必须原样保留，那是防泄底的数据，不是提示词。
+
+| 工作拷贝 | V1 包内路径 |
+| --- | --- |
+| `pack.json` | `scenario.json`（`id` → `contentId`，`title` → `name.default`，`version` 须是 SemVer） |
+| `rooms.json` | `entities/locations.json` |
+| `items.json` | `entities/items.json` |
+| `npcs.json` | `entities/characters.json` |
+| `story.json` | `story/nodes.json` |
+| `facts.json` | `story/clues.json` |
+| `locks.json` | `world/locks.json`（额外文件，列入 manifest） |
+| `conditions.json` | `world/conditions.json` |
+| （生成） | `world/initial-state.json`（`investigator.startAt` + NPC `startAt` + 道具 `at`） |
+| （生成） | `manifest.json`（`formatVersion` 1，`entries[]` 含 sha256／size／mime，不含自身） |
+
+打包装命令在 Electron 侧：`cd electron && bun run content:pack`；`bun run content:check` 会打包 `boarding-house` 并拒绝 zipslip、符号链接、未声明文件和哈希不符。
 
 ## 编号约定
 

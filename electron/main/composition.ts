@@ -1,6 +1,8 @@
+import { safeStorage } from "electron";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Clock } from "./clock";
+import { CredentialStore, type SafeStorage } from "./credentials";
 import type { LifecycleState } from "./lifecycle";
 import type { AppPaths } from "./paths";
 import { getSetting, setSetting } from "./persist/catalog";
@@ -13,7 +15,16 @@ export interface Composition {
   settings: Driver;
   campaigns: CampaignService;
   turns: TurnService;
+  credentials: CredentialStore;
   dispose(): void;
+}
+
+function platformSafeStorage(): SafeStorage {
+  return {
+    isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+    encryptString: (plain) => safeStorage.encryptString(plain),
+    decryptString: (cipher) => safeStorage.decryptString(cipher),
+  };
 }
 
 export function createComposition(input: {
@@ -36,10 +47,16 @@ export function createComposition(input: {
     campaignSql,
   );
   const turns = new TurnService(campaigns, input.clock);
+  const credentials = new CredentialStore(
+    join(input.paths.root, "credentials.json"),
+    input.clock,
+    platformSafeStorage(),
+  );
   return {
     settings,
     campaigns,
     turns,
+    credentials,
     dispose() {
       campaigns.dispose();
       settings.close();

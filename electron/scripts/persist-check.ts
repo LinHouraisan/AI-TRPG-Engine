@@ -1,8 +1,8 @@
-import { rmSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readFileSync } from "node:fs";
 import { fixedClock } from "../main/clock";
+import { CredentialStore, type SafeStorage } from "../main/credentials";
 import { resolvePaths } from "../main/paths";
 import { openBun } from "../main/persist/bun-driver";
 import { checksum } from "../main/persist/migrate";
@@ -12,6 +12,27 @@ import { applyInit } from "../main/persist/migrate";
 import { getSetting, setSetting } from "../main/persist/catalog";
 import { asBranchId, asStateVersion, type EntityId } from "../shared/ids";
 import { loadGameEvents } from "../main/persist/turns";
+
+function xorSafeStorage(available: boolean): SafeStorage {
+  const mask = 0xa5;
+  return {
+    isEncryptionAvailable: () => available,
+    encryptString(plain) {
+      const bytes = Buffer.from(plain, "utf8");
+      for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = (bytes[i] ?? 0) ^ mask;
+      }
+      return bytes;
+    },
+    decryptString(cipher) {
+      const bytes = Buffer.from(cipher);
+      for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = (bytes[i] ?? 0) ^ mask;
+      }
+      return bytes.toString("utf8");
+    },
+  };
+}
 
 const actor = "pc.linwan" as EntityId;
 
@@ -189,8 +210,110 @@ try {
       const db = campaigns.driver(live.campaignId);
       const events = db ? loadGameEvents(db, live.headBranchId) : [];
       assert(events.some((event) => event.payload.type === "moved"), "events 表里有 moved");
+
+      const collected: Array<{ type: string; sequence?: number }> = [];
+      const subId = turns.subscribe(moved.value.operationId, (event) => {
+        collected.push({
+          type: event.type,
+          sequence: event.type === "narration.delta" ? event.sequence : undefined,
+        });
+      });
+      await turns.waitForNarration(moved.value.operationId);
+      assert(
+        collected.some((event) => event.type === "operation.status"),
+        "subscribe 回放 operation.status",
+      );
+      assert(
+        collected.some((event) => event.type === "narration.delta" && event.sequence === 0),
+        "subscribe 回放 narration.delta sequence=0",
+      );
+      assert(
+        collected.some((event) => event.type === "narration.completed"),
+        "subscribe 回放 narration.completed",
+      );
+      assert(
+        collected.some((event) => event.type === "campaign.changed"),
+        "subscribe 回放 campaign.changed",
+      );
+      turns.unsubscribe(subId);
+
+      const finalView = turns.get(moved.value.operationId, live.campaignId);
+      assert(
+        finalView.ok &&
+          finalView.value.narration.length > 0 &&
+          finalView.value.narrationKind === "模板",
+        "operation.get 带回定稿叙述和 kind",
+      );
+      const narrationRow = db?.get<{ n: number; status: string }>(
+        "SELECT count(*) AS n, max(status) AS status FROM narrations WHERE turn_id = ?",
+        [moved.value.turnId],
+      );
+      assert(narrationRow?.n === 1 && narrationRow.status === "final", "narrations 表有一条 final");
+
+      const againCount = db?.get<{ n: number }>(
+        "SELECT count(*) AS n FROM narrations WHERE turn_id = ?",
+        [moved.value.turnId],
+      );
+      assert(againCount?.n === 1, "同一 commandId 不重复写 narration");
     }
   }
+
+  const secret = "sk-live-persist-check-plaintext-secret";
+  const credFile = join(root, "credentials.json");
+  const store = new CredentialStore(credFile, clock, xorSafeStorage(true));
+  const saved = store.set({ value: secret });
+  assert(saved.ok, "CredentialStore.set");
+  const credentialId = saved.ok ? saved.value.credentialId : "";
+  const present = store.has(credentialId);
+  assert(present.ok && present.value.present, "CredentialStore.has");
+  let used = "";
+  const usedResult = store.use(credentialId, (plain) => {
+    used = plain;
+    return "ok";
+  });
+  assert(usedResult.ok && used === secret, "CredentialStore.use 看到明文");
+  assert(existsSync(credFile), "credentials.json 已写入");
+  const serialized = readFileSync(credFile, "utf8");
+  assert(!serialized.includes(secret), "落盘文件不含明文");
+  const parsed: unknown = JSON.parse(serialized);
+  const rows = Array.isArray(parsed) ? parsed : [];
+  assert(rows.length === 1, "落盘是 blob 数组");
+  const blob = (rows[0] ?? {}) as Record<string, unknown>;
+  const blobKeys = Object.keys(blob).sort().join(",");
+  assert(
+    blobKeys === "ciphertext,createdAt,credentialId,updatedAt",
+    "blob 只有 credentialId/ciphertext/createdAt/updatedAt",
+  );
+  const reloaded = new CredentialStore(credFile, clock, xorSafeStorage(true));
+  let roundtrip = "";
+  reloaded.use(credentialId, (plain) => {
+    roundtrip = plain;
+  });
+  assert(roundtrip === secret, "重开 store 仍能解密");
+  const removed = store.delete(credentialId);
+  assert(removed.ok, "CredentialStore.delete");
+  const afterDelete = store.has(credentialId);
+  assert(afterDelete.ok && !afterDelete.value.present, "delete 后 has 为 false");
+  assert(!readFileSync(credFile, "utf8").includes(credentialId), "delete 后文件不再含该 id");
+
+  const sessionFile = join(root, "credentials-session.json");
+  const unavailable = new CredentialStore(sessionFile, clock, xorSafeStorage(false));
+  const refused = unavailable.set({ value: secret });
+  assert(
+    !refused.ok && refused.error.code === "CREDENTIAL_STORAGE_UNAVAILABLE",
+    "不可用时拒绝持久化",
+  );
+  assert(!existsSync(sessionFile), "拒绝持久化不写文件");
+  const session = unavailable.set({ value: secret, persist: false });
+  assert(session.ok, "不可用时允许会话密钥");
+  assert(!existsSync(sessionFile), "会话密钥不落盘");
+  let sessionPlain = "";
+  if (session.ok) {
+    unavailable.use(session.value.credentialId, (plain) => {
+      sessionPlain = plain;
+    });
+  }
+  assert(sessionPlain === secret, "会话密钥 use 看到明文");
 
   campaigns.dispose();
   settings.close();

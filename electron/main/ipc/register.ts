@@ -1,6 +1,6 @@
-import { ipcMain } from "electron";
+import { ipcMain, type IpcMainInvokeEvent } from "electron";
 import { z } from "zod";
-import { API_VERSION, type SubmitActionInput } from "../../shared/api";
+import { API_VERSION, OPERATION_EVENT_CHANNEL, type SubmitActionInput } from "../../shared/api";
 import { asBranchId, asCampaignId } from "../../shared/ids";
 import { fail, ok, unavailable, type Result } from "../../shared/result";
 import type { Clock } from "../clock";
@@ -20,13 +20,22 @@ const pageSchema = z
 const idSchema = z.object({ campaignId: z.string().min(1) }).strict();
 const settingGet = z.object({ key: z.string().min(1) }).strict();
 const settingSet = z.object({ key: z.string().min(1), value: z.unknown() }).strict();
+const setSecretSchema = z
+  .object({
+    credentialId: z.string().min(1).optional(),
+    value: z.string().min(1),
+  })
+  .strict();
+const secretIdSchema = z.object({ credentialId: z.string().min(1) }).strict();
 
 function tooBig(payload: unknown): boolean {
   return Buffer.byteLength(JSON.stringify(payload ?? null), "utf8") > MAX_BYTES;
 }
 
-function wrap(fn: (payload: unknown) => Result<unknown> | Promise<Result<unknown>>) {
-  return async (_event: unknown, payload: unknown): Promise<Result<unknown>> => {
+function wrap(
+  fn: (payload: unknown, event: IpcMainInvokeEvent) => Result<unknown> | Promise<Result<unknown>>,
+) {
+  return async (event: IpcMainInvokeEvent, payload: unknown): Promise<Result<unknown>> => {
     try {
       if (tooBig(payload)) {
         return fail({
@@ -35,7 +44,7 @@ function wrap(fn: (payload: unknown) => Result<unknown> | Promise<Result<unknown
           retryable: false,
         });
       }
-      return await fn(payload);
+      return await fn(payload, event);
     } catch {
       return fail({
         code: "IPC_INTERNAL_ERROR",
@@ -52,7 +61,10 @@ export function registerIpc(
   clock: Clock,
 ): void {
   ipcMain.removeHandler("app:getVersion");
-  const handle = (channel: string, fn: (payload: unknown) => Result<unknown>) => {
+  const handle = (
+    channel: string,
+    fn: (payload: unknown, event: IpcMainInvokeEvent) => Result<unknown> | Promise<Result<unknown>>,
+  ) => {
     ipcMain.handle(channel, wrap(fn));
   };
 
@@ -156,6 +168,42 @@ export function registerIpc(
     return ok(undefined);
   });
 
+  handle("settings:setSecret", (payload) => {
+    const parsed = setSecretSchema.safeParse(payload);
+    if (!parsed.success) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "ipc.invalid_request",
+        retryable: false,
+      });
+    }
+    return composition.credentials.set(parsed.data);
+  });
+
+  handle("settings:hasSecret", (payload) => {
+    const parsed = secretIdSchema.safeParse(payload);
+    if (!parsed.success) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "ipc.invalid_request",
+        retryable: false,
+      });
+    }
+    return composition.credentials.has(parsed.data.credentialId);
+  });
+
+  handle("settings:deleteSecret", (payload) => {
+    const parsed = secretIdSchema.safeParse(payload);
+    if (!parsed.success) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "ipc.invalid_request",
+        retryable: false,
+      });
+    }
+    return composition.credentials.delete(parsed.data.credentialId);
+  });
+
   const submitSchema = z
     .object({
       campaignId: z.string().min(1),
@@ -222,6 +270,36 @@ export function registerIpc(
       });
     }
     return composition.turns.get(parsed.data.operationId, asCampaignId(parsed.data.campaignId));
+  });
+
+  handle("operation:subscribe", (payload, event) => {
+    const parsed = z.object({ operationId: z.string().min(1) }).strict().safeParse(payload);
+    if (!parsed.success) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "ipc.invalid_request",
+        retryable: false,
+      });
+    }
+    const sender = event.sender;
+    const subscriptionId = composition.turns.subscribe(parsed.data.operationId, (opEvent) => {
+      if (sender.isDestroyed()) return;
+      sender.send(OPERATION_EVENT_CHANNEL, opEvent);
+    });
+    return ok({ subscriptionId });
+  });
+
+  handle("operation:unsubscribe", (payload) => {
+    const parsed = z.object({ subscriptionId: z.string().min(1) }).strict().safeParse(payload);
+    if (!parsed.success) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "ipc.invalid_request",
+        retryable: false,
+      });
+    }
+    composition.turns.unsubscribe(parsed.data.subscriptionId);
+    return ok(undefined);
   });
 
   handle("content:list", () => unavailable());

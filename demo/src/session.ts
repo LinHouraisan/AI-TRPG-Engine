@@ -195,6 +195,11 @@ export function useSession() {
   const setConfig = useCallback((next: KeeperConfig) => {
     setConfigState(next);
     saveConfig(next);
+    const remote = tryDesktopApi();
+    if (!remote) return;
+    void remote.settings.set({ key: "keeper.enabled", value: next.enabled });
+    void remote.settings.set({ key: "keeper.model", value: next.model });
+    void remote.settings.set({ key: "keeper.baseUrl", value: next.baseUrl });
   }, []);
 
   const onNarrationStream = useCallback((event: NarrationStreamEvent) => {
@@ -236,6 +241,23 @@ export function useSession() {
         if (desk) {
           setCampaignId(desk.campaign.campaignId);
           setBranchId(desk.branchId);
+          const storedEnabled = await remote.settings.get({ key: "keeper.enabled" });
+          const storedModel = await remote.settings.get({ key: "keeper.model" });
+          const storedUrl = await remote.settings.get({ key: "keeper.baseUrl" });
+          if (!cancelled) {
+            setConfigState((prev) => ({
+              ...prev,
+              enabled: storedEnabled.ok && storedEnabled.value === true,
+              model:
+                storedModel.ok && typeof storedModel.value === "string" && storedModel.value
+                  ? storedModel.value
+                  : prev.model,
+              baseUrl:
+                storedUrl.ok && typeof storedUrl.value === "string" && storedUrl.value
+                  ? storedUrl.value
+                  : prev.baseUrl,
+            }));
+          }
           const events = await loadDesktopEvents(
             remote,
             desk.campaign.campaignId,
@@ -340,14 +362,18 @@ export function useSession() {
 
       const remote = tryDesktopApi();
       if (remote && campaignId && branchId) {
+        setStatus("主持人正在组织语言…");
         const view = await submitDesktopTurn({
           api: remote,
           campaignId,
           branchId,
           expectedStateVersion: state.version,
           text: spoken,
+          onDraft: (draft) => setNarrationDraft(draft),
         });
         if ("error" in view) {
+          setStatus(null);
+          setNarrationDraft(null);
           pushNotice(`这一回合没能落盘：${view.error}`, state.version);
           reveal();
           setPending(null);
@@ -356,6 +382,8 @@ export function useSession() {
           return;
         }
         if (view.kind !== "committed") {
+          setStatus(null);
+          setNarrationDraft(null);
           push({ role: "kp", text: view.narration, stateVersion: state.version, source: "程序" });
           reveal();
           setPending(null);
@@ -376,55 +404,20 @@ export function useSession() {
           spoken,
           fallback,
         };
-        try {
-          if (!config.enabled) {
-            push({
-              role: "kp",
-              text: fallback,
-              check,
-              stateVersion: nextState.version,
-              source: "模板",
-            });
-            return;
-          }
-          setStatus("主持人正在组织语言…");
-          const narration = await keeperNarrate({
-            config,
-            state: nextState,
-            events: view.events,
-            intent: remoteIntent,
-            spoken,
-            fallback,
-            onStream: onNarrationStream,
-          });
-          setStatus(null);
-          rememberUsage(narration.usage);
-          setNarrationDraft(null);
-          push({
-            role: "kp",
-            text: narration.text,
-            check,
-            stateVersion: nextState.version,
-            source: narration.source,
-            note: narration.note,
-          });
-        } catch (error) {
-          setStatus(null);
-          setNarrationDraft(null);
-          push({
-            role: "kp",
-            text: fallback,
-            check,
-            stateVersion: nextState.version,
-            source: "模板",
-            note: error instanceof Error ? error.message : String(error),
-          });
-        } finally {
-          reveal();
-          setPending(null);
-          setBusy(false);
-          if (!held) inflight.current = false;
-        }
+        setStatus(null);
+        setNarrationDraft(null);
+        push({
+          role: "kp",
+          text: view.narration,
+          check,
+          stateVersion: nextState.version,
+          source: view.narrationKind,
+          note: view.narrationNote,
+        });
+        reveal();
+        setPending(null);
+        setBusy(false);
+        if (!held) inflight.current = false;
         return;
       }
 
@@ -545,9 +538,9 @@ export function useSession() {
     async (text: string) => {
       if (inflight.current) return;
       const desk = authoritative.current;
-      // 快路径先走保守匹配；只有它认不出来，才轮到模型。
+      // 快路径先走保守匹配；桌面主进程自己再路由一遍。只有浏览器才把听不懂的话交给模型。
       const fast = route(text, desk.state);
-      if (fast.kind !== "unclear" || !config.enabled) {
+      if (tryDesktopApi() || fast.kind !== "unclear" || !config.enabled) {
         await act(fast, text);
         return;
       }
@@ -577,6 +570,7 @@ export function useSession() {
 
   /** 换一种说法：同一批已提交事件重讲一遍，状态版本和骰子都不动。 */
   const retell = useCallback(async () => {
+    if (tryDesktopApi()) return;
     const turn = lastTurn.current;
     if (!turn || inflight.current) return;
     inflight.current = true;
@@ -792,7 +786,7 @@ export function useSession() {
     status,
     config,
     setConfig,
-    canRetell: lastTurn.current != null,
+    canRetell: lastTurn.current != null && !tryDesktopApi(),
     ready,
     storeBackend,
     storeDurable,
