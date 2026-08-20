@@ -1,3 +1,5 @@
+import type { DirectorFrontier } from "@/ai/director";
+import { emptyMemory, type MemoryEntry, type MemoryState } from "@/ai/memory";
 import type { CheckResult, GameEvent, GameState } from "@/engine/types";
 import type { Driver, Row } from "./driver";
 import { SCHEMA } from "./schema";
@@ -367,6 +369,99 @@ export class Store {
       initialState: payload.campaign.initialState,
       fresh: false,
     };
+  }
+
+  async saveMemory(branchId: string, memory: MemoryState): Promise<void> {
+    const now = Date.now();
+    await this.driver.run(`DELETE FROM memory_entry WHERE branch_id = ?`, [branchId]);
+    for (const entry of memory.entries) {
+      await this.driver.run(
+        `INSERT INTO memory_entry (
+          memory_id, branch_id, memory_type, summary, structured_json, source_event_ids_json,
+          status, extracted_through_turn, scene_id, importance, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          entry.id,
+          branchId,
+          entry.memoryType,
+          entry.summary,
+          JSON.stringify({ ...entry.structured, entityIds: entry.entityIds }),
+          JSON.stringify(entry.sources),
+          entry.status,
+          entry.extractedThroughTurn,
+          entry.sceneId,
+          entry.importance,
+          now,
+        ],
+      );
+    }
+    await this.driver.run(
+      `INSERT OR REPLACE INTO memory_cursor (
+        branch_id, raw_recorded_through_turn, memory_processed_through_turn
+      ) VALUES (?, ?, ?)`,
+      [branchId, memory.cursor.rawRecordedThroughTurn, memory.cursor.memoryProcessedThroughTurn],
+    );
+  }
+
+  async loadMemory(branchId: string): Promise<MemoryState> {
+    const cursors = await this.driver.all<Row>(
+      `SELECT raw_recorded_through_turn, memory_processed_through_turn FROM memory_cursor WHERE branch_id = ?`,
+      [branchId],
+    );
+    const rows = await this.driver.all<Row>(
+      `SELECT * FROM memory_entry WHERE branch_id = ? ORDER BY created_at ASC, memory_id`,
+      [branchId],
+    );
+    if (cursors.length === 0 && rows.length === 0) return emptyMemory();
+    const cursor = cursors[0];
+    return {
+      cursor: {
+        rawRecordedThroughTurn: cursor ? Number(cursor.raw_recorded_through_turn) : 0,
+        memoryProcessedThroughTurn: cursor ? Number(cursor.memory_processed_through_turn) : 0,
+      },
+      entries: rows.map((row) => {
+        const structured = JSON.parse(String(row.structured_json)) as MemoryEntry["structured"];
+        const entityIds = structured.entityIds;
+        return {
+          id: String(row.memory_id),
+          memoryType: String(row.memory_type) as MemoryEntry["memoryType"],
+          summary: String(row.summary),
+          sources: JSON.parse(String(row.source_event_ids_json)) as string[],
+          entityIds: Array.isArray(entityIds)
+            ? entityIds.filter((id): id is string => typeof id === "string")
+            : [],
+          sceneId: row.scene_id == null ? null : String(row.scene_id),
+          importance: Number(row.importance),
+          status: String(row.status) as MemoryEntry["status"],
+          structured,
+          extractedThroughTurn: Number(row.extracted_through_turn),
+        };
+      }),
+    };
+  }
+
+  async saveFrontier(branchId: string, frontier: DirectorFrontier): Promise<void> {
+    await this.driver.run(
+      `INSERT OR REPLACE INTO director_frontier (
+        branch_id, based_on_state_version, last_assessed_event_id, frontier_json, updated_at
+      ) VALUES (?, ?, ?, ?, ?)`,
+      [
+        branchId,
+        frontier.basedOnStateVersion,
+        frontier.lastAssessedEventId,
+        JSON.stringify(frontier),
+        Date.now(),
+      ],
+    );
+  }
+
+  async loadFrontier(branchId: string): Promise<DirectorFrontier | undefined> {
+    const rows = await this.driver.all<Row>(
+      `SELECT frontier_json FROM director_frontier WHERE branch_id = ?`,
+      [branchId],
+    );
+    if (rows.length === 0) return undefined;
+    return JSON.parse(String(rows[0].frontier_json)) as DirectorFrontier;
   }
 }
 

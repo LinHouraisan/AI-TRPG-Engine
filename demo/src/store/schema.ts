@@ -69,4 +69,32 @@ CREATE TABLE IF NOT EXISTS message (
   kind          TEXT,
   PRIMARY KEY (branch_id, seq)
 );
+
+CREATE TABLE IF NOT EXISTS memory_entry (
+  memory_id TEXT PRIMARY KEY,
+  branch_id TEXT NOT NULL REFERENCES branch(id),
+  memory_type TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  structured_json TEXT NOT NULL,
+  source_event_ids_json TEXT NOT NULL,
+  status TEXT NOT NULL,
+  extracted_through_turn INTEGER NOT NULL,
+  scene_id TEXT,
+  importance INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS memory_cursor (
+  branch_id TEXT PRIMARY KEY REFERENCES branch(id),
+  raw_recorded_through_turn INTEGER NOT NULL,
+  memory_processed_through_turn INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS director_frontier (
+  branch_id TEXT PRIMARY KEY REFERENCES branch(id),
+  based_on_state_version INTEGER NOT NULL,
+  last_assessed_event_id TEXT,
+  frontier_json TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
 `;

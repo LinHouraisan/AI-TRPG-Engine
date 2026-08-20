@@ -136,6 +136,9 @@ export interface CampaignApi {
   close(input: { campaignId: CampaignId }): Promise<Result<void>>;
   moveToTrash(input: { campaignId: CampaignId }): Promise<Result<void>>;
   restoreFromTrash(input: { campaignId: CampaignId }): Promise<Result<void>>;
+  applyCharacterCard(input: ApplyCharacterCardInput): Promise<
+    Result<{ operationId: string; turnId: string; stateVersion: number }>
+  >;
 }
 
 export interface SettingsApi {
@@ -144,6 +147,74 @@ export interface SettingsApi {
   setSecret(input: { credentialId?: string; value: string }): Promise<Result<{ credentialId: string }>>;
   hasSecret(input: { credentialId: string }): Promise<Result<{ present: boolean }>>;
   deleteSecret(input: { credentialId: string }): Promise<Result<void>>;
+  listProviders(): Promise<Result<ProviderInstanceView[]>>;
+  upsertProvider(input: UpsertProviderInput): Promise<Result<ProviderInstanceView>>;
+  deleteProvider(input: { providerInstanceId: string }): Promise<Result<void>>;
+  listProfiles(): Promise<Result<ModelProfileView[]>>;
+  upsertProfile(input: UpsertProfileInput): Promise<Result<ModelProfileView>>;
+  listTaskRoutes(): Promise<Result<TaskRouteView[]>>;
+  setTaskRoute(input: SetTaskRouteInput): Promise<Result<TaskRouteView>>;
+}
+
+export interface ProviderInstanceView {
+  providerInstanceId: string;
+  providerType: string;
+  displayName: string;
+  baseUrl: string | null;
+  credentialId: string | null;
+  enabled: boolean;
+}
+
+export interface ModelProfileView {
+  modelProfileId: string;
+  providerInstanceId: string;
+  modelId: string;
+  displayName: string;
+  enabled: boolean;
+}
+
+export interface TaskRouteView {
+  taskType: string;
+  primaryModelProfileId: string;
+  fallbackModelProfileId: string | null;
+}
+
+export interface UpsertProviderInput {
+  providerInstanceId?: string;
+  providerType: string;
+  displayName: string;
+  baseUrl?: string | null;
+  credentialId?: string | null;
+  enabled: boolean;
+}
+
+export interface UpsertProfileInput {
+  modelProfileId?: string;
+  providerInstanceId: string;
+  modelId: string;
+  displayName: string;
+  enabled: boolean;
+}
+
+export interface SetTaskRouteInput {
+  taskType: string;
+  primaryModelProfileId: string;
+  fallbackModelProfileId?: string | null;
+}
+
+export interface ApplyCharacterCardInput {
+  campaignId: CampaignId;
+  branchId: BranchId;
+  expectedStateVersion: StateVersion;
+  commandId: string;
+  name: string;
+  occupation: string;
+  hp: number;
+  hpMax: number;
+  san: number;
+  sanMax: number;
+  skills: Record<string, number>;
+  cardHash: string;
 }
 
 export interface DesktopApi {
@@ -186,11 +257,19 @@ export const CHANNELS = {
   "settings:setSecret": true,
   "settings:hasSecret": true,
   "settings:deleteSecret": true,
+  "settings:listProviders": true,
+  "settings:upsertProvider": true,
+  "settings:deleteProvider": true,
+  "settings:listProfiles": true,
+  "settings:upsertProfile": true,
+  "settings:listTaskRoutes": true,
+  "settings:setTaskRoute": true,
   "turn:submitAction": true,
   "timeline:page": true,
   "operation:get": true,
   "operation:subscribe": true,
   "operation:unsubscribe": true,
+  "campaign:applyCharacterCard": true,
 } as const;
 
 export type Channel = keyof typeof CHANNELS;

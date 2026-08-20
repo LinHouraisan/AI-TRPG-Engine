@@ -14,7 +14,7 @@ bun install
 cp .env.example .env.local   # 填上 Ollama 的地址
 bun run dev            # http://127.0.0.1:1421
 bun run pack:lint      # 资料包体检：模式校验加引用完整性
-bun run card:check     # 酒馆卡原型：解析 V1/V2/PNG + 自动车确定性
+bun run architecture:check
 bun run keeper:check   # 主持人契约测试：假模型怎么乱说都动不了状态
 bun run store:check    # 存储层测试：改不动、删不掉、重放一致、回滚分支
 bun run smoke          # 上面几项加金样冒烟，跑完整条路径并校验重放
@@ -46,6 +46,8 @@ bun run build          # tsc -b && vite build
 - 模组写在 JSON 资料包里，引擎里没有一处写死的房间、道具或剧情。条件也是数据，作者写不出「气氛到了」这种没法检验的触发条件。
 - 主持人是本地模型，但它只干两件事：把玩家的话认成意图，把已提交的事实讲成人话。它给的编号要过在场检查，它写的叙述要过体检——出现这一刻不该出现的人、报出没掷过的点数、替玩家把没做过的动作做完（「你拿起账本翻开」），一律退回重写，两次不过就用模板。
 - 「换一种说法」重讲的是同一批已提交事件：不重掷骰子，状态版本也不变。
+- 提交之后 Information / Director / Memory 在冷路径跑：先程序，主持人开着才调模型，失败退回程序结果，不挡下一回合。提案一律 `confirmed: false`，写不进事实。
+- 主持人菜单里有「调试后台任务」。勾上之后记录栏画出这条冷路径（提交 → 基础装载 → Information 计划/提案 → 上下文切换 → Director → Memory 提取/合并），以及 Active Context 与 Story Monitor。默认关，不改金样哈希。
 
 ## 资料包
 
@@ -105,12 +107,22 @@ src/
     web.ts                 浏览器侧 sqlite-wasm（kvvfs）
     memory.ts              兜底的内存库，加载不了 WASM 时用
     bun.ts                 脚本侧 bun:sqlite，专供测试
-  cards/                   酒馆卡原型：解析 + CoC 自动车（不进战役）
-  ui/                      跑团桌：叙述列、检定尺、调查员卡、房间、时间线、事件记录
+  engine/play-turn.ts      一回合：路由 → 裁定 → 提交 → 模板叙述
+  engine/routes.ts         快路径 / free_action（无独立 interpret）
+  engine/kernel.ts         确定性事实内核
+  engine/story-monitor.ts  Story Monitor（不调用 Director）
+  engine/recent.ts         当回合热通道
+  engine/context-store.ts  Active Context 双缓冲
+  engine/fact-delta.ts     无损事实差异，喂给 Memory
+  ai/                      提交后冷路径：Information / Director / Memory / live / 调试轨迹
+  cards/                   酒馆卡：解析 + CoC 自动车；确认后写入战役
+  ui/                      跑团桌：叙述列、检定尺、房间、时间线、用量与后台任务调试
   session.ts               一场团的状态、提交、续场、分支
 scripts/
   pack-lint.ts             资料包体检（逐份汇报，含体检自身的自检）
   card-check.ts            人设卡原型自检
+  kernel-check.ts          事实内核 / Story Monitor / 热通道
+  architecture-check.ts    Information / Director / Memory / 双缓冲 / 调试轨迹（无模型）
   smoke.ts                 金样冒烟
   keeper-check.ts          主持人契约测试（假模型 + 可选真机）
   store-check.ts           存储层测试（bun:sqlite，与浏览器同一份 SQL）
@@ -118,6 +130,7 @@ scripts/
 
 ## 还没做的（见 PLAN.md）
 
-- 导演与记忆。人设卡：酒馆卡解析 + 自动车原型已有（`cards/`，`bun run card:check`），未写入战役、未升级模组。
-- 上下文预算：房间和线索多起来之后要裁剪，现在是整份塞进去。
+- 人设卡升级成轻量冒险；Markdown 人设。
+- Memory FTS5、完整 V1 事件登记。
 - 存储换成 OPFS：kvvfs 借的是 localStorage，容量只有几 MB，长战役迟早不够。
+- Electron 调试面板只重放确定性冷路径（避免渲染进程再调一次模型）；模型芯片要看浏览器 Demo 开了主持人之后的 live 结果。

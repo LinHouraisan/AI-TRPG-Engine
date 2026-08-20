@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ensureDesktopCampaign, loadDesktopEvents, submitDesktopTurn, tryDesktopApi } from "@/desktop-play";
+import { emptyMemory, runAfterCommit, runAfterCommitLive, traceFromJobs, type JobTrace, type MemoryState } from "@/ai";
+import { recentFromTurn } from "@/engine/recent";
+import { storyMonitor } from "@/engine/story-monitor";
+import { applyCharacterCard, sheetInputFromDraft } from "@/cards/apply";
+import type { CardImportDraft } from "@/cards/types";
+import { emptyContextStore, type ContextStore } from "@/engine/context-store";
 import { narrate, openingLine, suggest } from "@/engine/narrate";
 import { pack, packIndex } from "@/engine/pack";
 import { playTurn } from "@/engine/play-turn";
@@ -10,7 +16,8 @@ import { initialState } from "@/engine/state";
 import type { CheckResult, GameEvent, GameState, Intent } from "@/engine/types";
 import { loadConfig, saveConfig, type KeeperConfig } from "@/keeper/config";
 import type { ContextUsage } from "@/keeper/context";
-import { keeperNarrate, keeperRoute, type NarrationStreamEvent } from "@/keeper/keeper";
+import { handleFreeTurn, narrateFreeTurn, newFreeTurnTaskId } from "@/keeper/free-turn";
+import { keeperNarrate, type NarrationStreamEvent } from "@/keeper/keeper";
 import {
   openStore,
   type BranchInfo,
@@ -122,6 +129,7 @@ type LastTurn = {
   intent: Intent;
   spoken: string;
   fallback: string;
+  modelTaskId?: string;
 };
 
 type Desk = {
@@ -168,7 +176,11 @@ export function useSession() {
   const [narrationDraft, setNarrationDraft] = useState<string | null>(null);
   // 上一回合主持人真正吃进去的那份。预估跟它都得来自 buildContext，折算会和引擎脱节。
   const [lastUsage, setLastUsage] = useState<ContextUsage | null>(null);
+  const [lastTrace, setLastTrace] = useState<JobTrace | null>(null);
   const inflight = useRef(false);
+  const memoryRef = useRef<MemoryState>(emptyMemory());
+  const contextRef = useRef<ContextStore>(emptyContextStore());
+  const liveInflight = useRef(false);
 
   const reveal = useCallback(() => {
     const desk = authoritative.current;
@@ -316,6 +328,7 @@ export function useSession() {
           if (restoredMessages.length > 0) {
             setMessages(restoredMessages);
           }
+          memoryRef.current = await opened.store.loadMemory(handle.branchId);
           pushNotice(
             `已续上上一场：重放 ${events.length} 条事件，回到版本 v${restored.version}，哈希 ${hash}。`,
             restored.version,
@@ -344,7 +357,7 @@ export function useSession() {
   }, [branchId, messages, ready]);
 
   const act = useCallback(
-    async (intent: Intent, spoken: string, held = false) => {
+    async (intent: Intent, spoken: string, held = false, modelTaskId?: string) => {
       if (!held) {
         if (inflight.current) return;
         inflight.current = true;
@@ -414,6 +427,39 @@ export function useSession() {
           source: view.narrationKind,
           note: view.narrationNote,
         });
+        const story = storyMonitor({
+          before: state,
+          after: nextState,
+          committed: view.events,
+          log: nextLog,
+        });
+        const jobs = runAfterCommit({
+          taskId: `task-${nextState.turn}`,
+          branchId: branchId ?? "desktop",
+          state: nextState,
+          committed: view.events,
+          recent: recentFromTurn({
+            player: spoken,
+            gm: view.narration,
+            committed: view.events,
+            stateVersion: nextState.version,
+          }),
+          story,
+          memory: memoryRef.current,
+          context: contextRef.current,
+        });
+        // Replay only for the debug panel. Main already persisted; do not save again.
+        memoryRef.current = jobs.memory;
+        contextRef.current = jobs.context;
+        setLastTrace(
+          traceFromJobs({
+            jobs,
+            story,
+            turn: nextState.turn,
+            stateVersion: nextState.version,
+            source: "desktop-replay",
+          }),
+        );
         reveal();
         setPending(null);
         setBusy(false);
@@ -465,7 +511,72 @@ export function useSession() {
         intent,
         spoken,
         fallback,
+        modelTaskId,
       };
+      let kickLive = () => {};
+      if (outcome.kind === "committed") {
+        const jobs = runAfterCommit({
+          taskId: modelTaskId ?? `task-${nextState.turn}`,
+          branchId: branchId ?? "local",
+          state: nextState,
+          committed,
+          recent: outcome.recent,
+          story: outcome.story,
+          memory: memoryRef.current,
+          context: contextRef.current,
+        });
+        memoryRef.current = jobs.memory;
+        contextRef.current = jobs.context;
+        if (store.current && branchId) {
+          void store.current.saveMemory(branchId, jobs.memory);
+          void store.current.saveFrontier(branchId, jobs.director.frontier);
+        }
+        setLastTrace(
+          traceFromJobs({
+            jobs,
+            story: outcome.story,
+            turn: nextState.turn,
+            stateVersion: nextState.version,
+            source: "local",
+            livePending: config.enabled,
+          }),
+        );
+        kickLive = () => {
+          if (!config.enabled || liveInflight.current) return;
+          liveInflight.current = true;
+          void runAfterCommitLive({
+            taskId: modelTaskId ?? `task-${nextState.turn}`,
+            branchId: branchId ?? "local",
+            state: nextState,
+            committed,
+            recent: outcome.recent,
+            story: outcome.story,
+            memory: memoryRef.current,
+            context: contextRef.current,
+            config,
+          })
+            .then((jobsLive) => {
+              memoryRef.current = jobsLive.memory;
+              contextRef.current = jobsLive.context;
+              if (store.current && branchId) {
+                void store.current.saveMemory(branchId, jobsLive.memory);
+                void store.current.saveFrontier(branchId, jobsLive.director.frontier);
+              }
+              setLastTrace(
+                traceFromJobs({
+                  jobs: jobsLive,
+                  story: outcome.story,
+                  turn: nextState.turn,
+                  stateVersion: nextState.version,
+                  source: "local",
+                }),
+              );
+            })
+            .finally(() => {
+              liveInflight.current = false;
+            });
+        };
+      }
       const result = { state: nextState, committed };
 
       try {
@@ -481,15 +592,26 @@ export function useSession() {
         }
 
         setStatus("主持人正在组织语言…");
-        const narration = await keeperNarrate({
-          config,
-          state: result.state,
-          events: result.committed,
-          intent,
-          spoken,
-          fallback,
-          onStream: onNarrationStream,
-        });
+        const narration = modelTaskId
+          ? await narrateFreeTurn({
+              config,
+              modelTaskId,
+              state: result.state,
+              events: result.committed,
+              intent,
+              spoken,
+              fallback,
+              onStream: onNarrationStream,
+            })
+          : await keeperNarrate({
+              config,
+              state: result.state,
+              events: result.committed,
+              intent,
+              spoken,
+              fallback,
+              onStream: onNarrationStream,
+            });
         setStatus(null);
         rememberUsage(narration.usage);
         setNarrationDraft(null);
@@ -502,6 +624,7 @@ export function useSession() {
           source: narration.source,
           note: narration.note,
         });
+        kickLive();
       } catch (error) {
         // 彻底失败也算落笔：退回模板，已呈现状态必须跟上，不能停在旧值。
         setStatus(null);
@@ -514,6 +637,7 @@ export function useSession() {
           source: "模板",
           note: error instanceof Error ? error.message : String(error),
         });
+        kickLive();
       } finally {
         reveal();
         setPending(null);
@@ -549,9 +673,15 @@ export function useSession() {
       setBusy(true);
       setStatus("主持人正在听懂你这句话…");
       try {
-        const routed = await keeperRoute({ config, state: desk.state, spoken: text });
+        const modelTaskId = newFreeTurnTaskId();
+        const routed = await handleFreeTurn({
+          config,
+          state: desk.state,
+          spoken: text,
+          modelTaskId,
+        });
         setStatus(null);
-        await act(routed.intent, text, true);
+        await act(routed.intent, text, true, modelTaskId);
       } catch (error) {
         setStatus(null);
         setPending(null);
@@ -751,6 +881,9 @@ export function useSession() {
     adopt({ state: fresh, log: [] });
     setMessages(createOpening(fresh));
     lastTurn.current = null;
+    memoryRef.current = emptyMemory();
+    contextRef.current = emptyContextStore();
+    setLastTrace(null);
     setLastUsage(null);
     setNarrationDraft(null);
     setPending(null);
@@ -767,6 +900,55 @@ export function useSession() {
     await refreshBranches(handle.campaignId);
   }, [adopt, refreshBranches]);
 
+  const confirmCard = useCallback(
+    async (draft: CardImportDraft) => {
+      const input = sheetInputFromDraft(draft);
+      const remote = tryDesktopApi();
+      if (remote?.campaign.applyCharacterCard && campaignId && branchId) {
+        const result = await remote.campaign.applyCharacterCard({
+          campaignId,
+          branchId,
+          expectedStateVersion: authoritative.current.state.version,
+          commandId: `card-${input.cardHash}`,
+          ...input,
+        });
+        if (!result.ok) {
+          pushNotice(`人设卡没写进战役：${result.error.code}`, authoritative.current.state.version);
+          return;
+        }
+        const events = await loadDesktopEvents(remote, campaignId, branchId);
+        const restored = replay(origin.current, events);
+        adopt({ state: restored, log: events });
+        pushNotice(`已确认「${input.name}」写入这场战役（人设卡）。`, restored.version);
+        return;
+      }
+
+      const desk = authoritative.current;
+      const applied = applyCharacterCard({ state: desk.state, log: desk.log, draft });
+      adopt({ state: applied.state, log: applied.log });
+      const db = store.current;
+      if (db && branchId) {
+        try {
+          await db.appendEvents(branchId, applied.committed);
+          await db.saveCheckpoint({
+            branchId,
+            cursor: applied.log.length - 1,
+            stateVersion: applied.state.version,
+            stateHash: stateHash(applied.state),
+            packRef: pack.ref,
+          });
+        } catch (error) {
+          pushNotice(
+            `人设卡没落盘：${error instanceof Error ? error.message : String(error)}`,
+            applied.state.version,
+          );
+        }
+      }
+      pushNotice(`已确认「${input.name}」写入这场战役（人设卡）。`, applied.state.version);
+    },
+    [adopt, branchId, campaignId, pushNotice],
+  );
+
   const pushSystem = useCallback(
     (text: string) => {
       pushNotice(text, 0);
@@ -781,6 +963,7 @@ export function useSession() {
     messages,
     narrationDraft,
     lastUsage,
+    lastTrace,
     suggestions,
     busy,
     status,
@@ -801,6 +984,7 @@ export function useSession() {
     exportCampaign,
     importCampaign,
     reset,
+    confirmCard,
     pushSystem,
   };
 }

@@ -4,11 +4,13 @@ import { Meter, Panel, Row } from "./Panel";
 
 export function InvestigatorSheet({ state }: { state: GameState }) {
   const investigator = pack.manifest.investigator;
+  const name = state.pcName ?? investigator.name;
+  const occupation = state.pcOccupation ?? investigator.occupation;
   return (
-    <Panel title="调查员卡" hint="数值只能由程序改">
+    <Panel title="调查员卡" hint={state.pcCardHash ? "人设卡 · 已确认" : "数值只能由程序改"}>
       <div className="flex items-baseline justify-between">
-        <span className="font-serif text-lg">{investigator.name}</span>
-        <span className="text-xs text-muted">{investigator.occupation}</span>
+        <span className="font-serif text-lg">{name}</span>
+        <span className="text-xs text-muted">{occupation}</span>
       </div>
       <div className="mt-2">
         <Meter label="生命值" value={state.hp} max={state.hpMax} tone="blood" />

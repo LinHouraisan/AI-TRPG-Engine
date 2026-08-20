@@ -18,6 +18,10 @@ export type GameState = {
   san: number;
   sanMax: number;
   skills: Record<string, number>;
+  /** Set only after a confirmed character-card write. Absent on gold path. */
+  pcName?: string;
+  pcOccupation?: string;
+  pcCardHash?: string;
 };
 
 export type CheckResult = {
@@ -45,7 +49,18 @@ export type EventPayload =
   | { type: "flag_set"; flag: string; value: boolean }
   | { type: "npc_moved"; npc: string; to: string }
   | { type: "node_done"; node: string }
-  | { type: "action_rejected"; reason: string };
+  | { type: "action_rejected"; reason: string }
+  | {
+      type: "sheet_applied";
+      name: string;
+      occupation: string;
+      hp: number;
+      hpMax: number;
+      san: number;
+      sanMax: number;
+      skills: Record<string, number>;
+      cardHash: string;
+    };
 
 export type EventType = EventPayload["type"];
 

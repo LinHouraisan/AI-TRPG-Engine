@@ -7,7 +7,7 @@ Consumed By: IPC、Player UI、发布系统
 
 ## 1. 职责
 
-Desktop Shell 只负责 Electron 生命周期、窗口、安全策略、单实例、内部资源协议、主进程组合根和退出协调。它不包含游戏规则、SQL、Prompt、内容解析或 React 业务状态。
+Desktop Shell 只负责 Electron 生命周期、窗口、安全策略、单实例、内部资源协议、主进程组合根和退出协调。它不包含游戏规则、SQL、Prompt、内容解析或 React 业务状态。Renderer 调试面板若展示 Information / Director / Memory，只能重放已有派生结果，不得为填面板再调模型。
 
 ## 2. 进程
 

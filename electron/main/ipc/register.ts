@@ -6,6 +6,17 @@ import { fail, ok, unavailable, type Result } from "../../shared/result";
 import type { Clock } from "../clock";
 import type { Composition } from "../composition";
 import { getSetting, setSetting } from "../persist/catalog";
+import {
+  deleteProvider,
+  ensureDefaultProvider,
+  listProfiles,
+  listProviders,
+  listTaskRoutes,
+  setTaskRoute,
+  upsertProfile,
+  upsertProvider,
+  type ProviderType,
+} from "../persist/providers";
 import type { LifecycleState } from "../lifecycle";
 
 const MAX_BYTES = 1024 * 1024;
@@ -202,6 +213,131 @@ export function registerIpc(
       });
     }
     return composition.credentials.delete(parsed.data.credentialId);
+  });
+
+  const providerTypes = [
+    "openai",
+    "anthropic",
+    "gemini",
+    "deepseek",
+    "qwen",
+    "volcengine",
+    "ollama",
+    "openai_compatible",
+  ] as const;
+
+  handle("settings:listProviders", () => {
+    ensureDefaultProvider(
+      composition.settings,
+      clock.nowIso(),
+      process.env.KEEPER_MODEL ?? "qwen3.8:latest",
+      process.env.OLLAMA_URL ?? "http://127.0.0.1:11434",
+    );
+    return ok(listProviders(composition.settings));
+  });
+
+  handle("settings:upsertProvider", (payload) => {
+    const parsed = z
+      .object({
+        providerInstanceId: z.string().min(1).optional(),
+        providerType: z.enum(providerTypes),
+        displayName: z.string().min(1).max(80),
+        baseUrl: z.string().nullable().optional(),
+        credentialId: z.string().nullable().optional(),
+        enabled: z.boolean(),
+      })
+      .strict()
+      .safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return ok(
+      upsertProvider(composition.settings, { ...parsed.data, providerType: parsed.data.providerType as ProviderType }, clock.nowIso()),
+    );
+  });
+
+  handle("settings:deleteProvider", (payload) => {
+    const parsed = z.object({ providerInstanceId: z.string().min(1) }).strict().safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    deleteProvider(composition.settings, parsed.data.providerInstanceId);
+    return ok(undefined);
+  });
+
+  handle("settings:listProfiles", () => ok(listProfiles(composition.settings)));
+
+  handle("settings:upsertProfile", (payload) => {
+    const parsed = z
+      .object({
+        modelProfileId: z.string().min(1).optional(),
+        providerInstanceId: z.string().min(1),
+        modelId: z.string().min(1),
+        displayName: z.string().min(1),
+        enabled: z.boolean(),
+      })
+      .strict()
+      .safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return ok(upsertProfile(composition.settings, parsed.data, clock.nowIso()));
+  });
+
+  handle("settings:listTaskRoutes", () => ok(listTaskRoutes(composition.settings)));
+
+  handle("settings:setTaskRoute", (payload) => {
+    const parsed = z
+      .object({
+        taskType: z.string().min(1),
+        primaryModelProfileId: z.string().min(1),
+        fallbackModelProfileId: z.string().nullable().optional(),
+      })
+      .strict()
+      .safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return ok(setTaskRoute(composition.settings, parsed.data, clock.nowIso()));
+  });
+
+  handle("campaign:applyCharacterCard", (payload) => {
+    const parsed = z
+      .object({
+        campaignId: z.string().min(1),
+        branchId: z.string().min(1),
+        expectedStateVersion: z.number().int().nonnegative(),
+        commandId: z.string().min(1),
+        name: z.string().min(1).max(80),
+        occupation: z.string().min(1).max(80),
+        hp: z.number().int().positive(),
+        hpMax: z.number().int().positive(),
+        san: z.number().int().nonnegative(),
+        sanMax: z.number().int().positive(),
+        skills: z.record(z.string(), z.number().int().nonnegative()),
+        cardHash: z.string().min(1),
+      })
+      .strict()
+      .safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return composition.turns.applyCharacterCard({
+      campaignId: asCampaignId(parsed.data.campaignId),
+      branchId: parsed.data.branchId,
+      expectedStateVersion: parsed.data.expectedStateVersion,
+      commandId: parsed.data.commandId,
+      draft: {
+        name: parsed.data.name,
+        occupation: parsed.data.occupation,
+        hp: parsed.data.hp,
+        hpMax: parsed.data.hpMax,
+        san: parsed.data.san,
+        sanMax: parsed.data.sanMax,
+        skills: parsed.data.skills,
+        cardHash: parsed.data.cardHash,
+      },
+    });
   });
 
   const submitSchema = z

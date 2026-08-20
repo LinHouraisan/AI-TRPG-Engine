@@ -4,7 +4,7 @@ import type { CardImportDraft } from "@/cards/types";
 import { characteristicList } from "@/cards/autocar";
 import { Panel, Row } from "./Panel";
 
-export function CardImport() {
+export function CardImport({ onConfirm }: { onConfirm?: (draft: CardImportDraft) => void }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<CardImportDraft | null>(null);
@@ -45,8 +45,8 @@ export function CardImport() {
       {open ? (
         <div className="absolute right-0 z-30 mt-1 w-[min(24rem,calc(100vw-1.5rem))] rounded-lg border border-line/70 bg-ink-2 p-3 shadow-lg">
           <p className="text-[11px] leading-relaxed text-muted">
-            酒馆卡原型。能力是<strong className="text-brass">人设卡</strong>
-            ，自动车数值标成候选，不写进这场战役，也不当成模组。
+            酒馆卡。能力是<strong className="text-brass">人设卡</strong>
+            。自动车数值先标成候选；点确认才写入这场战役，不覆盖资料包里的预组调查员定义。
           </p>
           <button
             type="button"
@@ -67,14 +67,20 @@ export function CardImport() {
             }}
           />
           {error ? <p className="mt-2 text-[12px] text-blood">{error}</p> : null}
-          {draft ? <DraftView draft={draft} /> : null}
+          {draft ? <DraftView draft={draft} onConfirm={onConfirm} /> : null}
         </div>
       ) : null}
     </div>
   );
 }
 
-function DraftView({ draft }: { draft: CardImportDraft }) {
+function DraftView({
+  draft,
+  onConfirm,
+}: {
+  draft: CardImportDraft;
+  onConfirm?: (draft: CardImportDraft) => void;
+}) {
   const { card, sheet } = draft;
   const chars = sheet.characteristics.value;
   return (
@@ -117,6 +123,15 @@ function DraftView({ draft }: { draft: CardImportDraft }) {
             <li key={note}>{note}</li>
           ))}
         </ul>
+        {onConfirm ? (
+          <button
+            type="button"
+            onClick={() => onConfirm(draft)}
+            className="mt-3 min-h-11 w-full rounded border border-brass/60 px-2 py-1 text-[13px] text-brass hover:bg-brass/10"
+          >
+            确认写入这场战役
+          </button>
+        ) : null}
       </Panel>
     </div>
   );

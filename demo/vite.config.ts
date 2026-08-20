@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
+    base: "./",
     // sqlite-wasm 用 new URL("sqlite3.wasm", import.meta.url) 找自己的 wasm，
     // 预打包会把这个相对位置搞丢，所以让它保持原样。
     optimizeDeps: { exclude: ["@sqlite.org/sqlite-wasm"] },

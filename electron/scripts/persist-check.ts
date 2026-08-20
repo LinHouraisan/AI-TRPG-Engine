@@ -9,7 +9,8 @@ import { checksum } from "../main/persist/migrate";
 import { CampaignService } from "../main/services/campaigns";
 import { TurnService } from "../main/services/turns";
 import { applyInit } from "../main/persist/migrate";
-import { getSetting, setSetting } from "../main/persist/catalog";
+import { setSetting, getSetting } from "../main/persist/catalog";
+import { ensureDefaultProvider, listProviders, listTaskRoutes } from "../main/persist/providers";
 import { asBranchId, asStateVersion, type EntityId } from "../shared/ids";
 import { loadGameEvents } from "../main/persist/turns";
 
@@ -41,6 +42,7 @@ const clock = fixedClock("2026-08-19T00:00:00.000Z");
 const paths = resolvePaths(root);
 const settingsSql = readFileSync(join(import.meta.dir, "../sql/settings.sql"), "utf8");
 const campaignSql = readFileSync(join(import.meta.dir, "../sql/campaign.sql"), "utf8");
+const memorySql = readFileSync(join(import.meta.dir, "../sql/campaign-0002-memory.sql"), "utf8");
 
 let failed = 0;
 function assert(cond: boolean, label: string): void {
@@ -71,7 +73,9 @@ try {
   }
   assert(mismatch, "改过的 SQL 触发 DB_MIGRATION_CHECKSUM_MISMATCH");
 
-  const campaigns = new CampaignService(settings, paths, clock, openBun, campaignSql);
+  const campaigns = new CampaignService(settings, paths, clock, openBun, campaignSql, [
+    { id: "0002_memory", sql: memorySql },
+  ]);
   const bad = campaigns.create("   ");
   assert(!bad.ok && bad.error.code === "IPC_INVALID_REQUEST", "空名字拒收");
 
@@ -98,6 +102,9 @@ try {
     "rule_decisions",
     "narrations",
     "checkpoints",
+    "memory_entries",
+    "memory_cursors",
+    "director_frontier",
   ]) {
     assert(tables.includes(name), `战役库有 ${name}`);
   }
@@ -158,6 +165,10 @@ try {
   setSetting(settings, "locale", "zh-CN", clock.nowIso());
   assert(getSetting(settings, "locale") === "zh-CN", "app_settings 读写");
 
+  ensureDefaultProvider(settings, clock.nowIso(), "qwen3.8:latest", "http://127.0.0.1:11434");
+  assert(listProviders(settings).length === 1, "默认 Ollama provider");
+  assert(listTaskRoutes(settings).length >= 8, "默认 task_routes");
+
   campaigns.moveToTrash(created.value.campaignId);
   const afterTrash = campaigns.list({ limit: 20 });
   assert(afterTrash.ok && afterTrash.value.items.length === 0, "进回收站后列表为空");
@@ -210,6 +221,10 @@ try {
       const db = campaigns.driver(live.campaignId);
       const events = db ? loadGameEvents(db, live.headBranchId) : [];
       assert(events.some((event) => event.payload.type === "moved"), "events 表里有 moved");
+      const memCount = db?.get<{ n: number }>("SELECT count(*) AS n FROM memory_entries");
+      assert((memCount?.n ?? 0) >= 1, "提交后写入 memory_entries");
+      const frontierRow = db?.get<{ n: number }>("SELECT count(*) AS n FROM director_frontier");
+      assert((frontierRow?.n ?? 0) === 1, "提交后写入 director_frontier");
 
       const collected: Array<{ type: string; sequence?: number }> = [];
       const subId = turns.subscribe(moved.value.operationId, (event) => {

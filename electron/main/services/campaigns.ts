@@ -20,9 +20,11 @@ import {
   touchOpened,
 } from "../persist/catalog";
 import type { Driver } from "../persist/driver";
-import { applyInit } from "../persist/migrate";
+import { applyInit, applyMigration } from "../persist/migrate";
 
 export type OpenDriver = (path: string) => Driver;
+
+export type NamedSql = { id: string; sql: string };
 
 export class CampaignService {
   private readonly openCampaigns = new Map<string, Driver>();
@@ -33,6 +35,7 @@ export class CampaignService {
     private readonly clock: Clock,
     private readonly openDriver: OpenDriver,
     private readonly campaignSql: string,
+    private readonly extraMigrations: NamedSql[] = [],
   ) {}
 
   create(name: string): Result<CampaignSummary> {
@@ -53,6 +56,9 @@ export class CampaignService {
     const campaign = this.openDriver(file);
     try {
       applyInit(campaign, this.clock, this.campaignSql, "0001_init");
+      for (const migration of this.extraMigrations) {
+        applyMigration(campaign, this.clock, migration.sql, migration.id);
+      }
       campaign.transaction(() => {
         campaign.run(
           `INSERT INTO campaign_metadata (
@@ -98,6 +104,9 @@ export class CampaignService {
     if (!this.openCampaigns.has(campaignId)) {
       const driver = this.openDriver(file);
       applyInit(driver, this.clock, this.campaignSql, "0001_init");
+      for (const migration of this.extraMigrations) {
+        applyMigration(driver, this.clock, migration.sql, migration.id);
+      }
       this.openCampaigns.set(campaignId, driver);
     }
     touchOpened(this.settings, campaignId, this.clock.nowIso());

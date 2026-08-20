@@ -256,6 +256,51 @@ assert(
 );
 
 await oldStore.close();
+
+{
+  const memStore = await Store.open(createBunDriver());
+  const handle = await memStore.openCampaign({
+    packRef: pack.ref,
+    title: "memory",
+    initialState: start,
+  });
+  const { emptyMemory } = await import("@/ai/memory");
+  let memory = emptyMemory();
+  memory = {
+    cursor: { rawRecordedThroughTurn: 1, memoryProcessedThroughTurn: 1 },
+    entries: [
+      {
+        id: "fact:e1",
+        memoryType: "fact",
+        summary: "moved",
+        sources: ["e1"],
+        entityIds: ["loc.study"],
+        sceneId: "loc.study",
+        importance: 1,
+        status: "active",
+        structured: { type: "moved" },
+        extractedThroughTurn: 1,
+      },
+    ],
+  };
+  await memStore.saveMemory(handle.branchId, memory);
+  const loaded = await memStore.loadMemory(handle.branchId);
+  assert(loaded.entries.length === 1 && loaded.entries[0]?.sources[0] === "e1", "memory 落盘再读回来");
+  await memStore.saveFrontier(handle.branchId, {
+    basedOnStateVersion: 1,
+    lastAssessedEventId: "e1",
+    activeArcIds: [],
+    blockedArcIds: [],
+    dormantArcIds: [],
+    openOpportunityIds: [],
+    clueCoverageGaps: [],
+    playerGoalMemoryIds: [],
+  });
+  const frontier = await memStore.loadFrontier(handle.branchId);
+  assert(frontier?.lastAssessedEventId === "e1", "director frontier 落盘再读回来");
+  await memStore.close();
+}
+
 await store.close();
 
 console.log(`\n全部通过（${passed} 项）。`);

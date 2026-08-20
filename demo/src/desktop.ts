@@ -38,10 +38,61 @@ export interface DesktopApi {
     create(input: { name: string }): Promise<DesktopResult<DesktopCampaign>>;
     list(input: { limit: number }): Promise<DesktopResult<{ items: DesktopCampaign[] }>>;
     open(input: { campaignId: string }): Promise<DesktopResult<DesktopCampaign>>;
+    applyCharacterCard?(input: {
+      campaignId: string;
+      branchId: string;
+      expectedStateVersion: number;
+      commandId: string;
+      name: string;
+      occupation: string;
+      hp: number;
+      hpMax: number;
+      san: number;
+      sanMax: number;
+      skills: Record<string, number>;
+      cardHash: string;
+    }): Promise<DesktopResult<{ operationId: string; turnId: string; stateVersion: number }>>;
   };
   settings: {
     get(input: { key: string }): Promise<DesktopResult<unknown>>;
     set(input: { key: string; value: unknown }): Promise<DesktopResult<void>>;
+    listProviders(): Promise<DesktopResult<Array<{
+      providerInstanceId: string;
+      providerType: string;
+      displayName: string;
+      baseUrl: string | null;
+      enabled: boolean;
+    }>>>;
+    upsertProvider(input: {
+      providerInstanceId?: string;
+      providerType: string;
+      displayName: string;
+      baseUrl?: string | null;
+      enabled: boolean;
+    }): Promise<DesktopResult<{ providerInstanceId: string }>>;
+    listProfiles(): Promise<DesktopResult<Array<{
+      modelProfileId: string;
+      providerInstanceId: string;
+      modelId: string;
+      displayName: string;
+      enabled: boolean;
+    }>>>;
+    upsertProfile(input: {
+      modelProfileId?: string;
+      providerInstanceId: string;
+      modelId: string;
+      displayName: string;
+      enabled: boolean;
+    }): Promise<DesktopResult<unknown>>;
+    listTaskRoutes(): Promise<DesktopResult<Array<{
+      taskType: string;
+      primaryModelProfileId: string;
+      fallbackModelProfileId: string | null;
+    }>>>;
+    setTaskRoute(input: {
+      taskType: string;
+      primaryModelProfileId: string;
+    }): Promise<DesktopResult<unknown>>;
   };
   turn: {
     submitAction(input: {

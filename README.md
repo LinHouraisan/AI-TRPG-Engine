@@ -35,7 +35,7 @@ cp .env.example .env.local   # 填上本地 Ollama 的地址
 bun run dev
 ```
 
-Demo 不依赖 Tauri，直接在浏览器里跑。守秘人叙述接本地 Ollama，把它关掉之后退回确定性模板，照样能玩完整条路径。详见 [demo/README.md](demo/README.md) 和 [demo/PLAN.md](demo/PLAN.md)。
+Demo 不依赖 Tauri，直接在浏览器里跑。守秘人叙述接本地 Ollama，把它关掉之后退回确定性模板，照样能玩完整条路径。主持人选项可勾「调试后台任务」，记录栏画出提交后的 Information / Director / Memory（默认关）。详见 [demo/README.md](demo/README.md) 和 [demo/PLAN.md](demo/PLAN.md)。
 
 ## 说明
 

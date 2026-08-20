@@ -1,12 +1,15 @@
 import { answerQuery, narrate } from "./narrate";
+import { recentFromTurn } from "./recent";
 import { resolveIntent } from "./resolve";
+import { classifyIntent, type TurnClassification } from "./routes";
 import { route } from "./router";
 import { commit } from "./runtime";
+import { storyMonitor, type StoryMonitorView } from "./story-monitor";
 import type { CheckResult, GameEvent, GameState, Intent } from "./types";
 
 export type PlayTurnOutcome =
-  | { kind: "query"; text: string; intent: Intent }
-  | { kind: "clarification"; text: string; intent: Intent }
+  | { kind: "query"; text: string; intent: Intent; classification: TurnClassification }
+  | { kind: "clarification"; text: string; intent: Intent; classification: TurnClassification }
   | {
       kind: "committed";
       intent: Intent;
@@ -15,6 +18,9 @@ export type PlayTurnOutcome =
       committed: GameEvent[];
       check?: CheckResult;
       narration: string;
+      classification: TurnClassification;
+      story: StoryMonitorView;
+      recent: ReturnType<typeof recentFromTurn>;
     };
 
 /**
@@ -28,10 +34,12 @@ export function playTurn(params: {
   intent?: Intent;
 }): PlayTurnOutcome {
   const intent = params.intent ?? route(params.text, params.state);
+  const classification = classifyIntent(intent);
   if (intent.kind === "query") {
     return {
       kind: "query",
       intent,
+      classification,
       text: answerQuery({ state: params.state, log: params.log, topic: intent.topic }),
     };
   }
@@ -39,7 +47,12 @@ export function playTurn(params: {
   const turnId = `turn-${params.state.turn + 1}`;
   const resolved = resolveIntent({ intent, state: params.state, turnId });
   if (resolved.clarification) {
-    return { kind: "clarification", intent, text: resolved.clarification };
+    return {
+      kind: "clarification",
+      intent,
+      classification: { ...classification, route: "clarification" },
+      text: resolved.clarification,
+    };
   }
 
   const result = commit({
@@ -48,6 +61,11 @@ export function playTurn(params: {
     drafts: resolved.drafts,
     turnId,
   });
+  const narration = narrate({
+    state: result.state,
+    events: result.committed,
+    intent,
+  });
   return {
     kind: "committed",
     intent,
@@ -55,10 +73,19 @@ export function playTurn(params: {
     log: result.log,
     committed: result.committed,
     check: resolved.check,
-    narration: narrate({
-      state: result.state,
-      events: result.committed,
-      intent,
+    narration,
+    classification,
+    story: storyMonitor({
+      before: params.state,
+      after: result.state,
+      committed: result.committed,
+      log: result.log,
+    }),
+    recent: recentFromTurn({
+      player: params.text,
+      gm: narration,
+      committed: result.committed,
+      stateVersion: result.state.version,
     }),
   };
 }

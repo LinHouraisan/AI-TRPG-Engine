@@ -16,6 +16,11 @@ export type KeeperConfig = {
    * 流式过程中吐出的字在体检通过之前只是草稿，不算定稿；关掉则等整段收齐再返回。
    */
   stream: boolean;
+  /**
+   * Debug panel for Information / Director / Memory after-commit jobs.
+   * Off by default. Does not change facts or gold hash.
+   */
+  debugTrace: boolean;
 };
 
 /** 与 defaultConfig.contextBudgetChars 同一处数字，裁剪与测试都读这个。 */
@@ -32,6 +37,7 @@ export const defaultConfig: KeeperConfig = {
   temperature: 0.7,
   contextBudgetChars: DEFAULT_CONTEXT_BUDGET_CHARS,
   stream: false,
+  debugTrace: false,
 };
 
 const KEY = "ai-trpg-engine-demo/keeper";
@@ -47,6 +53,7 @@ export function loadConfig(): KeeperConfig {
       merged.contextBudgetChars = DEFAULT_CONTEXT_BUDGET_CHARS;
     }
     if (typeof merged.stream !== "boolean") merged.stream = false;
+    if (typeof merged.debugTrace !== "boolean") merged.debugTrace = false;
     return merged;
   } catch {
     return defaultConfig;

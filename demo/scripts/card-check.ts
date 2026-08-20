@@ -4,10 +4,13 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { applyCharacterCard } from "@/cards/apply";
 import { autoCar } from "@/cards/autocar";
 import { importTavernCard, importTavernText } from "@/cards/import";
 import { parseTavernJson, parseTavernPng } from "@/cards/parse";
 import { CARD_CAPABILITY } from "@/cards/types";
+import { initialState } from "@/engine/state";
+import { stateHash } from "@/engine/runtime";
 
 const fixtures = join(import.meta.dir, "../src/data/cards");
 
@@ -119,6 +122,17 @@ assert(!garbage.ok, "坏 JSON 拒绝");
 
 const nameless = importTavernText(JSON.stringify({ description: "没有名字" }));
 assert(!nameless.ok, "没名字拒绝");
+
+if (suheng.ok) {
+  const start = initialState();
+  const gold = stateHash(start);
+  const applied = applyCharacterCard({ state: start, log: [], draft: suheng.draft });
+  assert(applied.state.pcName === "苏蘅", "确认写入后状态里是卡面名字");
+  assert(applied.committed.some((event) => event.payload.type === "sheet_applied"), "写出 sheet_applied 事件");
+  assert(applied.applied.confirmed === true, "确认标记");
+  assert(stateHash(start) === gold, "未写入时初始哈希不变");
+  assert(stateHash(applied.state) !== gold, "写入后这场的哈希变了");
+}
 
 const parsed = parseTavernJson(suhengText);
 const withoutWorld = { ...parsed, worldBook: [] };

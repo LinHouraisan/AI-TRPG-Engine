@@ -44,6 +44,18 @@ export function applyEvent(state: GameState, payload: EventPayload): GameState {
     case "action_rejected":
       // 被拒绝的行动同样进事件记录，但它本身不改变任何事实。
       return state;
+    case "sheet_applied":
+      return {
+        ...state,
+        hp: payload.hp,
+        hpMax: payload.hpMax,
+        san: payload.san,
+        sanMax: payload.sanMax,
+        skills: { ...payload.skills },
+        pcName: payload.name,
+        pcOccupation: payload.occupation,
+        pcCardHash: payload.cardHash,
+      };
   }
 }
 

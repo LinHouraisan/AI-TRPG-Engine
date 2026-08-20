@@ -44,6 +44,8 @@ React + Vite + CSS Modules。React local state 保存输入和折叠；Zustand �
 
 中央栏最小宽度 520 px；窗口低于 1000 px 时左右栏改为抽屉。输入框支持多行、历史草稿和明确提交；生成中禁止重复 submit，但允许编辑下一条草稿。
 
+调试视图默认关闭。Demo 在主持人选项提供「调试后台任务」复选框（`KeeperConfig.debugTrace`）：打开后记录栏展示 Information / Director / Memory 冷路径、Active Context 双缓冲和 Story Monitor。只读已算过的 after-commit 结果，不写权威状态，不与叙事列混排为玩家功能。Electron 渲染进程不得为填面板再调一次模型。
+
 消息类型有独立组件：PlayerAction、GmNarration、RuleDecision、StateChange、Clarification、SystemRecovery。Markdown 禁止原始 HTML，链接确认后外开。
 
 ## 5. 流式叙事
@@ -68,7 +70,7 @@ delta 只显示为带“生成中”的临时块。收到 completed 后以 Main 
 
 ## 10. 性能与测试
 
-- 输入响应不受后台任务影响；
+- 输入响应不受后台任务影响；调试面板开关不改变提交哈希；
 - 10,000 时间线项只渲染可见窗口；
 - campaign state change 后 500 ms 内刷新可见视图（不含数据库故障）；
 - 组件测试覆盖 loading/empty/error/success；

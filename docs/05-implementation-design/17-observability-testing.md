@@ -15,6 +15,8 @@ category：application、ipc、runtime、domain、persistence、provider、conte
 
 本地指标保存聚合值，不默认上报：启动时长、DB query/commit P50/P95/P99、回合各阶段耗时、Provider 首包/总耗时、token/费用、context size、后台队列、备份时长、恢复结果。高基数字段如完整 ID 不作指标 label。
 
+开发调试：Demo 可用主持人选项打开 JobTrace 面板（`ai/trace.ts`），把提交后 Information / Director / Memory 标成程序、模型或跳过。默认关。不是玩家功能，不是第二条取数路径，`architecture:check` 断言八段流水且提案未确认。不得把无来源 Candidate 画成已发生事实。
+
 ## 3. 测试层级
 
 | 层级 | 范围 | 网络/磁盘 |

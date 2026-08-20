@@ -1,9 +1,15 @@
 import { DEFAULT_CONTEXT_BUDGET_CHARS, type KeeperConfig } from "../../../demo/src/keeper/config";
 import { keeperNarrate } from "../../../demo/src/keeper/keeper";
 import { playTurn } from "../../../demo/src/engine/play-turn";
+import { recentFromTurn } from "../../../demo/src/engine/recent";
+import { commit, replay } from "../../../demo/src/engine/runtime";
 import { initialState } from "../../../demo/src/engine/state";
-import { replay } from "../../../demo/src/engine/runtime";
+import { storyMonitor } from "../../../demo/src/engine/story-monitor";
 import type { GameEvent, GameState, Intent } from "../../../demo/src/engine/types";
+import { runAfterCommit } from "../../../demo/src/ai/jobs";
+import { runAfterCommitLive } from "../../../demo/src/ai/live";
+import { emptyContextStore } from "../../../demo/src/engine/context-store";
+import { sheetDraft, type SheetApplyInput } from "../../../demo/src/cards/apply";
 import type {
   NarrationKind,
   OperationEvent,
@@ -23,6 +29,7 @@ import {
   listTimeline,
   loadGameEvents,
 } from "../persist/turns";
+import { loadMemory, saveFrontier, saveMemory } from "../persist/derived";
 import type { CampaignService } from "./campaigns";
 
 export type TurnView = SharedTurnView & { events: GameEvent[] };
@@ -154,6 +161,15 @@ export class TurnService {
       result: view,
     });
     this.campaigns.setHead(input.campaignId, view.stateVersion);
+    if (outcome.kind === "committed") {
+      this.persistDerived(db, input.branchId, {
+        taskId: turnId,
+        state: outcome.state,
+        committed: outcome.committed,
+        recent: outcome.recent,
+        story: outcome.story,
+      });
+    }
 
     const task = this.finishNarration({
       db,
@@ -200,6 +216,130 @@ export class TurnService {
     return ok({ items, events, nextCursor: null });
   }
 
+  applyCharacterCard(input: {
+    campaignId: CampaignId;
+    branchId: string;
+    expectedStateVersion: number;
+    commandId: string;
+    draft: SheetApplyInput;
+  }): Result<{ operationId: string; turnId: string; stateVersion: number }> {
+    const opened = this.campaigns.ensureOpen(input.campaignId);
+    if (!opened.ok) return opened;
+    const db = opened.value;
+    const catalog = getCatalog(this.campaigns.settings, input.campaignId);
+    if (!catalog) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "campaign.not_found",
+        retryable: false,
+      });
+    }
+    const existing = findTurnByCommand(db, input.branchId, input.commandId);
+    if (existing) {
+      return ok({
+        operationId: existing.operationId,
+        turnId: existing.turnId,
+        stateVersion: existing.committedStateVersion ?? existing.baseStateVersion,
+      });
+    }
+    if (catalog.head_branch_id !== input.branchId) {
+      return fail({
+        code: "TURN_VERSION_CONFLICT",
+        messageKey: "turn.branch_mismatch",
+        retryable: true,
+      });
+    }
+    if (catalog.head_state_version !== Number(input.expectedStateVersion)) {
+      return fail({
+        code: "TURN_VERSION_CONFLICT",
+        messageKey: "turn.version_conflict",
+        retryable: true,
+      });
+    }
+    const log = loadGameEvents(db, input.branchId);
+    const state = replay(initialState(), log);
+    const before = state;
+    const turnId = `turn-${state.turn + 1}`;
+    const result = commit({
+      state,
+      log,
+      drafts: [sheetDraft(input.draft)],
+      turnId,
+    });
+    const now = this.clock.nowIso();
+    const operationId = uuidv7();
+    const view: TurnView = {
+      kind: "committed",
+      narration: `调查员换成「${input.draft.name}」（人设卡，已确认）。`,
+      narrationKind: "程序",
+      events: result.committed,
+      stateVersion: result.state.version,
+      intent: { kind: "unclear", text: "character_card" },
+    };
+    appendCommitted({
+      db,
+      campaignId: input.campaignId,
+      branchId: input.branchId,
+      turnId,
+      operationId,
+      commandId: input.commandId,
+      actorId: "pc.linwan",
+      controllerId: "player",
+      text: `确认人设卡 ${input.draft.name}`,
+      now,
+      status: "completed",
+      baseVersion: before.version,
+      committedVersion: result.state.version,
+      events: result.committed,
+      result: view,
+    });
+    this.campaigns.setHead(input.campaignId, result.state.version);
+    this.persistDerived(db, input.branchId, {
+      taskId: turnId,
+      state: result.state,
+      committed: result.committed,
+      recent: recentFromTurn({
+        player: `确认人设卡 ${input.draft.name}`,
+        gm: view.narration,
+        committed: result.committed,
+        stateVersion: result.state.version,
+      }),
+      story: storyMonitor({
+        before,
+        after: result.state,
+        committed: result.committed,
+        log: result.log,
+      }),
+    });
+    return ok({ operationId, turnId, stateVersion: result.state.version });
+  }
+
+  private persistDerived(
+    db: Driver,
+    branchId: string,
+    params: {
+      taskId: string;
+      state: GameState;
+      committed: GameEvent[];
+      recent: ReturnType<typeof recentFromTurn>;
+      story: ReturnType<typeof storyMonitor>;
+    },
+  ): void {
+    const jobs = runAfterCommit({
+      taskId: params.taskId,
+      branchId,
+      state: params.state,
+      committed: params.committed,
+      recent: params.recent,
+      story: params.story,
+      memory: loadMemory(db, branchId),
+      context: emptyContextStore(),
+    });
+    const now = this.clock.nowIso();
+    saveMemory(db, branchId, jobs.memory, now);
+    saveFrontier(db, branchId, jobs.director.frontier, now);
+  }
+
   private emit(operationId: string, event: OperationEvent): void {
     const buffer = this.buffers.get(operationId) ?? [];
     buffer.push(event);
@@ -228,6 +368,7 @@ export class TurnService {
       temperature: 0.7,
       contextBudgetChars: DEFAULT_CONTEXT_BUDGET_CHARS,
       stream: true,
+      debugTrace: false,
     };
   }
 
@@ -339,6 +480,38 @@ export class TurnService {
       operationId,
       result: finalView,
     });
+    if (config.enabled) {
+      const log = loadGameEvents(db, params.branchId);
+      const before = replay(initialState(), log.slice(0, Math.max(0, log.length - view.events.length)));
+      const story = storyMonitor({
+        before,
+        after: params.stateAfter,
+        committed: view.events,
+        log,
+      });
+      void runAfterCommitLive({
+        taskId: turnId,
+        branchId: params.branchId,
+        state: params.stateAfter,
+        committed: view.events,
+        recent: recentFromTurn({
+          player: params.spoken,
+          gm: text,
+          committed: view.events,
+          stateVersion: view.stateVersion,
+        }),
+        story,
+        memory: loadMemory(db, params.branchId),
+        context: emptyContextStore(),
+        config,
+      })
+        .then((jobs) => {
+          const stamped = this.clock.nowIso();
+          saveMemory(db, params.branchId, jobs.memory, stamped);
+          saveFrontier(db, params.branchId, jobs.director.frontier, stamped);
+        })
+        .catch(() => undefined);
+    }
     this.emit(operationId, {
       type: "narration.completed",
       operationId: asOperationId(operationId),

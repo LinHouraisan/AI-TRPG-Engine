@@ -67,6 +67,9 @@ export function narrate(params: {
       case "flag_set":
       case "node_done":
         break;
+      case "sheet_applied":
+        lines.push(`你现在用的是「${payload.name}」这张人设卡。`);
+        break;
     }
   }
 

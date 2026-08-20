@@ -43,6 +43,8 @@ function createWindow(): void {
   const devUrl = process.env.ELECTRON_RENDERER_URL;
   if (devUrl) {
     void window.loadURL(devUrl);
+  } else if (app.isPackaged) {
+    void window.loadFile(join(process.resourcesPath, "renderer/index.html"));
   } else {
     void window.loadFile(join(__dirname, "../../demo/dist/index.html"));
   }
@@ -52,7 +54,9 @@ function createWindow(): void {
 function boot(): void {
   lifecycle.set("initializing_platform");
   if (!process.env.AI_TRPG_PACKS_DIR) {
-    process.env.AI_TRPG_PACKS_DIR = join(app.getAppPath(), "../demo/src/data/packs");
+    process.env.AI_TRPG_PACKS_DIR = app.isPackaged
+      ? join(process.resourcesPath, "packs")
+      : join(app.getAppPath(), "../demo/src/data/packs");
   }
   const paths = resolvePaths(app.getPath("userData"));
   composition = createComposition({

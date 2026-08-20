@@ -5,8 +5,10 @@ import { CampaignDock } from "@/ui/CampaignDock";
 import { CardImport } from "@/ui/CardImport";
 import { Composer } from "@/ui/Composer";
 import { ContextUsagePanel } from "@/ui/ContextUsage";
+import { JobTracePanel } from "@/ui/JobTrace";
 import { InvestigatorSheet } from "@/ui/InvestigatorSheet";
 import { KeeperSettings } from "@/ui/KeeperSettings";
+import { ModelSettings } from "@/ui/ModelSettings";
 import { NarrationColumn } from "@/ui/NarrationColumn";
 import { PackSelector } from "@/ui/PackSelector";
 import { composeWait } from "@/ui/pending";
@@ -71,7 +73,8 @@ export default function App() {
         />
 
         <div className="flex shrink-0 items-center gap-1.5 text-[13px] md:gap-2">
-          <CardImport />
+          <CardImport onConfirm={(draft) => void session.confirmCard(draft)} />
+          <ModelSettings />
           <KeeperSettings config={session.config} onChange={session.setConfig} />
           <button
             type="button"
@@ -150,6 +153,8 @@ export default function App() {
               log={session.log}
               budgetChars={session.config.contextBudgetChars}
               lastUsage={session.lastUsage}
+              lastTrace={session.config.debugTrace ? session.lastTrace : null}
+              showTrace={session.config.debugTrace}
               branches={session.branches}
               currentBranch={session.branchId}
               busy={session.busy}
@@ -173,6 +178,8 @@ export default function App() {
             log={session.log}
             budgetChars={session.config.contextBudgetChars}
             lastUsage={session.lastUsage}
+            lastTrace={session.config.debugTrace ? session.lastTrace : null}
+            showTrace={session.config.debugTrace}
             branches={session.branches}
             currentBranch={session.branchId}
             busy={session.busy}
@@ -263,6 +270,8 @@ function RecordColumn({
   log,
   budgetChars,
   lastUsage,
+  lastTrace,
+  showTrace,
   branches,
   currentBranch,
   busy,
@@ -273,6 +282,8 @@ function RecordColumn({
   log: GameEvent[];
   budgetChars: number;
   lastUsage: ReturnType<typeof useSession>["lastUsage"];
+  lastTrace: ReturnType<typeof useSession>["lastTrace"];
+  showTrace: boolean;
   branches: ReturnType<typeof useSession>["branches"];
   currentBranch: string | null;
   busy: boolean;
@@ -294,6 +305,7 @@ function RecordColumn({
       />
       <EventLog log={log} />
       <ContextUsagePanel state={state} budgetChars={budgetChars} lastUsage={lastUsage} />
+      {showTrace ? <JobTracePanel trace={lastTrace} /> : null}
     </>
   );
 }

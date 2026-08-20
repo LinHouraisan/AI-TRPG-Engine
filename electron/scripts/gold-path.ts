@@ -21,6 +21,7 @@ const clock = fixedClock("2026-08-19T00:00:00.000Z");
 const paths = resolvePaths(root);
 const settingsSql = readFileSync(join(import.meta.dir, "../sql/settings.sql"), "utf8");
 const campaignSql = readFileSync(join(import.meta.dir, "../sql/campaign.sql"), "utf8");
+const memorySql = readFileSync(join(import.meta.dir, "../sql/campaign-0002-memory.sql"), "utf8");
 const actor = "pc.linwan" as EntityId;
 
 let failed = 0;
@@ -35,7 +36,9 @@ function assert(ok: boolean, label: string): void {
 try {
   const settings = openBun(paths.settingsDb);
   applyInit(settings, clock, settingsSql, "0001_init");
-  const campaigns = new CampaignService(settings, paths, clock, openBun, campaignSql);
+  const campaigns = new CampaignService(settings, paths, clock, openBun, campaignSql, [
+    { id: "0002_memory", sql: memorySql },
+  ]);
   const turns = new TurnService(campaigns, clock);
   const created = campaigns.create("金样");
   if (!created.ok) throw new Error("create failed");

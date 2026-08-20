@@ -24,6 +24,7 @@ const desktopApi: DesktopApi = {
     close: (input) => invoke("campaign:close", input),
     moveToTrash: (input) => invoke("campaign:moveToTrash", input),
     restoreFromTrash: (input) => invoke("campaign:restoreFromTrash", input),
+    applyCharacterCard: (input) => invoke("campaign:applyCharacterCard", input),
   },
   settings: {
     get: (input) => invoke("settings:get", input),
@@ -31,6 +32,13 @@ const desktopApi: DesktopApi = {
     setSecret: (input) => invoke("settings:setSecret", input),
     hasSecret: (input) => invoke("settings:hasSecret", input),
     deleteSecret: (input) => invoke("settings:deleteSecret", input),
+    listProviders: () => invoke("settings:listProviders"),
+    upsertProvider: (input) => invoke("settings:upsertProvider", input),
+    deleteProvider: (input) => invoke("settings:deleteProvider", input),
+    listProfiles: () => invoke("settings:listProfiles"),
+    upsertProfile: (input) => invoke("settings:upsertProfile", input),
+    listTaskRoutes: () => invoke("settings:listTaskRoutes"),
+    setTaskRoute: (input) => invoke("settings:setTaskRoute", input),
   },
   turn: {
     submitAction: (input) => invoke("turn:submitAction", input),

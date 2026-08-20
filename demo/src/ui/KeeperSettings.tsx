@@ -90,6 +90,18 @@ export function KeeperSettings({
               打开后字会先以未定稿出现。没过体检就整段收回，换成模板。
             </p>
 
+            <label className="mt-3 flex min-h-11 items-center justify-between">
+              <span>调试后台任务</span>
+              <input
+                type="checkbox"
+                checked={config.debugTrace}
+                onChange={(event) => onChange({ ...config, debugTrace: event.target.checked })}
+              />
+            </label>
+            <p className="mt-1 text-[11px] text-muted">
+              记录栏画出 Information / Director / Memory 冷路径。关掉不影响提交。
+            </p>
+
             <label className="mt-3 block">
               <span className="text-[11px] text-muted">服务地址</span>
               <input

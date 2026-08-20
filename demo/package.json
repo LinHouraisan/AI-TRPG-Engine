@@ -11,9 +11,11 @@
     "typecheck": "tsc -b --noEmit",
     "pack:lint": "bun scripts/pack-lint.ts",
     "card:check": "bun scripts/card-check.ts",
+    "kernel:check": "bun scripts/kernel-check.ts",
+    "architecture:check": "bun scripts/architecture-check.ts",
     "keeper:check": "bun scripts/keeper-check.ts",
     "store:check": "bun scripts/store-check.ts",
-    "smoke": "bun scripts/pack-lint.ts && bun scripts/smoke.ts && bun scripts/keeper-check.ts"
+    "smoke": "bun scripts/pack-lint.ts && bun scripts/smoke.ts && bun scripts/kernel-check.ts && bun scripts/architecture-check.ts && bun scripts/keeper-check.ts"
   },
   "dependencies": {
     "@sqlite.org/sqlite-wasm": "^3.53.0-build1",

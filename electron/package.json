@@ -11,6 +11,7 @@
     "postinstall": "bun scripts/rebuild-native.ts",
     "persist:check": "bun scripts/persist-check.ts",
     "gold": "bun scripts/gold-path.ts",
+    "package:win": "bun scripts/package-win.ts",
     "content:pack": "bun scripts/scenario-pack.ts pack boarding-house",
     "content:check": "bun scripts/scenario-pack.ts check"
   },

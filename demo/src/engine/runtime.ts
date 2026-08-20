@@ -1,5 +1,6 @@
 import { evaluate } from "./conditions";
 import { applyEvent } from "./events";
+import { assertKernel } from "./kernel";
 import { pack } from "./pack";
 import type { EventDraft, GameEvent, GameState } from "./types";
 
@@ -32,6 +33,7 @@ export function commit(params: {
 
   const all = [...params.drafts, ...triggered];
   next = { ...next, version: state.version + 1, turn: state.turn + 1 };
+  assertKernel(next);
 
   const committed: GameEvent[] = all.map((draft, index) => ({
     ...draft,
