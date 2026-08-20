@@ -29,7 +29,7 @@
 - [Active Context](01-architecture/active-context.md)
 - [Context Broker](01-architecture/context-broker.md)
 - [Memory AI](01-architecture/memory.md)
-- [领域 AI 与确定性领域模块](01-architecture/domain-ai.md)
+- [信息 AI 与确定性事实内核](01-architecture/domain-ai.md)
 
 ## 数据
 

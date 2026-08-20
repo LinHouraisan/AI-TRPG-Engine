@@ -14,7 +14,7 @@ Prompt 依次包含固定安全与产品原则、逻辑角色职责、当前任�
 
 ## 输出类型
 
-每个任务只允许契约声明的输出类型，例如 GM 的 `clarification`、`context_request`、`action_intent` 或 `narration`，Director 的 `director_proposal`，Memory 的记忆候选，以及领域 Analyzer 的变化候选。输出必须区分分析、候选和已提交结果。
+每个任务只允许契约声明的输出类型，例如 GM 的 `clarification`、`context_request`、`action_intent`、`narration` 或结构化旁路信息，Director 的剧情候选、预测、GM 引导和预加载提示，Memory 的记忆候选，以及 Information 的事实变化 Proposal 或 `context_plan`。输出必须区分已发生事实、角色陈述与认知、候选、预测和已提交结果。
 
 ## 校验
 

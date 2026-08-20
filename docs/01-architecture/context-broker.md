@@ -4,7 +4,7 @@
 
 Context Broker 是权威数据与任务上下文之间的受控查询边界。它把信息请求转换成可执行查询，完成实体解析、来源验证、版本检查和可见性过滤，再返回带来源的信息包。
 
-Active Context Manager 判断哪些信息可能相关；Context Broker 判断这些信息是否存在、是否允许读取以及应返回哪个视图。Broker 不拥有事实，也不决定最终 Prompt 取舍。
+Information AI 判断哪些可选信息可能相关；Context Broker 判断这些信息是否存在、是否允许读取以及应返回哪个视图。Broker 不拥有事实，也不决定最终 Prompt 取舍。
 
 ## 输入与输出
 
@@ -54,4 +54,4 @@ Broker 可以读取派生视图和缓存，但缓存条目必须绑定来源版�
 
 ## 禁止职责
 
-Context Broker 不直接写入权威状态，不保存独立长期真相，不决定行动结果，不替代 Active Context Manager 评分，也不把完整数据库快照作为任务上下文返回。
+Context Broker 不直接写入权威状态，不保存独立长期真相，不决定行动结果，不替代 Information AI 评分，也不把完整数据库快照作为任务上下文返回。

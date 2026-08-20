@@ -37,14 +37,9 @@ Director 负责：
 - 提出符合当前因果链的 fail-forward 机会；
 - 向 Runtime 提供带来源的剧情候选；
 - 提供经过过滤后可交给 GM 的叙事方向与引导建议。
+- 根据高概率后续走向，向 Information AI 提供相关实体、事件、地点和线索的预加载提示。
 
-Director 可以分析领域事件对剧本的影响，但不代替领域模块决定状态变化：
-
-- NPC Domain 决定 NPC 的状态、知识、关系和计划；
-- Item Domain 决定道具的位置、数量和状态；
-- Scene Domain 决定场景的增量变化；
-- World Domain 决定时间、地点和全局影响；
-- Director 只判断这些事实对剧情路径意味着什么。
+Director 可以分析人物、道具、场景和世界事件对剧本的影响，但不决定这些状态如何写入数据库。它只判断已发生事实对未来路径意味着什么，并提出带来源的剧情候选、预测和预加载提示；事实候选由 Information AI 解释为结构化 Proposal，再由确定性事实内核校验和提交。
 
 ## 可读取的信息
 
@@ -132,8 +127,9 @@ Director 输出 `director_proposal`，至少包含：
 - `assessment`：路径成立、受阻或失效的判断与原因；
 - `proposals`：带来源实体和必要条件的适应方案；
 - `gm_guidance`：允许交给 GM 的叙事机会和禁止透露事项。
+- `preload_hints`：建议 Information AI 提前准备的实体、事件、地点、线索及其概率和依据。
 
-输出必须区分分析结论、状态变化候选和 GM 建议，不能包含直接数据库写入指令。GM 建议在经过 Visibility Policy 过滤前不得进入 GM 上下文。
+输出必须区分已发生事实、未来预测、状态变化候选、预加载提示和 GM 建议，不能包含直接数据库写入指令。GM 建议在经过 Visibility Policy 过滤前不得进入 GM 上下文；预加载提示是否执行由 Information AI、Context Broker 和预算共同决定。
 
 ## 禁止职责
 
@@ -141,7 +137,7 @@ Director 不负责：
 
 - 直接修改权威状态或 `StoryProgress`；
 - 决定规则或随机结果；
-- 决定领域模块的最终状态；
+- 决定人物、道具、场景、世界或剧情的最终状态；
 - 替代 Memory AI 保存长期记忆；
 - 替代 GM 生成最终玩家叙事；
 - 强迫玩家执行指定行动；
