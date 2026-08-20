@@ -76,7 +76,13 @@ FTS5 索引只保存允许检索的 summary，并能从 memory/event 重建。
 
 ## 5. Memory 生成
 
-触发：场景结束、每 10 个已提交回合、手动存档、后台积压达到 50 个事件。extract 输出事实、因果、承诺、关系、未解决项及来源。程序验证每个 source event 存在且可见。无来源候选拒绝。
+每轮立即写入完整玩家输入、GM 最终输出和权威结果。程序从事件、mutations 与规则结果生成无损紧凑 fact delta，删除重复完整状态和重复载荷，但不得筛选、概括或替代自然语言语义。GM 不为 Memory 强制生成 `memory_candidates`、承诺列表、关系标签或检索关键词。
+
+`memory.extract` 的输入为固定回合范围内的完整语义原文、fact delta、少量已处理重叠原文，以及直接相关的 active 记忆。重叠原文只提供跨批次语义上下文，不能重复产生记忆。任务输出事实摘要、因果、承诺、关系、目标、未解决事项和来源；程序验证每个来源存在且可见，无来源候选拒绝。
+
+触发条件为未整理语义文本达到 Token 预算、场景结束、手动存档、材料即将退出近期窗口、重复读取或后台空闲，不按固定回合数调用。每个分支持久化 `rawRecordedThroughTurn`、`memoryProcessedThroughTurn` 和活动 job 范围；成功后原子推进 processed 游标，失败不推进，新任务不得与已完成范围重复。
+
+`memory.consolidate` 与 extract 分离，只在场景结束、同类记忆积累或低优先级空闲窗口增量更新场景、角色、关系和战役摘要。它读取旧摘要与新增记忆，不重新读取完整历史，也不因每次 extract 重写全部长期摘要。
 
 合并只能把旧 memory 标为 superseded，新 memory 保留全部来源。与当前状态冲突标为 conflicted，不覆盖状态。原始事件永不删除。
 
@@ -88,4 +94,4 @@ FTS5 索引只保存允许检索的 summary，并能从 memory/event 重建。
 
 错误码：`CONTEXT_REQUIRED_SOURCE_MISSING`、`CONTEXT_BUDGET_EXCEEDED`、`CONTEXT_VISIBILITY_DENIED`、`CONTEXT_STALE`、`MEMORY_SOURCE_INVALID`、`MEMORY_CONFLICTED`、`MEMORY_JOB_FAILED`。
 
-测试覆盖可见性矩阵、必需项不可裁剪、token 边界、缓存失效、双缓冲原子切换、Memory 提交后自动上浮、无来源拒绝、冲突优先级、FTS/关系索引删除后重建。Context 构建本地部分 P95 < 200 ms（不含后台 AI 排序），Memory 或 Information AI 失败不阻塞回合。普通 RP 和已预取场景默认使用一次 GM Chat；监控 GM 上下文补查率、预取命中率、未使用预取 Token 占比和 Information AI 准备延迟，避免将常规取数退化为 GM Agent 工具闭环。
+测试覆盖可见性矩阵、必需项不可裁剪、token 边界、缓存失效、双缓冲原子切换、Memory 提交后自动上浮、语义原文完整性、fact delta 可追源性、处理游标幂等、批次重叠不重复、extract/consolidate 分离、单并发前台优先、无来源拒绝、冲突优先级、FTS/关系索引删除后重建。Context 构建本地部分 P95 < 200 ms（不含后台 AI 排序），Memory 或 Information AI 失败不阻塞回合。普通 RP 和已预取场景默认使用一次 GM Chat；监控 GM 上下文补查率、预取命中率、未使用预取 Token 占比、Information AI 准备延迟、Memory 处理滞后、积压 Token 和前台被后台阻塞次数，后者必须为零。

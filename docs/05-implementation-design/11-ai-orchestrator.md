@@ -23,7 +23,7 @@ interface AiTaskDefinition<TInput, TOutput> {
 }
 ```
 
-正式任务：`gm.handle_free_turn`、`gm.narrate_result`、`director.analyze_progress`、`context.rank_relevance`、`memory.extract`、`memory.summarize`、`content.import`、`content.validate`。
+正式任务：`gm.handle_free_turn`、`gm.narrate_result`、`director.analyze_progress`、`context.rank_relevance`、`memory.extract`、`memory.consolidate`、`content.import`、`content.validate`。
 
 `gm.handle_free_turn` 处理无法由确定性快路径确认的自由文本。它可以直接完成纯角色扮演回复，也可以通过 `clarification`、`context_request` 或 `action_intent` 进入工具调用闭环，并在程序提交结果后继续生成叙述。意图理解和结果叙述是同一逻辑任务的阶段，不注册为两个各自读取完整上下文的固定任务。`gm.narrate_result` 仅用于已经由确定性快路径提交的结果，以及提交后叙述失败的独立重试。
 
@@ -36,7 +36,7 @@ interface AiTaskDefinition<TInput, TOutput> {
 | director | 60 s | 2 | 2000 | 否 |
 | rank_relevance | 20 s | 1 | 1000 | 可降级 |
 | memory.extract | 60 s | 2 | 2000 | 否 |
-| memory.summarize | 90 s | 2 | 3000 | 否 |
+| memory.consolidate | 90 s | 2 | 3000 | 否 |
 | content.import | 120 s | 2 | 4000 | 导入流程 |
 | content.validate | 120 s | 1 | 4000 | 否 |
 
@@ -78,6 +78,10 @@ fallback 必须由用户预先配置，不能静默把内容发给另一供应�
 ## 7. 预算
 
 预算检查顺序：模型 contextWindow → 任务 maxInput → 用户单回合警戒 → 用户月度提醒。超限时要求 Context Broker 裁剪；仍超限返回 `AI_CONTEXT_TOO_LARGE`。后台任务可延迟，不挤占前台并发槽。
+
+调度优先级固定为：当前 GM → 当前回合必需的规则与信息请求 → 下一回合必要上下文准备 → Information AI 语义预取 → `memory.extract` → `memory.consolidate`。Provider 并发、速率额度和本地算力必须为当前 GM 预留；后台任务不得仅因已经排队而阻止新的前台任务启动。
+
+单并发 Provider 或本地模型采用空闲调度：检测到前台空闲后才启动 Memory；新 GM 请求到达时延后尚未开始的 Memory。只有 Provider 明确支持安全取消时才中断运行中的后台生成，否则应通过限制批次输入与输出预算控制最长占用时间。云端并发 Provider 可以运行独立后台槽，但达到限流或预算警戒时首先暂停 Memory。
 
 ## 8. 错误与测试
 
