@@ -23,18 +23,20 @@ interface AiTaskDefinition<TInput, TOutput> {
 }
 ```
 
-正式任务：`gm.interpret_action`、`gm.narrate_result`、`director.analyze_progress`、`context.rank_relevance`、`memory.extract`、`memory.summarize`、`content.import`、`content.validate`。
+正式任务：`gm.handle_free_turn`、`gm.narrate_result`、`director.analyze_progress`、`context.rank_relevance`、`memory.extract`、`memory.consolidate`、`content.import`、`content.validate`。
+
+`gm.handle_free_turn` 处理无法由确定性快路径确认的自由文本。它可以直接完成纯角色扮演回复，也可以通过 `clarification`、`context_request` 或 `action_intent` 进入工具调用闭环，并在程序提交结果后继续生成叙述。意图理解和结果叙述是同一逻辑任务的阶段，不注册为两个各自读取完整上下文的固定任务。`gm.narrate_result` 仅用于已经由确定性快路径提交的结果，以及提交后叙述失败的独立重试。
 
 ## 2. 默认限制
 
 | 任务 | timeout | attempts | output tokens | 阻塞回合 |
 |---|---:|---:|---:|---:|
-| interpret_action | 45 s | 2 | 1500 | 是 |
+| handle_free_turn | 90 s | 2 | 3000 | 是 |
 | narrate_result | 90 s | 2 | 3000 | 是（事实已提交） |
 | director | 60 s | 2 | 2000 | 否 |
 | rank_relevance | 20 s | 1 | 1000 | 可降级 |
 | memory.extract | 60 s | 2 | 2000 | 否 |
-| memory.summarize | 90 s | 2 | 3000 | 否 |
+| memory.consolidate | 90 s | 2 | 3000 | 否 |
 | content.import | 120 s | 2 | 4000 | 导入流程 |
 | content.validate | 120 s | 1 | 4000 | 否 |
 
@@ -44,7 +46,7 @@ interface AiTaskDefinition<TInput, TOutput> {
 
 顺序固定：系统安全与角色契约 → 任务指令 → 输出 schema → ContextPackage → 用户输入 → 已提交结果。内容包 Prompt 只能进入标记的数据区，不能覆盖系统契约。
 
-每次任务保存 promptVersion、context manifest、模型 ID、参数、usage 和结果状态；默认不保存完整 Prompt/响应正文到普通日志。必要的 Candidate 和正式 Narration 进入战役记录。
+每次逻辑任务保存 promptVersion、context manifest、模型 ID、参数、累计 usage 和结果状态；默认不保存完整 Prompt/响应正文到普通日志。带工具调用的任务可以包含多个供应商请求，但共享同一 modelTaskId，并记录各阶段 usage，不能按阶段重复装配完整 ContextPackage。必要的 Candidate 和正式 Narration 进入战役记录。
 
 ## 4. 执行接口
 
@@ -76,6 +78,10 @@ fallback 必须由用户预先配置，不能静默把内容发给另一供应�
 ## 7. 预算
 
 预算检查顺序：模型 contextWindow → 任务 maxInput → 用户单回合警戒 → 用户月度提醒。超限时要求 Context Broker 裁剪；仍超限返回 `AI_CONTEXT_TOO_LARGE`。后台任务可延迟，不挤占前台并发槽。
+
+调度优先级固定为：当前 GM → 当前回合必需的规则与信息请求 → 已确认无可行入口的 Director 路径修复 → 下一回合必要上下文准备 → Information AI 语义预取 → 普通 Director Frontier 评估 → `memory.extract` → `memory.consolidate`。Provider 并发、速率额度和本地算力必须为当前 GM 预留；包括路径修复在内的后台任务不得仅因已经排队而阻止新的前台任务启动。
+
+单并发 Provider 或本地模型采用空闲调度：检测到前台空闲后才启动 Memory；新 GM 请求到达时延后尚未开始的 Memory。只有 Provider 明确支持安全取消时才中断运行中的后台生成，否则应通过限制批次输入与输出预算控制最长占用时间。云端并发 Provider 可以运行独立后台槽，但达到限流或预算警戒时首先暂停 Memory。
 
 ## 8. 错误与测试
 

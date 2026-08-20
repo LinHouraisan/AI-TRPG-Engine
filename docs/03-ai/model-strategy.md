@@ -2,7 +2,7 @@
 
 ## 目标
 
-模型策略将 GM、Director、Memory、Active Context Manager 和领域 Analyzer 等逻辑职责与具体模型解耦。模型是可替换执行能力，不是战役状态的一部分。
+模型策略将 GM、Director、Memory 和 Information 等逻辑职责与具体模型解耦。系统不为每个领域设置独立 Analyzer；Information 的事实解释与上下文规划也可以共享模型，但使用不同任务契约。模型是可替换执行能力，不是战役状态的一部分。
 
 ## 能力登记
 
