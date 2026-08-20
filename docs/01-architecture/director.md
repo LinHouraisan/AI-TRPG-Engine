@@ -10,19 +10,44 @@ Director 主要回答：
 
 Director 不是世界状态的所有者，也不是剧情节点的执行者。正式节点变化必须由 Scenario Runtime 验证并提交。
 
+Director 不是每次从完整剧本重新开始分析的无状态第二 GM。Scenario Runtime 先以确定性 Story Monitor 汇总受影响节点、结构可达性、线索覆盖和推进停滞等变化；Director 只在这些结构化变化仍存在语义或因果缺口时读取最小相关 Canon，并增量更新可重建的 Director Frontier。
+
 ## 调用时机
 
-Director 不在每个回合同步调用。Runtime 首先检查确定性触发条件，只在需要语义或因果分析的重要变化发生时调用，例如：
+Director 不在每个回合同步调用。Runtime 和 Scenario Runtime 首先处理节点条件、明确替代路径、时间阈值、线索数量与结构可达性；只有剩余问题需要语义或因果分析时才调用 Director，例如：
 
 - 获得、失去或破坏关键线索；
 - 关键 NPC 死亡、失踪、背叛或改变阵营；
 - 关键地点无法进入或被永久改变；
-- ScenarioNode 的前置、完成或失败条件发生变化；
-- 原定剧情路径失效或玩家进入未预设路线；
-- 玩家长时间没有获得有效推进；
-- 场景结束，需要评估后续可用节点。
+- ScenarioNode 的结构条件变化后，叙事上是否仍合理无法由程序判断；
+- 所有作者定义的路径均受阻，需要寻找有来源的替代机会；
+- 玩家公开目标与现有剧情线发生语义偏离；
+- 玩家长时间没有有效推进，且结构化线索覆盖检查无法解释原因；
+- 场景结束后存在尚未评估的重要剧情变化。
 
 普通对话、常规观察和没有改变剧情条件的行动不会触发 Director。
+
+多个相邻触发应按受影响节点和状态版本合并，不为同一变化重复调用。普通评估在后台为后续回合准备；路径修复只在现有剧情确实失去合理入口时提高优先级，但仍不阻塞当前 GM。Director 尚未完成时，GM 可以建立不推进关键节点的稳定局面。
+
+## Story Monitor 与 Director Frontier
+
+Story Monitor 是 Scenario Runtime 的确定性派生视图，不调用模型。它至少维护：
+
+- 本次提交新解锁、完成、失败或跳过的节点；
+- 条件发生变化和结构上仍可达的节点；
+- 当前没有入口的剧情线和线索覆盖缺口；
+- 距离上次有效推进的回合数；
+- 受影响的实体、依赖键、事件和状态版本。
+
+Director Frontier 是可删除重建的派生状态，用于避免重复阅读完整 Canon 和反复提出相同建议。它至少记录：
+
+- `based_on_state_version` 与 `last_assessed_event_id`；
+- 当前活跃、受阻和休眠的剧情线；
+- 开放机会、未解决威胁和线索覆盖缺口；
+- 玩家已经明确或由可追源记忆支持的当前目标；
+- 尚未采用、已采用、已过期和已拒绝的建议引用。
+
+每次 Director 只读取新的重要事件、Story Monitor 变化、旧 Frontier、直接受影响的 Canon 片段，以及相关实体和记忆。Frontier 不是权威剧情状态，不满足版本、来源或分支要求时必须丢弃并重建。
 
 ## 职责
 
@@ -125,11 +150,24 @@ Director 输出 `director_proposal`，至少包含：
 - `trigger_event_ids`：触发分析的已提交事件；
 - `affected_node_ids`：受影响的剧情节点；
 - `assessment`：路径成立、受阻或失效的判断与原因；
-- `proposals`：带来源实体和必要条件的适应方案；
+- `frontier_update`：对活跃剧情线、受阻原因、威胁和覆盖缺口的增量更新；
+- `opportunities`：有限数量、带来源和生命周期的适应机会；
 - `gm_guidance`：允许交给 GM 的叙事机会和禁止透露事项。
 - `preload_hints`：建议 Information AI 提前准备的实体、事件、地点、线索及其概率和依据。
 
 输出必须区分已发生事实、未来预测、状态变化候选、预加载提示和 GM 建议，不能包含直接数据库写入指令。GM 建议在经过 Visibility Policy 过滤前不得进入 GM 上下文；预加载提示是否执行由 Information AI、Context Broker 和预算共同决定。
+
+每个 `StoryOpportunity` 至少包含：
+
+- `opportunity_id`、类型和受影响节点；
+- `trigger_event_ids` 与其他 `source_refs`；
+- 当前成立理由、必要条件和允许使用的场景；
+- `valid_from_state_version`、过期条件和明确的失效键；
+- 可交给 GM 的机会描述与禁止透露事项；
+- 建议预加载的实体和信息范围；
+- `pending`、`accepted`、`rejected`、`expired` 或 `superseded` 状态。
+
+Opportunity 是派生建议，不是已发生事件。Runtime 在每次构建 GM 上下文前重新检查状态版本、必要条件、失效键、场景与可见范围；不再成立的建议自动过期，不得继续交给 GM。同一来源和目标的等价建议应去重，不能因重复分析不断累积。
 
 ## 禁止职责
 
@@ -148,6 +186,8 @@ Director 不负责：
 ## 失败处理
 
 - Director 调用失败时记录待处理任务；除非当前行动直接依赖其结果，否则不阻塞普通回合；
+- Frontier 过期或损坏时从 StoryProgress、Story Monitor、事件和有效建议重建，不修改权威剧情状态；
+- Opportunity 过期、条件不再成立或来源被更正时标记失效，不继续进入 GM 上下文；
 - 输出无法通过 schema 校验时丢弃候选并重试，不修改状态；
 - 候选与领域约束或 Scenario Canon 冲突时拒绝候选并记录原因；
 - 无法找到合理替代路径时，允许节点失败、休眠或进入替代结局；

@@ -79,7 +79,7 @@ fallback 必须由用户预先配置，不能静默把内容发给另一供应�
 
 预算检查顺序：模型 contextWindow → 任务 maxInput → 用户单回合警戒 → 用户月度提醒。超限时要求 Context Broker 裁剪；仍超限返回 `AI_CONTEXT_TOO_LARGE`。后台任务可延迟，不挤占前台并发槽。
 
-调度优先级固定为：当前 GM → 当前回合必需的规则与信息请求 → 下一回合必要上下文准备 → Information AI 语义预取 → `memory.extract` → `memory.consolidate`。Provider 并发、速率额度和本地算力必须为当前 GM 预留；后台任务不得仅因已经排队而阻止新的前台任务启动。
+调度优先级固定为：当前 GM → 当前回合必需的规则与信息请求 → 已确认无可行入口的 Director 路径修复 → 下一回合必要上下文准备 → Information AI 语义预取 → 普通 Director Frontier 评估 → `memory.extract` → `memory.consolidate`。Provider 并发、速率额度和本地算力必须为当前 GM 预留；包括路径修复在内的后台任务不得仅因已经排队而阻止新的前台任务启动。
 
 单并发 Provider 或本地模型采用空闲调度：检测到前台空闲后才启动 Memory；新 GM 请求到达时延后尚未开始的 Memory。只有 Provider 明确支持安全取消时才中断运行中的后台生成，否则应通过限制批次输入与输出预算控制最长占用时间。云端并发 Provider 可以运行独立后台槽，但达到限流或预算警戒时首先暂停 Memory。
 
