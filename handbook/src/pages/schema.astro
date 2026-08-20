@@ -1,0 +1,23 @@
+---
+import Doc from "../layouts/Doc.astro";
+import SchemaSheet from "../components/SchemaSheet.astro";
+import { schemas } from "../data/schemas";
+---
+
+<Doc title="数据结构">
+  <h1>数据结构</h1>
+  <p class="lead">
+    程序读的是英文键名，人看的则是中文的含义和例子；键名不会出现在玩家界面上。
+  </p>
+  {
+    schemas.map((schema) => (
+      <section id={schema.id}>
+        <h2>
+          {schema.title}
+          <a class="schema-link" href={schema.href}>见专页</a>
+        </h2>
+        <SchemaSheet id={schema.id} />
+      </section>
+    ))
+  }
+</Doc>

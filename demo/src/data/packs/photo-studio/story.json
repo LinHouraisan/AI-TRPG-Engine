@@ -1,0 +1,12 @@
+[
+  {
+    "id": "node.open_cabinet",
+    "title": "打开显影柜",
+    "doneWhen": { "unlocked": "lock.cabinet" }
+  },
+  {
+    "id": "node.read_print",
+    "title": "读懂相片背面",
+    "doneWhen": { "all": [{ "flag": "print.read" }, { "known": "fact.not_a_customer" }] }
+  }
+]

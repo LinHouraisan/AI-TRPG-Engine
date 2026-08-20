@@ -1,0 +1,17 @@
+[
+  {
+    "id": "lock.cabinet",
+    "title": "显影柜锁",
+    "at": "loc.darkroom",
+    "skill": "开锁",
+    "difficulty": "regular",
+    "opens": "item.wet_print",
+    "minutes": { "ok": 2, "fail": 2 },
+    "text": {
+      "ok": "锈屑掉在水槽边上。锁梁松开的时候，柜门自己弹开一条缝，潮气扑出来。",
+      "fail": "铁片在锁孔里打滑，柜门闷响一声，红灯跟着晃了晃。",
+      "fumble": "你手上较了劲，锁没开，铁片反倒嵌进去，拔不出来了。",
+      "alreadyOpen": "显影柜已经开着。"
+    }
+  }
+]

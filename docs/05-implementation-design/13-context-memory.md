@@ -95,3 +95,5 @@ FTS5 索引只保存允许检索的 summary，并能从 memory/event 重建。
 错误码：`CONTEXT_REQUIRED_SOURCE_MISSING`、`CONTEXT_BUDGET_EXCEEDED`、`CONTEXT_VISIBILITY_DENIED`、`CONTEXT_STALE`、`MEMORY_SOURCE_INVALID`、`MEMORY_CONFLICTED`、`MEMORY_JOB_FAILED`。
 
 测试覆盖可见性矩阵、必需项不可裁剪、token 边界、缓存失效、双缓冲原子切换、Memory 提交后自动上浮、语义原文完整性、fact delta 可追源性、处理游标幂等、批次重叠不重复、extract/consolidate 分离、单并发前台优先、无来源拒绝、冲突优先级、FTS/关系索引删除后重建。Context 构建本地部分 P95 < 200 ms（不含后台 AI 排序），Memory 或 Information AI 失败不阻塞回合。普通 RP 和已预取场景默认使用一次 GM Chat；监控 GM 上下文补查率、预取命中率、未使用预取 Token 占比、Information AI 准备延迟、Memory 处理滞后、积压 Token 和前台被后台阻塞次数，后者必须为零。
+
+Demo 调试面板（默认关）只展示 current/preparing、retention 计数和 Memory 游标，不另开查询口。

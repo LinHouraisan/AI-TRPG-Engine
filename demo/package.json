@@ -1,0 +1,36 @@
+{
+  "name": "ai-trpg-engine-demo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "bun@1.3.13",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit",
+    "pack:lint": "bun scripts/pack-lint.ts",
+    "card:check": "bun scripts/card-check.ts",
+    "kernel:check": "bun scripts/kernel-check.ts",
+    "architecture:check": "bun scripts/architecture-check.ts",
+    "keeper:check": "bun scripts/keeper-check.ts",
+    "store:check": "bun scripts/store-check.ts",
+    "smoke": "bun scripts/pack-lint.ts && bun scripts/smoke.ts && bun scripts/kernel-check.ts && bun scripts/architecture-check.ts && bun scripts/keeper-check.ts"
+  },
+  "dependencies": {
+    "@sqlite.org/sqlite-wasm": "^3.53.0-build1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/bun": "^1.3.14",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4"
+  }
+}

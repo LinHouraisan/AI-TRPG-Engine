@@ -1,0 +1,136 @@
+---
+const data = {
+  switches: [
+    { id: "sw.alarm", name: "女房东已警戒", on: false },
+    { id: "sw.lock", name: "书桌锁已开", on: false },
+    { id: "sw.taken", name: "账本已取走", on: false },
+  ],
+  variable: { id: "var.minutes", name: "屋里过了几分钟", value: 0 },
+  events: [
+    {
+      id: "ev.landlady",
+      name: "女房东",
+      pages: [
+        { page: 1, when: "事件开关「女房东已警戒」关", description: "楼梯平台织毛衣", test: (s) => !s["sw.alarm"] },
+        { page: 2, when: "事件开关「女房东已警戒」开", description: "站在门厅警戒", test: (s) => s["sw.alarm"] },
+      ],
+    },
+    {
+      id: "ev.desk",
+      name: "书桌",
+      pages: [
+        { page: 1, when: "独立开关 A 关", description: "锁着，账本拿不到", test: (s) => !s["sw.lock"] },
+        { page: 2, when: "独立开关 A 开，且「账本已取走」关", description: "锁开了，账本可取", test: (s) => s["sw.lock"] && !s["sw.taken"] },
+        { page: 3, when: "事件开关「账本已取走」开", description: "空书桌", test: (s) => s["sw.taken"] },
+      ],
+    },
+  ],
+};
+---
+
+<div class="demo" id="switch-board" data-pack={JSON.stringify({
+  switches: data.switches,
+  variable: data.variable,
+  events: data.events.map((ev) => ({
+    id: ev.id,
+    name: ev.name,
+    pages: ev.pages.map((p) => ({ page: p.page, when: p.when, description: p.description })),
+  })),
+})}>
+  <div class="demo-toolbar">
+    <button type="button" class="ghost" data-reset>全部关上</button>
+    <span class="step-label">点一下开关试试。事件会采用出现条件成立、且页码最大的那一页。</span>
+  </div>
+  <div class="switch-layout">
+    <section>
+      <h3>事件开关</h3>
+      <div data-switches></div>
+      <h3 style="margin-top:1rem">变量</h3>
+      <div class="var-row">
+        <span>屋里过了几分钟</span>
+        <button type="button" class="ghost" data-min="-">−</button>
+        <b data-minutes>0</b>
+        <button type="button" class="ghost" data-min="+">+</button>
+      </div>
+      <p class="step-label" style="margin:0.4rem 0 0">只要变量达到 3 并且开锁失败，条件就会把「女房东已警戒」打开；开关本身仍然只有开和关两种状态。</p>
+    </section>
+    <section>
+      <h3>事件页</h3>
+      <div data-events></div>
+    </section>
+  </div>
+</div>
+
+<script>
+  const root = document.getElementById("switch-board");
+  if (root) {
+    const pack = JSON.parse(root.dataset.pack ?? "{}");
+    const state = Object.fromEntries(pack.switches.map((s) => [s.id, false]));
+    let minutes = 0;
+
+    function landladyPage() {
+      return state["sw.alarm"] ? 2 : 1;
+    }
+    function deskPage() {
+      if (state["sw.taken"]) return 3;
+      if (state["sw.lock"]) return 2;
+      return 1;
+    }
+
+    function draw() {
+      const swBox = root.querySelector("[data-switches]");
+      swBox.innerHTML = pack.switches
+        .map((s) => {
+          const on = state[s.id];
+          return `<div class="sw-row">
+            <span>${s.name}</span>
+            <span class="sw-pair">
+              <button type="button" class="${on ? "ghost" : "on"}" data-sw="${s.id}" data-on="0">关</button>
+              <button type="button" class="${on ? "on" : "ghost"}" data-sw="${s.id}" data-on="1">开</button>
+            </span>
+          </div>`;
+        })
+        .join("");
+      root.querySelector("[data-minutes]").textContent = String(minutes);
+
+      const evBox = root.querySelector("[data-events]");
+      const current = { "ev.landlady": landladyPage(), "ev.desk": deskPage() };
+      evBox.innerHTML = pack.events
+        .map((ev) => {
+          const now = current[ev.id];
+          const pages = ev.pages
+            .map(
+              (p) =>
+                `<div class="ev-page ${p.page === now ? "on" : ""}">
+                  <span class="kicker">第 ${p.page} 页${p.page === now ? " · 当前" : ""}</span>
+                  <p class="step-label" style="margin:0.25rem 0 0">内容描述 · ${p.description}</p>
+                  <p class="step-label" style="margin:0.2rem 0 0">出现条件 · ${p.when}</p>
+                </div>`,
+            )
+            .join("");
+          return `<article class="ev-card"><h4>${ev.name}</h4>${pages}</article>`;
+        })
+        .join("");
+    }
+
+    root.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-sw]");
+      if (btn) {
+        state[btn.dataset.sw] = btn.dataset.on === "1";
+        draw();
+        return;
+      }
+      const min = e.target.closest("[data-min]");
+      if (min) {
+        minutes = Math.max(0, minutes + (min.dataset.min === "+" ? 1 : -1));
+        draw();
+      }
+    });
+    root.querySelector("[data-reset]")?.addEventListener("click", () => {
+      for (const key of Object.keys(state)) state[key] = false;
+      minutes = 0;
+      draw();
+    });
+    draw();
+  }
+</script>

@@ -1,0 +1,32 @@
+appId: com.linhouraisan.ai-trpg-engine
+productName: AI TRPG Engine
+copyright: Copyright © 2026
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - package.json
+  - node_modules/better-sqlite3/**/*
+extraResources:
+  - from: dist/renderer
+    to: renderer
+  - from: ../demo/src/data/packs
+    to: packs
+asar: true
+asarUnpack:
+  - node_modules/better-sqlite3/**/*
+win:
+  artifactName: ${productName}-${version}-win-x64.${ext}
+  target:
+    - target: portable
+      arch: [x64]
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: AI TRPG Engine
+electronVersion: 37.3.1

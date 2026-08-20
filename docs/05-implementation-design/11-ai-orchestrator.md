@@ -88,3 +88,5 @@ fallback 必须由用户预先配置，不能静默把内容发给另一供应�
 错误码：`AI_ROUTE_NOT_CONFIGURED`、`AI_CAPABILITY_MISSING`、`AI_CONTEXT_TOO_LARGE`、`AI_TIMEOUT`、`AI_RATE_LIMITED`、`AI_AUTH_FAILED`、`AI_QUOTA_EXHAUSTED`、`AI_MODEL_NOT_FOUND`、`AI_OUTPUT_INVALID`、`AI_CONTENT_REFUSED`、`AI_CANCELLED`。
 
 契约测试覆盖每任务 schema、Prompt 区域隔离、repair、fallback 授权、取消、usage、流中断和脱敏。评测集检查行动目标、隐藏信息、无来源变化、提交结果服从和中文叙事质量。
+
+实现侧可提供默认关闭的 JobTrace：观察当前任务走了程序、模型还是跳过。打开调试不改变调度优先级，也不把后台任务拉上热路径。

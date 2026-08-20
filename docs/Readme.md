@@ -11,6 +11,7 @@
 3. 按需要深入 GM、Director、上下文、Runtime 与 Memory 等组件。
 4. 阅读数据文档，理解状态、事件、关系、存档与分支的权威性边界。
 5. 阅读 AI 策略和具体游戏领域文档，为原型或实现设计提供约束。
+6. 落地 V1.0 时阅读 [模块实现设计](05-implementation-design/README.md)。00–04 是逻辑基线；05 是 V1 的物理绑定（Draft），会锁进程、IPC、DDL 和分发目标。
 
 ## 产品
 
@@ -56,23 +57,36 @@
 
 ## V1.0 模块实现设计
 
-以下文档把已确认的产品、逻辑架构和技术基线细化到模块接口、SQLite DDL、状态机、错误码、测试与验收要求：
+状态一律 `Draft`。把 00–04 的逻辑基线细化到模块接口、SQLite DDL、状态机、错误码、测试与验收。阅读顺序与依赖见 [索引](05-implementation-design/README.md)。
 
-- [模块实现设计索引](05-implementation-design/README.md)
 - [公共约定与跨模块类型](05-implementation-design/00-common-conventions.md)
 - [Desktop Shell](05-implementation-design/01-desktop-shell.md)
 - [IPC Contracts](05-implementation-design/02-ipc-contracts.md)
 - [Persistence](05-implementation-design/03-persistence.md)
 - [事件与权威状态](05-implementation-design/04-event-state.md)
+- [Character 与 NPC](05-implementation-design/05-character-npc-domain.md)
+- [Item](05-implementation-design/06-item-domain.md)
+- [Scene 与 World](05-implementation-design/07-scene-world-domain.md)
+- [Rule Engine](05-implementation-design/08-rule-engine.md)
+- [Scenario Runtime](05-implementation-design/09-scenario-runtime.md)
 - [Application Runtime](05-implementation-design/10-application-runtime.md)
 - [AI Orchestrator](05-implementation-design/11-ai-orchestrator.md)
+- [Model Providers](05-implementation-design/12-model-providers.md)
+- [Context 与 Memory](05-implementation-design/13-context-memory.md)
 - [Content System](05-implementation-design/14-content-system.md)
 - [Player UI](05-implementation-design/15-player-ui.md)
-- [测试与发布](05-implementation-design/17-observability-testing.md)
+- [Platform Security](05-implementation-design/16-platform-security.md)
+- [Observability 与 Testing](05-implementation-design/17-observability-testing.md)
+- [Release 与 Compatibility](05-implementation-design/18-release-compatibility.md)
+
+索引第 3 条指向 `docs/superpowers/specs/2026-08-19-v1-technical-design.md`。仓库里目前没有这份文件；在补上之前，以本目录 05 与 00–04 为准。
+
+拉入本目录 05 之后到代码跟上的这一段，记在 [PRD/07-从文档对齐到现在.md](../PRD/07-从文档对齐到现在.md)。
 
 ## 文档约束
 
-- 文档描述逻辑职责与边界，不提前锁定技术栈和部署拓扑。
+- `docs/00-product/` 到 `docs/04-game-system/` 描述逻辑职责与边界，不把每个组件拆成独立进程。
+- `docs/05-implementation-design/` 是 V1.0 的物理绑定。外壳已锁定 Electron（`electron/`），模块正文状态仍是 Draft。冲突先改上层文档，禁止在代码里静默改权威边界。
 - 已确认的产品原则与总体架构优先于局部候选方案。
 - 具体字段、容量、模型调用频率和性能目标应由原型实验或后续实现规格决定。
 - 若设计发生变化，应同步更新受影响文档并明确记录新的权威边界，避免让叙事、缓存、摘要或派生索引成为竞争事实源。

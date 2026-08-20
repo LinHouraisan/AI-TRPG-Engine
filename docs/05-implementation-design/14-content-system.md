@@ -107,7 +107,9 @@ error 阻止安装；warning 允许用户确认；generated 标识 AI 补充。�
 
 CharacterCardImporter、WorldBookImporter、PlainTextImporter 输出统一 `ImportDraft`，逐字段记录 sourcePath、rawValueHash、mappedField、confidence 和 generated。原始文件哈希与副本保留。用户确认后才规范化安装。
 
-文字卡 Prompt 属于不可信内容，放入模型数据区；不得创建 system/developer 指令、工具定义、文件路径或网络请求。
+**现状（原型，未接内容库）：** `demo/src/cards/` 是 CharacterCardImporter 的窄切片。读 SillyTavern 卡，输出 `CardImportDraft`（`capability: character_card`，`confirmed: false`）。自动车把属性／技能标成 `generated`。世界书只用来加关键词技能，不单独走 WorldBookImporter。没有 staging、没有 `installed_content`、没有用户确认后的安装。详见 `demo/src/cards/README.md`。
+
+文字卡 Prompt 属于不可信内容，放入模型数据区；不得创建 system/developer 指令、工具定义、文件路径或网络请求。原型把 `system_prompt`／`post_history_instructions` 留在 `untrustedPrompts`，不升指令。
 
 ## 8. 内容库与绑定
 

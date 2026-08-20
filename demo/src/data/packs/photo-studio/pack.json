@@ -1,0 +1,23 @@
+{
+  "id": "photo-studio",
+  "title": "雨夜照相馆",
+  "version": "0.1.0",
+  "kind": "one-shot",
+  "rules": "percentile",
+  "opening": "雨从五点就没停。照相馆的霓虹只亮着「相」字，另外两根灯管坏了。门没上闩，里面一股乙酸味，红灯从门帘缝里漏出来。你是来取上周拍的证件照的，可预约簿上你的名字被人划掉了。",
+  "investigator": {
+    "id": "pc.chenmu",
+    "name": "陈牧",
+    "occupation": "小学教员",
+    "hp": 10,
+    "san": 60,
+    "sanMax": 99,
+    "startAt": "loc.shop",
+    "skills": {
+      "开锁": 40,
+      "侦查": 55,
+      "话术": 50,
+      "聆听": 45
+    }
+  }
+}

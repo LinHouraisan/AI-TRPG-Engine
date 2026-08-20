@@ -1,0 +1,32 @@
+---
+import Doc from "../layouts/Doc.astro";
+import SaveStack from "../components/SaveStack.astro";
+import SchemaSheet from "../components/SchemaSheet.astro";
+---
+
+<Doc title="存档与读档" wide>
+  <h1>存档与读档</h1>
+  <p class="lead">把聊天窗口截下来并不能当作存档。真正能接着玩的那一份，至少要包含当前状态和事件记录。点「按记录重放」，可以看到七条事件是怎样叠成读档后的状态的。</p>
+  <SaveStack />
+  <h2>存档里有什么</h2>
+  <ol>
+    <li><strong>当前状态</strong>：房间里的人与物、调查员卡、标记、已知线索、时间。</li>
+    <li><strong>事件记录</strong>：只追加、不改写的记录，内容包括行动与检定、条件触发和房规。</li>
+    <li><strong>摘要</strong>（可选）：用事件编号指回记录本身。摘要不能代替记录。</li>
+  </ol>
+  <h2>存档怎么写</h2>
+  <SchemaSheet id="save" />
+  <h2>事件记录怎么写</h2>
+  <SchemaSheet id="event" />
+  <div class="split">
+    <div class="callout ok">
+      <strong>读档</strong>
+      <p>先恢复当前状态，然后才能按事件记录重放；重放之后，数据卡必须与状态保持一致。</p>
+    </div>
+    <div class="callout warn">
+      <strong>不能当正式读档</strong>
+      <p>如果只有聊天记录、没有事件记录，就提示「不能作为正式读档」。</p>
+    </div>
+  </div>
+  <p>导出和存档用的是同一份数据。导入之后，平面图、数据卡，以及下一步可进行的关键情节都要能对得上。</p>
+</Doc>

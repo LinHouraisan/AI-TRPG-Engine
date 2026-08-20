@@ -1,0 +1,140 @@
+---
+import "../styles/doc.css";
+import { groups, pages } from "../data/nav";
+
+const { title, wide = false } = Astro.props;
+const path = Astro.url.pathname.replace(/\/$/, "") || "/";
+const idx = pages.findIndex((p) => p.href === path);
+const prev = idx > 0 ? pages[idx - 1] : null;
+const next = idx >= 0 && idx < pages.length - 1 ? pages[idx + 1] : null;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · AI TRPG Engine 手册</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="wrap">
+      <nav class="toc" id="site-toc" aria-label="目录">
+        <div class="toc-bar">
+          <a class="brand" href="/">AI TRPG Engine 手册</a>
+          <button type="button" class="toc-toggle" id="toc-toggle" aria-expanded="true" aria-controls="toc-body">
+            收起
+          </button>
+        </div>
+        <div class="toc-body" id="toc-body">
+          <p class="toc-note">文中的例子统一取自《寄宿公寓账本》</p>
+          {
+            groups.map((group) => (
+              <div class="toc-group">
+                <p class="toc-group-title">{group.title}</p>
+                {group.pages.map((p) => (
+                  <a href={p.href} aria-current={p.href === path ? "page" : undefined}>
+                    {p.title}
+                  </a>
+                ))}
+              </div>
+            ))
+          }
+        </div>
+      </nav>
+      <div class="doc-col">
+        <main class:list={["doc", { wide }]} id="doc-main">
+          <slot />
+          <nav class="page-turn" aria-label="上下页">
+            {prev ? <a href={prev.href}>上一篇 · {prev.title}</a> : <span />}
+            {next ? <a href={next.href}>下一篇 · {next.title}</a> : <span />}
+          </nav>
+        </main>
+        <nav class="page-toc" id="page-toc" aria-label="本页"></nav>
+      </div>
+    </div>
+    <script>
+      const KEY = "ai-trpg-engine-toc-collapsed";
+      const root = document.getElementById("site-toc");
+      const btn = document.getElementById("toc-toggle");
+      const collapsed = localStorage.getItem(KEY) === "1";
+
+      function apply(on) {
+        document.body.classList.toggle("toc-collapsed", on);
+        if (btn) {
+          btn.setAttribute("aria-expanded", on ? "false" : "true");
+          btn.textContent = on ? "目录" : "收起";
+        }
+        localStorage.setItem(KEY, on ? "1" : "0");
+      }
+
+      apply(collapsed);
+      btn?.addEventListener("click", () => {
+        apply(!document.body.classList.contains("toc-collapsed"));
+      });
+      root?.querySelector(".brand")?.addEventListener("click", (e) => {
+        if (document.body.classList.contains("toc-collapsed")) {
+          e.preventDefault();
+          apply(false);
+        }
+      });
+
+      const main = document.getElementById("doc-main");
+      const pageToc = document.getElementById("page-toc");
+      if (main && pageToc) {
+        const skip = ".demo, .card, .callout, .page-turn, .sheet-block";
+        const heads = [...main.querySelectorAll("h1, h2, h3")].filter(
+          (h) => !h.closest(skip),
+        );
+        const used = new Set();
+        function slug(text) {
+          const base =
+            text.replace(/\s+/g, "-").replace(/[^\w\u4e00-\u9fff-]/g, "") || "节";
+          let id = base;
+          let n = 2;
+          while (used.has(id) || document.getElementById(id)) id = `${base}-${n++}`;
+          used.add(id);
+          return id;
+        }
+        const items = heads.map((h) => {
+          const clone = h.cloneNode(true);
+          clone.querySelector(".schema-link")?.remove();
+          const text = clone.textContent.trim();
+          if (!h.id) h.id = slug(text);
+          return { id: h.id, text, lv: Number(h.tagName[1]) };
+        });
+        if (!items.length) {
+          pageToc.hidden = true;
+        } else {
+          pageToc.innerHTML =
+            `<p class="toc-group-title">本页</p>` +
+            items
+              .map(
+                (item) =>
+                  `<a href="#${item.id}" data-lv="${item.lv}">${item.text}</a>`,
+              )
+              .join("");
+          const links = [...pageToc.querySelectorAll("a")];
+          const map = new Map(items.map((item, i) => [item.id, links[i]]));
+          const io = new IntersectionObserver(
+            (entries) => {
+              const hit = entries
+                .filter((e) => e.isIntersecting)
+                .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+              if (!hit) return;
+              links.forEach((a) => a.removeAttribute("aria-current"));
+              map.get(hit.target.id)?.setAttribute("aria-current", "true");
+            },
+            { rootMargin: "0px 0px -70% 0px", threshold: [0, 0.25, 1] },
+          );
+          heads.forEach((h) => io.observe(h));
+        }
+      }
+    </script>
+  </body>
+</html>

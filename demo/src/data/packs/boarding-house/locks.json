@@ -1,0 +1,17 @@
+[
+  {
+    "id": "lock.desk",
+    "title": "书桌锁",
+    "at": "loc.study",
+    "skill": "开锁",
+    "difficulty": "regular",
+    "opens": "item.ledger",
+    "minutes": { "ok": 2, "fail": 3 },
+    "text": {
+      "ok": "你屏住呼吸，锁芯咔的一声让开了。书桌锁开了。",
+      "fail": "锁芯只往回弹。你手上使不上劲，反而磕出一声响。",
+      "fumble": "铁片在锁孔里一崴，断了半截。声音在空屋子里传得很远。",
+      "alreadyOpen": "书桌锁已经开着了。"
+    }
+  }
+]

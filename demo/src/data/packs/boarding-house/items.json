@@ -1,0 +1,31 @@
+[
+  {
+    "id": "item.desk_lock",
+    "title": "书桌锁",
+    "aliases": ["锁", "挂锁", "黄铜锁", "书桌", "写字台"],
+    "at": "loc.study",
+    "observed": "一把黄铜挂锁，锁体发黑，锁孔边缘有新划痕——最近有人动过。",
+    "keeperNote": "女房东每天擦一次锁，划痕是她自己留下的。",
+    "observeGrants": "fact.lock_scratched",
+    "portable": false
+  },
+  {
+    "id": "item.ledger",
+    "title": "黑色账本",
+    "aliases": ["账本", "本子", "册子", "黑账本"],
+    "at": "loc.study",
+    "observed": "硬壳账本，边角磨得发白，中间夹着一张对折的纸。",
+    "keeperNote": "夹页写着码头交易的时间，读到就掉 5 点理智。",
+    "portable": true,
+    "lockedBy": "lock.desk",
+    "takeText": "你把黑色账本塞进外套内袋。",
+    "read": {
+      "text": "夹页上是一行铅笔字：码头，凌晨三点。字迹被人描过两遍。",
+      "afterText": "你盯着那行字看了太久，胃里一阵发凉。",
+      "grants": "fact.dock_time",
+      "sanLoss": 5,
+      "flag": "ledger.read",
+      "alreadyText": "夹页你已经读过了。"
+    }
+  }
+]

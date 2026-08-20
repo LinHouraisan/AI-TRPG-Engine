@@ -1,0 +1,9 @@
+[
+  {
+    "id": "npc.landlady",
+    "title": "女房东",
+    "startAt": "loc.landing",
+    "line": "「这个点了还不歇着？楼上的水管一响，我可管不了。」",
+    "keeperNote": "她知道账本在书房，也知道码头那笔交易；被问急了会先否认。"
+  }
+]
