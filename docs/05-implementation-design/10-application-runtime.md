@@ -28,7 +28,9 @@ type TurnStatus =
 type TurnRoute = "clarification" | "roleplay_only" | "structured_action" | "free_action" | "mechanical_action";
 ```
 
-明确 UI command 优先；自由文本先使用确定性启发式识别纯控制命令，再由 GM interpretation task 分类。高风险目标、不可逆选择、多个合法规则或未知实体进入 clarification。澄清前不掷骰、不提交。
+明确 UI command 优先。自由文本只使用确定性启发式识别纯控制命令、结构化建议行动的明确复述，以及行动和目标均唯一的简单机械行动；匹配不确定时退出快路径，不作宽松猜测。
+
+其余自由文本直接进入单一 `gm.handle_free_turn` 任务。GM 可以直接生成纯角色扮演回复，也可以在同一任务的工具调用闭环中返回 `clarification`、`context_request` 或 `action_intent`。意图理解是该闭环的中间阶段，不是读取完整上下文的独立前置模型调用。高风险目标、不可逆选择、多个合法规则或未知实体进入 clarification；澄清前不掷骰、不提交。
 
 ## 4. 用例接口
 
@@ -48,19 +50,22 @@ interface TurnApplicationService {
 
 1. 校验 controller、branch 和 expectedStateVersion；
 2. 以 commandId 幂等创建 Turn；
-3. 路由并构建 ContextPackage；
-4. 必要时调用 `gm.interpret_action`；
-5. 解析实体和 Rule；
-6. Rule Engine/RNG 产生 Decision；
-7. 领域模块产生事件和 mutations；
-8. Scenario Runtime 扩展 bundle；
-9. Validator 执行 schema、来源、权限、领域和跨领域检查；
-10. Persistence 原子提交；
-11. 发布 stateVersion changed；
-12. 调用 `gm.narrate_result`；
-13. 保存 NarrationRecord；
-14. 发布后台 Memory/Director jobs；
-15. 标记 completed。
+3. 确定性快路由，并为所选路径构建最小 ContextPackage；
+4. 结构化建议行动和高置信度简单机械行动直接进入步骤 6；其余自由文本启动一次 GM 任务；
+5. GM 直接返回角色扮演叙述、澄清，或在同一工具调用闭环中返回 `context_request` / `action_intent`；
+6. 对机械行动解析实体和 Rule；
+7. Rule Engine/RNG 产生 Decision；
+8. 领域模块产生事件和 mutations；
+9. Scenario Runtime 扩展 bundle；
+10. Validator 执行 schema、来源、权限、领域和跨领域检查；
+11. Persistence 原子提交；
+12. 发布 stateVersion changed；
+13. GM 根据已提交的公开结果生成叙述；自由文本复用步骤 4 启动的同一任务，快路径在此调用一次 GM；
+14. 保存 NarrationRecord；
+15. 发布后台 Memory/Director jobs；
+16. 标记 completed。
+
+单一 GM 任务表示一次逻辑任务。工具调用前后可以分段生成，但不得拆成两个各自读取完整上下文的固定 GM 调用。
 
 ## 6. Validator
 
@@ -86,6 +91,8 @@ interface TurnApplicationService {
 
 - 每条状态转换和非法转换；
 - 五条路由路径；
+- 普通 RP 只调用一次 GM，且不先执行独立意图分类；
+- 复杂机械自由行动在同一 GM 工具调用闭环中完成意图表达和结果叙述；
 - 每阶段崩溃恢复；
 - 提交后 narration 重试不重复 RNG/事件；
 - command 幂等；

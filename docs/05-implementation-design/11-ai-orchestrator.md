@@ -23,13 +23,15 @@ interface AiTaskDefinition<TInput, TOutput> {
 }
 ```
 
-正式任务：`gm.interpret_action`、`gm.narrate_result`、`director.analyze_progress`、`context.rank_relevance`、`memory.extract`、`memory.summarize`、`content.import`、`content.validate`。
+正式任务：`gm.handle_free_turn`、`gm.narrate_result`、`director.analyze_progress`、`context.rank_relevance`、`memory.extract`、`memory.summarize`、`content.import`、`content.validate`。
+
+`gm.handle_free_turn` 处理无法由确定性快路径确认的自由文本。它可以直接完成纯角色扮演回复，也可以通过 `clarification`、`context_request` 或 `action_intent` 进入工具调用闭环，并在程序提交结果后继续生成叙述。意图理解和结果叙述是同一逻辑任务的阶段，不注册为两个各自读取完整上下文的固定任务。`gm.narrate_result` 仅用于已经由确定性快路径提交的结果，以及提交后叙述失败的独立重试。
 
 ## 2. 默认限制
 
 | 任务 | timeout | attempts | output tokens | 阻塞回合 |
 |---|---:|---:|---:|---:|
-| interpret_action | 45 s | 2 | 1500 | 是 |
+| handle_free_turn | 90 s | 2 | 3000 | 是 |
 | narrate_result | 90 s | 2 | 3000 | 是（事实已提交） |
 | director | 60 s | 2 | 2000 | 否 |
 | rank_relevance | 20 s | 1 | 1000 | 可降级 |
@@ -44,7 +46,7 @@ interface AiTaskDefinition<TInput, TOutput> {
 
 顺序固定：系统安全与角色契约 → 任务指令 → 输出 schema → ContextPackage → 用户输入 → 已提交结果。内容包 Prompt 只能进入标记的数据区，不能覆盖系统契约。
 
-每次任务保存 promptVersion、context manifest、模型 ID、参数、usage 和结果状态；默认不保存完整 Prompt/响应正文到普通日志。必要的 Candidate 和正式 Narration 进入战役记录。
+每次逻辑任务保存 promptVersion、context manifest、模型 ID、参数、累计 usage 和结果状态；默认不保存完整 Prompt/响应正文到普通日志。带工具调用的任务可以包含多个供应商请求，但共享同一 modelTaskId，并记录各阶段 usage，不能按阶段重复装配完整 ContextPackage。必要的 Candidate 和正式 Narration 进入战役记录。
 
 ## 4. 执行接口
 
