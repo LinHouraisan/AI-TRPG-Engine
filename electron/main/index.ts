@@ -1,4 +1,5 @@
 import { app, BrowserWindow, shell } from "electron";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { systemClock } from "./clock";
 import { createComposition } from "./composition";
@@ -6,6 +7,8 @@ import { registerIpc } from "./ipc/register";
 import { LifecycleState } from "./lifecycle";
 import { resolvePaths } from "./paths";
 import { openBetterSqlite } from "./persist/better-sqlite";
+import { withKeeperConfig } from "./model-config";
+import { probeKeeper } from "../../demo/src/keeper/client";
 
 const clock = systemClock();
 const lifecycle = new LifecycleState();
@@ -51,7 +54,7 @@ function createWindow(): void {
   lifecycle.set("ready");
 }
 
-function boot(): void {
+async function boot(): Promise<void> {
   lifecycle.set("initializing_platform");
   if (!process.env.AI_TRPG_PACKS_DIR) {
     process.env.AI_TRPG_PACKS_DIR = app.isPackaged
@@ -68,6 +71,24 @@ function boot(): void {
   });
   lifecycle.set("registering_ipc");
   registerIpc(composition, lifecycle, clock);
+  if (process.argv.includes("--provider-smoke")) {
+    const outputPath = process.argv.find((arg) => arg.startsWith("--provider-smoke-output="))?.slice("--provider-smoke-output=".length);
+    let result: unknown;
+    try {
+      const configured = withKeeperConfig(composition.settings, composition.credentials, (config) => probeKeeper(config));
+      if (!configured.ok) throw new Error(configured.error.code);
+      result = { ok: true, probe: await configured.value };
+    } catch (error) {
+      result = { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+    const serialized = JSON.stringify(result);
+    console.log(`PROVIDER_SMOKE ${serialized}`);
+    if (outputPath) writeFileSync(outputPath, serialized, "utf8");
+    composition.dispose();
+    composition = null;
+    app.quit();
+    return;
+  }
   createWindow();
 }
 
@@ -82,7 +103,7 @@ if (!locked) {
       window.focus();
     }
   });
-  app.whenReady().then(boot).catch((error: unknown) => {
+  app.whenReady().then(() => boot()).catch((error: unknown) => {
     lifecycle.set("startup_failed");
     console.error(error);
     app.quit();

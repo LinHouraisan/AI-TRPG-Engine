@@ -472,7 +472,12 @@ export function registerIpc(
   handle("checkpoint:restoreCopy", (payload) => {
     const parsed = z.object({ campaignId:z.string(), checkpointId:z.string(), label:z.string().min(1) }).strict().safeParse(payload);
     if (!parsed.success) return fail({ code:"IPC_INVALID_REQUEST", messageKey:"ipc.invalid_request", retryable:false });
-    const opened = composition.campaigns.ensureOpen(asCampaignId(parsed.data.campaignId)); return opened.ok ? ok(restoreCheckpointCopy(opened.value, parsed.data.checkpointId, parsed.data.label, clock.nowIso())) : opened;
+    const campaignId = asCampaignId(parsed.data.campaignId);
+    const opened = composition.campaigns.ensureOpen(campaignId);
+    if (!opened.ok) return opened;
+    const restored = restoreCheckpointCopy(opened.value, parsed.data.checkpointId, parsed.data.label, clock.nowIso());
+    composition.campaigns.setBranchHead(campaignId, restored.branchId, restored.stateVersion);
+    return ok(restored);
   });
 
   handle("content:list", () => unavailable());

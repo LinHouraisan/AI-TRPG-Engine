@@ -16,6 +16,7 @@ import {
   insertCatalog,
   listCatalog,
   setCatalogHead,
+  setCatalogBranchHead,
   setTrashed,
   touchOpened,
 } from "../persist/catalog";
@@ -177,6 +178,10 @@ export class CampaignService {
 
   setHead(campaignId: CampaignId, version: number): void {
     setCatalogHead(this.settings, campaignId, version, this.clock.nowIso());
+  }
+
+  setBranchHead(campaignId: CampaignId, branchId: string, version: number): void {
+    setCatalogBranchHead(this.settings, campaignId, branchId, version, this.clock.nowIso());
   }
 
   dispose(): void {

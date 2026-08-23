@@ -13,6 +13,7 @@
     "gold": "bun scripts/gold-path.ts",
     "cloud:check": "bun scripts/cloud-provider-check.ts",
     "checkpoint:check": "bun scripts/checkpoint-check.ts",
+    "demo:e2e": "bun scripts/mist-harbor-e2e.ts",
     "package:win": "bun scripts/package-win.ts",
     "content:pack": "bun scripts/scenario-pack.ts pack boarding-house",
     "content:check": "bun scripts/scenario-pack.ts check"

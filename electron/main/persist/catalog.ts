@@ -99,6 +99,19 @@ export function setCatalogHead(
   );
 }
 
+export function setCatalogBranchHead(
+  settings: Driver,
+  campaignId: CampaignId,
+  branchId: string,
+  headStateVersion: number,
+  now: string,
+): void {
+  settings.run(
+    "UPDATE campaign_catalog SET head_branch_id = ?, head_state_version = ?, updated_at = ? WHERE campaign_id = ?",
+    [branchId, headStateVersion, now, campaignId],
+  );
+}
+
 export function touchOpened(settings: Driver, campaignId: CampaignId, now: string): void {
   settings.run(
     "UPDATE campaign_catalog SET last_opened_at = ?, updated_at = ? WHERE campaign_id = ?",

@@ -12,6 +12,7 @@ dist
 dist-ssr
 electron/dist-content/
 electron/release/
+electron/release-*/
 *.local
 .tanstack
 .vite
