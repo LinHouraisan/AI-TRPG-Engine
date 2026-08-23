@@ -379,7 +379,7 @@ export function registerIpc(
     })
     .strict();
 
-  handle("turn:submitAction", (payload) => {
+  handle("turn:submitAction", (payload, event) => {
     const parsed = submitSchema.safeParse(payload);
     if (!parsed.success) {
       return fail({
@@ -388,13 +388,22 @@ export function registerIpc(
         retryable: false,
       });
     }
-    return composition.turns.submit({
-      ...parsed.data,
-      campaignId: asCampaignId(parsed.data.campaignId),
-      branchId: asBranchId(parsed.data.branchId),
-      actorId: parsed.data.actorId as SubmitActionInput["actorId"],
-      expectedStateVersion: parsed.data.expectedStateVersion as SubmitActionInput["expectedStateVersion"],
-    });
+    return composition.turns.submit(
+      {
+        ...parsed.data,
+        campaignId: asCampaignId(parsed.data.campaignId),
+        branchId: asBranchId(parsed.data.branchId),
+        actorId: parsed.data.actorId as SubmitActionInput["actorId"],
+        expectedStateVersion: parsed.data.expectedStateVersion as SubmitActionInput["expectedStateVersion"],
+      },
+      {
+        onCandidate: (candidate) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send(OPERATION_EVENT_CHANNEL, { type: "check.candidate", ...candidate });
+          }
+        },
+      },
+    );
   });
 
   handle("timeline:page", (payload) => {

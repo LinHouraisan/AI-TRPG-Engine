@@ -1,5 +1,6 @@
 import { keeperNarrate } from "../../../demo/src/keeper/keeper";
 import type { InvestigatorProfile } from "../../../demo/src/character/types";
+import { checkCandidateForIntent, publishCheckCandidate } from "../../../demo/src/engine/check-preview";
 import { handleFreeTurn, newFreeTurnTaskId } from "../../../demo/src/keeper/free-turn";
 import { playTurn } from "../../../demo/src/engine/play-turn";
 import { recentFromTurn } from "../../../demo/src/engine/recent";
@@ -7,7 +8,7 @@ import { commit, replay } from "../../../demo/src/engine/runtime";
 import { initialState } from "../../../demo/src/engine/state";
 import { route } from "../../../demo/src/engine/router";
 import { storyMonitor } from "../../../demo/src/engine/story-monitor";
-import type { GameEvent, GameState, Intent } from "../../../demo/src/engine/types";
+import type { CheckCandidate, GameEvent, GameState, Intent } from "../../../demo/src/engine/types";
 import { runAfterCommit } from "../../../demo/src/ai/jobs";
 import { emptyContextStore } from "../../../demo/src/engine/context-store";
 import { sheetDraft, type SheetApplyInput } from "../../../demo/src/cards/apply";
@@ -79,7 +80,10 @@ export class TurnService {
     return this.finishing.get(operationId) ?? Promise.resolve();
   }
 
-  async submit(input: SubmitActionInput): Promise<Result<{ operationId: string; turnId: string }>> {
+  async submit(
+    input: SubmitActionInput,
+    hooks: { onCandidate?: (candidate: { commandId: string; intent: Intent; check: CheckCandidate }) => void } = {},
+  ): Promise<Result<{ operationId: string; turnId: string }>> {
     const text = input.text.trim();
     if (text.length < 1 || text.length > 20_000) {
       return fail({
@@ -146,6 +150,13 @@ export class TurnService {
           // Keep unclear: playTurn will ask a clarification without committing.
         }
       }
+    }
+    const candidate = checkCandidateForIntent({ intent, state, profile });
+    if (candidate && hooks.onCandidate) {
+      await publishCheckCandidate({
+        candidate,
+        onCandidate: (check) => hooks.onCandidate?.({ commandId: input.commandId, intent, check }),
+      });
     }
     const outcome = playTurn({
       text,

@@ -4,6 +4,7 @@ import type {
   InvestigatorAllocation,
   InvestigatorProfile,
 } from "../../demo/src/character/types";
+import type { CheckCandidate, Intent } from "../../demo/src/engine/types";
 
 export interface ApiVersion {
   major: 1;
@@ -93,6 +94,7 @@ export interface OperationView {
 
 export type OperationEvent =
   | { type: "operation.status"; operation: OperationView }
+  | { type: "check.candidate"; commandId: string; intent: Intent; check: CheckCandidate }
   | {
       type: "narration.delta";
       operationId: OperationId | string;
@@ -117,6 +119,7 @@ export const OPERATION_EVENT_CHANNEL = "operation:event";
 
 const OPERATION_EVENT_TYPES = new Set([
   "operation.status",
+  "check.candidate",
   "narration.delta",
   "narration.completed",
   "campaign.changed",

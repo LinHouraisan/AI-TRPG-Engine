@@ -1,7 +1,7 @@
 import { evaluate } from "./conditions";
 import { applyEvent } from "./events";
 import { assertKernel } from "./kernel";
-import { pack } from "./pack";
+import { pack, type Pack } from "./pack";
 import type { EventDraft, GameEvent, GameState } from "./types";
 
 /**
@@ -13,8 +13,10 @@ export function commit(params: {
   log: GameEvent[];
   drafts: EventDraft[];
   turnId: string;
+  scenarioPack?: Pack;
 }): { state: GameState; log: GameEvent[]; committed: GameEvent[] } {
   const { state, log, turnId } = params;
+  const scenarioPack = params.scenarioPack ?? pack;
   if (params.drafts.length === 0) {
     return { state, log, committed: [] };
   }
@@ -26,14 +28,14 @@ export function commit(params: {
 
   // 条件是在提交之后、对着已经提交的状态判定的；
   // 需要立即触发的，并进同一笔提交，不另开一个回合。
-  const triggered = evaluateConditions(next);
+  const triggered = evaluateConditions(next, scenarioPack);
   for (const draft of triggered) {
     next = applyEvent(next, draft.payload);
   }
 
   const all = [...params.drafts, ...triggered];
   next = { ...next, version: state.version + 1, turn: state.turn + 1 };
-  assertKernel(next);
+  assertKernel(next, scenarioPack);
 
   const committed: GameEvent[] = all.map((draft, index) => ({
     ...draft,
@@ -52,14 +54,14 @@ export function commit(params: {
  * 确定性触发：条件与剧情节点都写在资料包里，这里只负责对着已提交的状态求值。
  * 一条条件的效果可能让另一条成立，所以要跑到不动点为止（设上限防止作者写出死循环）。
  */
-function evaluateConditions(state: GameState): EventDraft[] {
+function evaluateConditions(state: GameState, scenarioPack: Pack): EventDraft[] {
   const drafts: EventDraft[] = [];
   let projected = state;
 
   for (let pass = 0; pass < 5; pass += 1) {
     const round: EventDraft[] = [];
 
-    for (const condition of pack.conditions) {
+    for (const condition of scenarioPack.conditions) {
       const firedFlag = `${condition.id}.fired`;
       if (condition.once && projected.flags[firedFlag]) continue;
       if (!evaluate(condition.when, projected)) continue;
@@ -82,7 +84,7 @@ function evaluateConditions(state: GameState): EventDraft[] {
       }
     }
 
-    for (const node of pack.story) {
+    for (const node of scenarioPack.story) {
       const doneFlag = `${node.id}.done`;
       const failedFlag = `${node.id}.failed`;
       if (!projected.flags[doneFlag] && evaluate(node.doneWhen, projected)) {

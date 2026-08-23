@@ -119,6 +119,11 @@ const QUERY_RULES: { topic: QueryTopic; words: string[] }[] = [
 
 const INVENTORY_LOOSE = ["有什么东西", "有哪些东西", "有些什么", "有啥", "我有什么"];
 const LOOKING_AROUND = ["四周", "周围", "房间"];
+const ROOM_OBSERVATIONS = [
+  "看看四周", "查看四周", "观察四周", "打量四周", "瞧瞧四周",
+  "看看周围", "查看周围", "观察周围", "打量周围", "瞧瞧周围",
+  "看看房间", "查看房间", "观察房间", "打量房间", "瞧瞧房间",
+];
 
 function hit(text: string, words: string[]): boolean {
   return words.some((word) => text.includes(word));
@@ -173,15 +178,12 @@ export function route(text: string, state: GameState): Intent {
   if (hit(input, OBSERVE_WORDS)) {
     if (named.length === 1) return { kind: "observe", target: named[0] };
     // 「看看四周」这类，就当成观察房间本身
-    if (
-      named.length === 0 &&
-      (input.includes("四周") || input.includes("周围") || input.includes("房间"))
-    ) {
+    if (named.length === 0 && ROOM_OBSERVATIONS.includes(input.replace(/^我(?:先|想)?/, ""))) {
       return { kind: "observe", target: state.pcAt };
     }
   }
 
-  if (hit(input, TALK_WORDS)) {
+  if (hit(input.replaceAll("问题", ""), TALK_WORDS)) {
     const people = pack.npcs.filter((npc) => input.includes(npc.title));
     if (people.length <= 1) return { kind: "talk", text: input };
   }

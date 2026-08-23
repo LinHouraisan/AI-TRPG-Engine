@@ -7,6 +7,7 @@ import { commit } from "./runtime";
 import { storyMonitor, type StoryMonitorView } from "./story-monitor";
 import type { CheckResult, GameEvent, GameState, Intent } from "./types";
 import type { InvestigationProfile } from "./investigation";
+import type { Pack } from "./pack";
 
 export type PlayTurnOutcome =
   | { kind: "query"; text: string; intent: Intent; classification: TurnClassification }
@@ -35,6 +36,7 @@ export function playTurn(params: {
   intent?: Intent;
   profile?: InvestigationProfile | null;
   turnId?: string;
+  scenarioPack?: Pack;
 }): PlayTurnOutcome {
   const intent = params.intent ?? route(params.text, params.state);
   const classification = classifyIntent(intent);
@@ -48,7 +50,13 @@ export function playTurn(params: {
   }
 
   const turnId = params.turnId ?? `turn-${params.state.turn + 1}`;
-  const resolved = resolveIntent({ intent, state: params.state, turnId, profile: params.profile });
+  const resolved = resolveIntent({
+    intent,
+    state: params.state,
+    turnId,
+    profile: params.profile,
+    scenarioPack: params.scenarioPack,
+  });
   if (resolved.clarification) {
     return {
       kind: "clarification",
@@ -63,6 +71,7 @@ export function playTurn(params: {
     log: params.log,
     drafts: resolved.drafts,
     turnId,
+    scenarioPack: params.scenarioPack,
   });
   const narration = narrate({
     state: result.state,

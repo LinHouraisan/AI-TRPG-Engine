@@ -1,5 +1,5 @@
 import { suggest } from "./narrate";
-import { pack, packIndex } from "./pack";
+import { pack, packIndex, type Pack } from "./pack";
 import { investigationProfileFromState, resolveInvestigation, type InvestigationProfile } from "./investigation";
 import { rngFrom, rollFor } from "./rng";
 import { resolveCheck } from "./rules";
@@ -15,6 +15,7 @@ export function resolveIntent(params: {
   state: GameState;
   turnId: string;
   profile?: InvestigationProfile | null;
+  scenarioPack?: Pack;
 }): { drafts: EventDraft[]; check?: CheckResult; clarification?: string } {
   const { intent, state, turnId } = params;
   const here = visibleItemsInRoom(state, state.pcAt);
@@ -219,12 +220,15 @@ export function resolveIntent(params: {
       if (!profile) {
         return { drafts: [], clarification: "请先确认调查员，再进行这项调查。" };
       }
+      const scenarioPack = params.scenarioPack ?? pack;
       return resolveInvestigation({
         state,
         profile,
         id: intent.investigationId,
         skill: intent.skill,
-        rng: rngFrom(`${pack.ref}:${turnId}:${intent.investigationId}`),
+        stateVersion: intent.stateVersion,
+        rng: rngFrom(`${scenarioPack.ref}:${turnId}:${intent.investigationId}`),
+        scenarioPack,
       });
     }
 

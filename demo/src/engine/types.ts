@@ -40,6 +40,14 @@ export type CheckResult = {
   ok: boolean;
 };
 
+export type CheckCandidate = {
+  title: string;
+  skill: string;
+  skillValue: number;
+  difficulty: CheckResult["difficulty"];
+  threshold: number;
+};
+
 /**
  * 事件载荷一律是纯数据，可以直接 JSON 序列化。
  * 只有这样，存档、读档和重放才是真的，而不是靠叙述凑出来的。
@@ -108,7 +116,7 @@ export type Intent =
   | { kind: "take"; item: string }
   | { kind: "read"; item: string }
   | { kind: "talk"; text: string }
-  | { kind: "investigation"; investigationId: string; skill: string; approach: string }
+  | { kind: "investigation"; investigationId: string; skill: string; approach: string; stateVersion: number }
   | { kind: "free_action"; text: string }
   | { kind: "query"; topic: QueryTopic }
   | { kind: "unclear"; text: string };

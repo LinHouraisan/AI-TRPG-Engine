@@ -11,14 +11,13 @@ import { recentFromTurn } from "@/engine/recent";
 import { storyMonitor } from "@/engine/story-monitor";
 import { emptyContextStore, type ContextStore } from "@/engine/context-store";
 import { narrate, openingLine, suggest } from "@/engine/narrate";
-import { pack, packIndex } from "@/engine/pack";
-import { allowedInvestigationSkills, visibleInvestigations } from "@/engine/investigation";
+import { pack } from "@/engine/pack";
+import { checkCandidateForIntent, publishCheckCandidate } from "@/engine/check-preview";
 import { playTurn } from "@/engine/play-turn";
 import { route } from "@/engine/router";
-import { thresholdFor } from "@/engine/rules";
 import { replay, stateHash } from "@/engine/runtime";
 import { initialState } from "@/engine/state";
-import type { CheckResult, EventDraft, GameEvent, GameState, Intent } from "@/engine/types";
+import type { CheckCandidate, CheckResult, EventDraft, GameEvent, GameState, Intent } from "@/engine/types";
 import { loadConfig, saveConfig, type KeeperConfig } from "@/keeper/config";
 import type { ContextUsage } from "@/keeper/context";
 import { handleFreeTurn, narrateFreeTurn, newFreeTurnTaskId } from "@/keeper/free-turn";
@@ -89,13 +88,7 @@ function fromStored(message: StoredMessage, index: number): Message | null {
 }
 
 /** 门槛可以公开；点数和成败在掷出之前绝不能出现。 */
-export type PendingCheck = {
-  title: string;
-  skill: string;
-  skillValue: number;
-  difficulty: "regular" | "hard" | "extreme";
-  threshold: number;
-};
+export type PendingCheck = CheckCandidate;
 
 export type PendingAction = {
   label: string;
@@ -179,45 +172,6 @@ type Desk = {
   state: GameState;
   log: GameEvent[];
 };
-
-/**
- * 门槛只问 rules，不走裁定。裁定会立刻带出点数；
- * 界面如果等它，等待条就会变成剧透。
- */
-function pendingCheckFor(
-  intent: Intent,
-  state: GameState,
-  profile: InvestigatorProfile | null,
-): PendingCheck | null {
-  if (intent.kind === "unlock") {
-    const lock = packIndex.lock(intent.lock);
-    if (!lock || lock.at !== state.pcAt || state.unlocked[lock.id]) return null;
-    const skillValue = state.skills[lock.skill];
-    if (skillValue == null) return null;
-    return {
-      title: lock.title,
-      skill: lock.skill,
-      skillValue,
-      difficulty: lock.difficulty,
-      threshold: thresholdFor(skillValue, lock.difficulty),
-    };
-  }
-  if (intent.kind !== "investigation" || !profile) return null;
-  const investigation = visibleInvestigations(state, profile)
-    .find((candidate) => candidate.id === intent.investigationId);
-  if (!investigation || !allowedInvestigationSkills(investigation, profile).includes(intent.skill)) {
-    return null;
-  }
-  const skillValue = profile.skills[intent.skill];
-  if (skillValue == null) return null;
-  return {
-    title: investigation.title,
-    skill: intent.skill,
-    skillValue,
-    difficulty: investigation.difficulty,
-    threshold: thresholdFor(skillValue, investigation.difficulty),
-  };
-}
 
 function investigatorFromState(state: GameState): InvestigatorProfile | null {
   const creation = pack.manifest.creation;
@@ -554,13 +508,18 @@ export function useSession() {
       const { state, log } = authoritative.current;
       setBusy(true);
       setNarrationDraft(null);
-      const candidateCheck = pendingCheckFor(intent, state, investigatorProfile);
-      dispatchCheckPreview({ type: "began", check: candidateCheck });
-      // 路由之后、掷骰之前：只公开意图和门槛，绝不带点数。
-      setPending({
-        label: spoken,
-        intent,
-        check: candidateCheck,
+      const candidateCheck = checkCandidateForIntent({ intent, state, profile: investigatorProfile });
+      if (!candidateCheck) {
+        dispatchCheckPreview({ type: "began", check: null });
+        setPending({ label: spoken, intent, check: null });
+      }
+      // 路由之后、掷骰之前：先公开意图和门槛，并跨一个任务让 React 落笔。
+      await publishCheckCandidate({
+        candidate: candidateCheck,
+        onCandidate: (check) => {
+          dispatchCheckPreview({ type: "began", check });
+          setPending({ label: spoken, intent, check });
+        },
       });
       const remote = tryDesktopApi();
       if (remote && campaignId && branchId) {
@@ -569,6 +528,10 @@ export function useSession() {
         let baseLog = log;
         let activeBranch = branchId;
         let view: Awaited<ReturnType<typeof submitDesktopTurn>>;
+        const onCandidate = (check: CheckCandidate, candidateIntent: Intent) => {
+          dispatchCheckPreview({ type: "began", check });
+          setPending({ label: spoken, intent: candidateIntent, check });
+        };
         try {
           view = await submitDesktopTurn({
             api: remote,
@@ -577,6 +540,7 @@ export function useSession() {
             expectedStateVersion: baseState.version,
             text: spoken,
             onDraft: (draft) => setNarrationDraft(draft),
+            onCandidate,
           });
           if ("error" in view && view.errorCode === "TURN_VERSION_CONFLICT") {
             const synced = await loadDesktopCampaign(remote, campaignId);
@@ -601,6 +565,7 @@ export function useSession() {
                 expectedStateVersion: baseState.version,
                 text: spoken,
                 onDraft: (draft) => setNarrationDraft(draft),
+                onCandidate,
               });
             }
           }

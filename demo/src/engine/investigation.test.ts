@@ -47,6 +47,7 @@ test("invalid investigation proposals clarify before consuming RNG", () => {
       profile: candidate.who,
       id: candidate.id,
       skill: candidate.skill,
+      stateVersion: candidate.state.version,
       rng: () => {
         rolled = true;
         return 0;
@@ -66,6 +67,7 @@ test("investigation resolution emits a deterministic check and authored success 
     profile: profile(),
     id: "investigation.conductor-leverage",
     skill: "侦查",
+    stateVersion: state.version,
     rng: () => 0.49,
     scenarioPack: mist,
   });
@@ -81,6 +83,7 @@ test("investigation resolution emits a deterministic check and authored success 
     profile: profile(),
     id: "investigation.conductor-leverage",
     skill: "侦查",
+    stateVersion: state.version,
     rng: () => 0.79,
     scenarioPack: mist,
   });
@@ -90,4 +93,30 @@ test("investigation resolution emits a deterministic check and authored success 
     { type: "flag_set", flag: "investigation.conductor-leverage.failed", value: true },
   ]);
   expect(failure.drafts[1]?.narration).toBe("你只看到许澄一遍遍整理票夹；他察觉你的注视，把话题重新推回上车检票。");
+});
+
+test("investigation rejects a stale intent state version before consuming RNG", () => {
+  const state = {
+    ...initialState(),
+    pcAt: "loc.platform",
+    npcAt: { "npc.conductor": "loc.platform" },
+    skills: profile().skills,
+    lifeHistoryId: "history.archive-correspondent",
+  };
+  let rolled = false;
+  const result = resolveInvestigation({
+    state,
+    profile: profile(),
+    id: "investigation.conductor-leverage",
+    skill: "侦查",
+    stateVersion: state.version + 1,
+    rng: () => {
+      rolled = true;
+      return 0;
+    },
+    scenarioPack: mist,
+  });
+  expect(result.clarification).toContain("状态版本");
+  expect(result.drafts).toEqual([]);
+  expect(rolled).toBe(false);
 });

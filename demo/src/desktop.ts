@@ -1,5 +1,6 @@
 /** Electron preload 挂上的桥。浏览器里没有，Demo 继续走自己的 wasm 库。 */
 import type { InvestigatorAllocation, InvestigatorProfile } from "./character/types";
+import type { CheckCandidate, Intent } from "./engine/types";
 
 export type DesktopResult<T> =
   | { ok: true; value: T }
@@ -36,6 +37,7 @@ export type OperationEvent =
       type: "operation.status";
       operation: { operationId: string; status: string; progress: { phase: string } };
     }
+  | { type: "check.candidate"; commandId: string; intent: Intent; check: CheckCandidate }
   | { type: "narration.delta"; operationId: string; turnId: string; sequence: number; text: string }
   | { type: "narration.completed"; operationId: string; turnId: string; narrationId: string }
   | { type: "campaign.changed"; campaignId: string; branchId: string; stateVersion: number };

@@ -87,6 +87,7 @@ test("searching for leverage on the conductor selects an authored Spot Hidden ch
     investigationId: "investigation.conductor-leverage",
     skill: "侦查",
     approach: "寻找能让列车员开口的细节",
+    stateVersion: 0,
   });
 });
 

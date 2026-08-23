@@ -227,6 +227,7 @@ function toIntent(
           investigationId: investigation.id,
           skill: reply.skill,
           approach: reply.approach,
+          stateVersion: state.version,
         }
       : undefined;
   }

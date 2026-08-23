@@ -38,9 +38,16 @@ export function resolveInvestigation(params: {
   profile: InvestigationProfile;
   id: string;
   skill: string;
+  stateVersion: number;
   rng: () => number;
   scenarioPack?: Pack;
 }): { drafts: EventDraft[]; check?: CheckResult; clarification?: string } {
+  if (params.stateVersion !== params.state.version) {
+    return {
+      drafts: [],
+      clarification: `调查候选基于状态版本 ${params.stateVersion}，当前版本是 ${params.state.version}，请重新说明行动。`,
+    };
+  }
   const scenarioPack = params.scenarioPack ?? pack;
   const investigation = visibleInvestigations(params.state, params.profile, scenarioPack)
     .find((candidate) => candidate.id === params.id);
