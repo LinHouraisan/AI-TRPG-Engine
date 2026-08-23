@@ -9,6 +9,8 @@ import { JobTracePanel } from "@/ui/JobTrace";
 import { InvestigatorSheet } from "@/ui/InvestigatorSheet";
 import { KeeperSettings } from "@/ui/KeeperSettings";
 import { ModelSettings } from "@/ui/ModelSettings";
+import { FirstRunFlow } from "@/ui/FirstRunFlow";
+import { EndingSummary } from "@/ui/EndingSummary";
 import { NarrationColumn } from "@/ui/NarrationColumn";
 import { PackSelector } from "@/ui/PackSelector";
 import { composeWait } from "@/ui/pending";
@@ -120,6 +122,8 @@ export default function App() {
         </aside>
 
         <main className="flex min-h-0 min-w-0 flex-col rounded-lg border border-line/60 bg-ink-2/40">
+          <FirstRunFlow version={session.state.version} />
+          <EndingSummary state={session.state} />
           <div
             className={`min-h-0 flex-1 flex-col overflow-hidden ${
               mobilePane === "narration" ? "flex" : "hidden"

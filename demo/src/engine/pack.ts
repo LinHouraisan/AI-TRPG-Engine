@@ -346,7 +346,9 @@ export function loadPackById(id: string): Pack {
 
 function resolveActivePackId(): string {
   const remembered = readRememberedPackId();
-  if (!remembered) return defaultPackId;
+  if (!remembered) {
+    return typeof window !== "undefined" || isElectronProcess() ? "mist-harbor" : defaultPackId;
+  }
   try {
     loadPackById(remembered);
     return remembered;

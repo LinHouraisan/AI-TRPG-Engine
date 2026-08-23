@@ -4,8 +4,8 @@
  {"id":"node.find_old_line","title":"发现不存在的终点","doneWhen":{"known":"fact.old_line"}},
  {"id":"node.learn_fuel","title":"理解列车的代价","doneWhen":{"known":"fact.memory_fuel"}},
  {"id":"node.find_shen","title":"找到沈鹭","doneWhen":{"pcAt":"loc.terminus"}},
- {"id":"node.ending_rescue","title":"结局：带沈鹭归来","doneWhen":{"all":[{"flag":"ending.rescue"},{"known":"fact.return_method"}]}},
- {"id":"node.ending_loop","title":"结局：完成循环","doneWhen":{"all":[{"flag":"ending.loop"},{"known":"fact.loop_method"}]}},
- {"id":"node.ending_break","title":"结局：斩断旧线","doneWhen":{"all":[{"flag":"ending.break"},{"known":"fact.break_cost"}]}},
- {"id":"node.ending_bargain","title":"隐藏结局：以记忆换门","doneWhen":{"all":[{"flag":"ending.bargain"},{"known":"fact.bargain"}]}}
+ {"id":"node.ending_rescue","title":"结局：带沈鹭归来","doneWhen":{"all":[{"pcAt":"loc.terminus"},{"has":"item.ticket48"},{"known":"fact.return_method"}]}},
+ {"id":"node.ending_loop","title":"结局：完成循环","doneWhen":{"all":[{"has":"item.roster"},{"known":"fact.loop_method"},{"known":"fact.child_name"}]}},
+ {"id":"node.ending_break","title":"结局：斩断旧线","doneWhen":{"all":[{"has":"item.emergency_hammer"},{"has":"item.brake_key"},{"known":"fact.break_cost"}]}},
+ {"id":"node.ending_bargain","title":"隐藏结局：以记忆换门","doneWhen":{"all":[{"pcAt":"loc.terminus"},{"known":"fact.bargain"},{"known":"fact.child_name"}]}}
 ]
