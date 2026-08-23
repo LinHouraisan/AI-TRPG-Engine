@@ -11,6 +11,7 @@ import { KeeperSettings } from "@/ui/KeeperSettings";
 import { ModelSettings } from "@/ui/ModelSettings";
 import { FirstRunFlow } from "@/ui/FirstRunFlow";
 import { EndingSummary } from "@/ui/EndingSummary";
+import { CheckpointTests } from "@/ui/CheckpointTests";
 import { NarrationColumn } from "@/ui/NarrationColumn";
 import { PackSelector } from "@/ui/PackSelector";
 import { composeWait } from "@/ui/pending";
@@ -79,6 +80,7 @@ export default function App() {
         <div className="flex shrink-0 items-center gap-1.5 text-[13px] md:gap-2">
           <CardImport onConfirm={(draft) => void session.confirmCard(draft)} />
           <ModelSettings />
+          <CheckpointTests campaignId={session.campaignId} branchId={session.branchId} />
           {!desktop ? <KeeperSettings config={session.config} onChange={session.setConfig} /> : null}
           <button
             type="button"

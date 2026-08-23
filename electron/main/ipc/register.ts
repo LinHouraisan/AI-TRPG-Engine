@@ -21,6 +21,7 @@ import type { LifecycleState } from "../lifecycle";
 import { withKeeperConfig } from "../model-config";
 import { probeKeeper } from "../../../demo/src/keeper/client";
 import { summarizeModelUsage } from "../model-usage";
+import { createCheckpoint, listCheckpoints, restoreCheckpointCopy } from "../persist/checkpoints";
 
 const MAX_BYTES = 1024 * 1024;
 
@@ -457,6 +458,21 @@ export function registerIpc(
     }
     composition.turns.unsubscribe(parsed.data.subscriptionId);
     return ok(undefined);
+  });
+
+  handle("checkpoint:list", (payload) => {
+    const parsed = idSchema.safeParse(payload); if (!parsed.success) return fail({ code:"IPC_INVALID_REQUEST", messageKey:"ipc.invalid_request", retryable:false });
+    const opened = composition.campaigns.ensureOpen(asCampaignId(parsed.data.campaignId)); return opened.ok ? ok(listCheckpoints(opened.value)) : opened;
+  });
+  handle("checkpoint:create", (payload) => {
+    const parsed = z.object({ campaignId:z.string(), branchId:z.string(), label:z.string().min(1), purpose:z.string().optional(), steps:z.array(z.string()).optional(), expected:z.unknown().optional(), actual:z.unknown().optional(), passed:z.boolean().optional() }).strict().safeParse(payload);
+    if (!parsed.success) return fail({ code:"IPC_INVALID_REQUEST", messageKey:"ipc.invalid_request", retryable:false });
+    const opened = composition.campaigns.ensureOpen(asCampaignId(parsed.data.campaignId)); return opened.ok ? ok(createCheckpoint(opened.value, { ...parsed.data, now:clock.nowIso() })) : opened;
+  });
+  handle("checkpoint:restoreCopy", (payload) => {
+    const parsed = z.object({ campaignId:z.string(), checkpointId:z.string(), label:z.string().min(1) }).strict().safeParse(payload);
+    if (!parsed.success) return fail({ code:"IPC_INVALID_REQUEST", messageKey:"ipc.invalid_request", retryable:false });
+    const opened = composition.campaigns.ensureOpen(asCampaignId(parsed.data.campaignId)); return opened.ok ? ok(restoreCheckpointCopy(opened.value, parsed.data.checkpointId, parsed.data.label, clock.nowIso())) : opened;
   });
 
   handle("content:list", () => unavailable());

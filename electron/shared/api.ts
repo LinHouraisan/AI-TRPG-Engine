@@ -235,6 +235,11 @@ export interface DesktopApi {
   content: { list(): Promise<Result<never>> };
   model: { list(): Promise<Result<never>> };
   backup: { exportCampaign(): Promise<Result<never>> };
+  checkpoint: {
+    list(input:{campaignId:CampaignId}): Promise<Result<Array<{checkpointId:string;branchId:string;stateVersion:number;eventSequence:number;label:string;createdAt:string;purpose:string|null;passed:boolean|null;stateHash:string}>>>;
+    create(input:{campaignId:CampaignId;branchId:BranchId;label:string;purpose?:string;steps?:string[];expected?:unknown;actual?:unknown;passed?:boolean}): Promise<Result<unknown>>;
+    restoreCopy(input:{campaignId:CampaignId;checkpointId:string;label:string}): Promise<Result<{branchId:string;stateVersion:number}>>;
+  };
   operation: {
     get(input: { operationId: OperationId; campaignId: CampaignId }): Promise<Result<TurnView>>;
     subscribe(input: { operationId: OperationId | string }): Promise<Result<{ subscriptionId: string }>>;
@@ -274,6 +279,9 @@ export const CHANNELS = {
   "operation:subscribe": true,
   "operation:unsubscribe": true,
   "campaign:applyCharacterCard": true,
+  "checkpoint:list": true,
+  "checkpoint:create": true,
+  "checkpoint:restoreCopy": true,
 } as const;
 
 export type Channel = keyof typeof CHANNELS;

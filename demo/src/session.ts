@@ -974,6 +974,7 @@ export function useSession() {
     storeBackend,
     storeDurable,
     storeNote,
+    campaignId,
     branchId,
     branches,
     act,

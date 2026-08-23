@@ -12,6 +12,7 @@
     "persist:check": "bun scripts/persist-check.ts",
     "gold": "bun scripts/gold-path.ts",
     "cloud:check": "bun scripts/cloud-provider-check.ts",
+    "checkpoint:check": "bun scripts/checkpoint-check.ts",
     "package:win": "bun scripts/package-win.ts",
     "content:pack": "bun scripts/scenario-pack.ts pack boarding-house",
     "content:check": "bun scripts/scenario-pack.ts check"
