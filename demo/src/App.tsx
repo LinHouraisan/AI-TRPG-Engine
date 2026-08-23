@@ -1,12 +1,13 @@
 import { useRef, useState } from "react";
 import type { GameEvent, GameState, Suggestion } from "@/engine/types";
+import { pack } from "@/engine/pack";
 import { useSession } from "@/session";
 import { CampaignDock } from "@/ui/CampaignDock";
-import { CardImport } from "@/ui/CardImport";
 import { Composer } from "@/ui/Composer";
 import { ContextUsagePanel } from "@/ui/ContextUsage";
 import { JobTracePanel } from "@/ui/JobTrace";
 import { InvestigatorSheet } from "@/ui/InvestigatorSheet";
+import { InvestigatorCreation } from "@/ui/InvestigatorCreation";
 import { KeeperSettings } from "@/ui/KeeperSettings";
 import { ModelSettings } from "@/ui/ModelSettings";
 import { FirstRunFlow } from "@/ui/FirstRunFlow";
@@ -83,7 +84,6 @@ export default function App() {
         />
 
         <div className="flex shrink-0 items-center gap-1.5 text-[13px] md:gap-2">
-          <CardImport onConfirm={(draft) => void session.confirmCard(draft)} />
           <ModelSettings />
           <CheckpointTests
             key={session.campaignId ?? "no-campaign"}
@@ -131,13 +131,28 @@ export default function App() {
       </header>
 
       <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-3 overflow-x-hidden p-3 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)_minmax(0,300px)]">
+        {!session.investigatorProfile && pack.manifest.creation ? (
+          <main className="flex min-h-0 min-w-0 flex-col rounded-lg border border-line/60 bg-ink-2/40 md:col-span-3">
+            <InvestigatorCreation
+              rules={pack.manifest.creation}
+              busy={session.busy}
+              ready={session.ready}
+              onConfirm={session.confirmInvestigator}
+            />
+          </main>
+        ) : (
+          <>
         <aside className="hidden min-h-0 min-w-0 flex-col gap-3 overflow-y-auto md:flex">
-          <InvestigatorSheet state={session.state} />
+          <InvestigatorSheet
+            state={session.state}
+            profile={session.investigatorProfile}
+            activeCheckPreview={session.activeCheckPreview}
+          />
           <RoomMap state={session.state} />
         </aside>
 
         <main className="flex min-h-0 min-w-0 flex-col rounded-lg border border-line/60 bg-ink-2/40">
-          <FirstRunFlow version={session.state.version} />
+          <FirstRunFlow version={session.state.version} confirmed={session.investigatorProfile != null} />
           <EndingSummary state={session.state} />
           <div
             className={`min-h-0 flex-1 flex-col overflow-hidden ${
@@ -155,7 +170,11 @@ export default function App() {
               mobilePane === "sheet" ? "block" : "hidden"
             }`}
           >
-            <InvestigatorSheet state={session.state} />
+            <InvestigatorSheet
+              state={session.state}
+              profile={session.investigatorProfile}
+              activeCheckPreview={session.activeCheckPreview}
+            />
           </div>
           <div
             className={`min-h-0 flex-1 overflow-y-auto p-3 md:hidden ${
@@ -208,9 +227,11 @@ export default function App() {
             onSwitch={switchTo}
           />
         </aside>
+          </>
+        )}
       </div>
 
-      <nav aria-label="桌面栏目" className="flex shrink-0 border-t border-line/60 md:hidden">
+      {session.investigatorProfile ? <nav aria-label="桌面栏目" className="flex shrink-0 border-t border-line/60 md:hidden">
         {PANES.map((pane) => (
           <button
             key={pane.id}
@@ -224,7 +245,7 @@ export default function App() {
             {pane.label}
           </button>
         ))}
-      </nav>
+      </nav> : null}
     </div>
   );
 }

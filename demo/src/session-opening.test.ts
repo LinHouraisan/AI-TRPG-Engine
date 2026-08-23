@@ -1,11 +1,34 @@
 import { expect, test } from "bun:test";
+import type { InvestigatorProfile } from "@/character/types";
 import { initialState } from "@/engine/state";
+import { pack } from "@/engine/pack";
 import { createOpening, createRestoredMessages } from "@/session";
+
+const base = initialState();
+const confirmedProfile: InvestigatorProfile = {
+  name: pack.manifest.investigator.name,
+  occupation: pack.manifest.investigator.occupation,
+  characteristics: { STR: 50, CON: 50, SIZ: 50, DEX: 50, APP: 50, INT: 50, POW: 50, EDU: 50 },
+  baseSkills: { ...base.skills },
+  occupationPoints: {},
+  interestPoints: {},
+  skills: { ...base.skills },
+  hp: base.hpMax,
+  san: base.san,
+  sanMax: base.sanMax,
+  lifeHistoryId: "history.test",
+  contentVersion: pack.manifest.version,
+};
+
+test("formal opening is absent until investigator confirmation", () => {
+  expect(createOpening(initialState(), null).map((message) => message.text).join(" "))
+    .not.toContain(pack.manifest.opening);
+});
 
 test("续场开场消息使用实际恢复版本", () => {
   const restored = { ...initialState(), version: 28, turn: 28 };
 
-  expect(createOpening(restored).every((message) => message.stateVersion === 28)).toBe(true);
+  expect(createOpening(restored, confirmedProfile).every((message) => message.stateVersion === 28)).toBe(true);
 });
 
 test("恢复分支显示前情提要和最近三个完整回合，不显示默认开场", () => {

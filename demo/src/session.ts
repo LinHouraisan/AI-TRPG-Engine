@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFreshDesktopCampaign, ensureDesktopCampaign, loadDesktopBranch, loadDesktopCampaign, loadDesktopEvents, submitDesktopTurn, tryDesktopApi } from "@/desktop-play";
 import { emptyMemory, runAfterCommit, runAfterCommitLive, traceFromJobs, type JobTrace, type MemoryState } from "@/ai";
+import { validateAllocation } from "@/character/creation";
+import type { InvestigatorAllocation, InvestigatorProfile } from "@/character/types";
 import { recentFromTurn } from "@/engine/recent";
 import { storyMonitor } from "@/engine/story-monitor";
 import { applyCharacterCard, sheetInputFromDraft } from "@/cards/apply";
@@ -11,9 +13,9 @@ import { pack, packIndex } from "@/engine/pack";
 import { playTurn } from "@/engine/play-turn";
 import { route } from "@/engine/router";
 import { thresholdFor } from "@/engine/rules";
-import { replay, stateHash } from "@/engine/runtime";
+import { commit, replay, stateHash } from "@/engine/runtime";
 import { initialState } from "@/engine/state";
-import type { CheckResult, GameEvent, GameState, Intent } from "@/engine/types";
+import type { CheckResult, EventDraft, GameEvent, GameState, Intent } from "@/engine/types";
 import { loadConfig, saveConfig, type KeeperConfig } from "@/keeper/config";
 import type { ContextUsage } from "@/keeper/context";
 import { handleFreeTurn, narrateFreeTurn, newFreeTurnTaskId } from "@/keeper/free-turn";
@@ -104,6 +106,11 @@ export type PendingAction = {
   check: PendingCheck | null;
 };
 
+export type ActiveCheckPreview =
+  | { kind: "candidate"; check: PendingCheck }
+  | { kind: "resolved"; check: CheckResult }
+  | null;
+
 export type TurnMark = {
   turnId: string;
   /** 这一回合最后一条事件的序号，回滚就回到这里 */
@@ -115,7 +122,8 @@ export type TurnMark = {
   forked: boolean;
 };
 
-export function createOpening(state: GameState): Message[] {
+export function createOpening(state: GameState, profile: InvestigatorProfile | null): Message[] {
+  if (!profile) return [];
   return [
     { id: "m0", role: "kp", text: openingLine(), stateVersion: state.version, source: "模板" },
     {
@@ -177,6 +185,113 @@ function pendingCheckFor(intent: Intent, state: GameState): PendingCheck | null 
   };
 }
 
+function investigatorFromState(state: GameState): InvestigatorProfile | null {
+  const creation = pack.manifest.creation;
+  if (
+    !creation ||
+    !state.pcCardHash ||
+    !state.pcName ||
+    !state.pcOccupation ||
+    !state.characteristics ||
+    !state.baseSkills ||
+    !state.occupationPoints ||
+    !state.interestPoints ||
+    !state.lifeHistoryId
+  ) {
+    return null;
+  }
+  return {
+    name: state.pcName,
+    occupation: state.pcOccupation,
+    characteristics: { ...state.characteristics },
+    baseSkills: { ...state.baseSkills },
+    occupationPoints: { ...state.occupationPoints },
+    interestPoints: { ...state.interestPoints },
+    skills: { ...state.skills },
+    hp: state.hpMax,
+    san: state.san,
+    sanMax: state.sanMax,
+    lifeHistoryId: state.lifeHistoryId,
+    contentVersion: creation.contentVersion,
+  };
+}
+
+function projectInvestigatorConfirmation(params: {
+  state: GameState;
+  log: GameEvent[];
+  allocation: InvestigatorAllocation;
+}): { profile: InvestigatorProfile; state: GameState; log: GameEvent[]; committed: GameEvent[] } | null {
+  const rules = pack.manifest.creation;
+  if (!rules) return null;
+  const validated = validateAllocation(rules, params.allocation);
+  if (!validated.ok) return null;
+  const history = rules.lifeHistories.find((candidate) => candidate.id === validated.profile.lifeHistoryId);
+  if (!history) return null;
+  const profile = validated.profile;
+  const drafts: EventDraft[] = [
+    {
+      payload: {
+        type: "sheet_applied",
+        name: profile.name,
+        occupation: profile.occupation,
+        hp: profile.hp,
+        hpMax: profile.hp,
+        san: profile.san,
+        sanMax: profile.sanMax,
+        skills: profile.skills,
+        cardHash: `browser:${profile.contentVersion}:${profile.name}`,
+        characteristics: profile.characteristics,
+        baseSkills: profile.baseSkills,
+        occupationPoints: profile.occupationPoints,
+        interestPoints: profile.interestPoints,
+        lifeHistoryId: profile.lifeHistoryId,
+      },
+      summary: `确认调查员「${profile.name}」。`,
+      cause: `history:${history.id}`,
+    },
+    history.initialGrant.kind === "fact"
+      ? {
+          payload: { type: "fact_known", fact: history.initialGrant.id },
+          summary: `人生经历带来已知线索「${history.initialGrant.id}」。`,
+          cause: `history:${history.id}`,
+        }
+      : {
+          payload: {
+            type: "item_moved",
+            item: history.initialGrant.id,
+            from: pack.items.find((item) => item.id === history.initialGrant.id)?.at ?? "unknown",
+            to: "inv.pc",
+          },
+          summary: `人生经历带来初始物品「${history.initialGrant.id}」。`,
+          cause: `history:${history.id}`,
+        },
+    {
+      payload: {
+        type: "relationship_established",
+        npc: history.relationship.npcId,
+        text: history.relationship.text,
+      },
+      summary: history.relationship.text,
+      cause: `history:${history.id}`,
+    },
+  ];
+  const result = commit({
+    state: params.state,
+    log: params.log,
+    drafts,
+    turnId: `confirm-investigator-${Date.now()}`,
+  });
+  return { profile, ...result };
+}
+
+async function getDesktopInvestigator(
+  api: NonNullable<ReturnType<typeof tryDesktopApi>>,
+  campaignId: string,
+): Promise<InvestigatorProfile | null> {
+  const loaded = await api.campaign.getInvestigator({ campaignId });
+  return loaded.ok ? loaded.value : null;
+}
+
 export function useSession() {
   const [presented, setPresented] = useState<Desk>(() => ({
     state: initialState(),
@@ -188,7 +303,9 @@ export function useSession() {
     log: presented.log,
   });
   const [pending, setPending] = useState<PendingAction | null>(null);
-  const [messages, setMessages] = useState<Message[]>(() => createOpening(initialState()));
+  const [investigatorProfile, setInvestigatorProfile] = useState<InvestigatorProfile | null>(null);
+  const [activeCheckPreview, setActiveCheckPreview] = useState<ActiveCheckPreview>(null);
+  const [messages, setMessages] = useState<Message[]>(() => createOpening(initialState(), null));
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [config, setConfigState] = useState<KeeperConfig>(() => loadConfig());
@@ -274,6 +391,9 @@ export function useSession() {
         if (desk) {
           setCampaignId(desk.campaign.campaignId);
           setBranchId(desk.branchId);
+          const profile = await getDesktopInvestigator(remote, desk.campaign.campaignId);
+          if (cancelled) return;
+          setInvestigatorProfile(profile);
           const storedEnabled = await remote.settings.get({ key: "keeper.enabled" });
           const storedModel = await remote.settings.get({ key: "keeper.model" });
           const storedUrl = await remote.settings.get({ key: "keeper.baseUrl" });
@@ -300,12 +420,13 @@ export function useSession() {
           if (events.length > 0) {
             const restored = replay(origin.current, events);
             adopt({ state: restored, log: events });
-            setMessages(createOpening(restored));
+            setMessages(createOpening(restored, profile));
             pushNotice(
               `已续上主进程里的上一场：重放 ${events.length} 条事件，回到版本 v${restored.version}。`,
               restored.version,
             );
           } else {
+            setInvestigatorProfile(null);
             pushNotice("主进程新开一场。事件会写进 campaign.sqlite。", 0);
           }
         }
@@ -344,12 +465,12 @@ export function useSession() {
           );
         } else {
           adopt({ state: restored, log: events });
+          const profile = investigatorFromState(restored);
+          setInvestigatorProfile(profile);
           const restoredMessages = stored
             .map((message, index) => fromStored(message, index))
             .filter((message): message is Message => message != null);
-          if (restoredMessages.length > 0) {
-            setMessages(restoredMessages);
-          }
+          setMessages(restoredMessages.length > 0 ? restoredMessages : createOpening(restored, profile));
           memoryRef.current = await opened.store.loadMemory(handle.branchId);
           pushNotice(
             `已续上上一场：重放 ${events.length} 条事件，回到版本 v${restored.version}，哈希 ${hash}。`,
@@ -357,6 +478,7 @@ export function useSession() {
           );
         }
       }
+      if (events.length === 0) setInvestigatorProfile(null);
 
       if (cancelled) return;
       await refreshBranches(handle.campaignId);
@@ -387,11 +509,13 @@ export function useSession() {
       const { state, log } = authoritative.current;
       setBusy(true);
       setNarrationDraft(null);
+      const candidateCheck = pendingCheckFor(intent, state);
+      setActiveCheckPreview(candidateCheck ? { kind: "candidate", check: candidateCheck } : null);
       // 路由之后、掷骰之前：只公开意图和门槛，绝不带点数。
       setPending({
         label: spoken,
         intent,
-        check: pendingCheckFor(intent, state),
+        check: candidateCheck,
       });
       const remote = tryDesktopApi();
       if (remote && campaignId && branchId) {
@@ -417,7 +541,9 @@ export function useSession() {
               activeBranch = synced.branchId;
               setBranchId(activeBranch);
               adopt({ state: baseState, log: baseLog });
-              setMessages(createOpening(baseState));
+              const syncedProfile = await getDesktopInvestigator(remote, campaignId);
+              setInvestigatorProfile(syncedProfile);
+              setMessages(createOpening(baseState, syncedProfile));
               lastTurn.current = null;
               memoryRef.current = emptyMemory();
               contextRef.current = emptyContextStore();
@@ -468,6 +594,7 @@ export function useSession() {
         const nextState = replay(origin.current, nextLog);
         authoritative.current = { state: nextState, log: nextLog };
         const check = view.check as import("@/engine/types").CheckResult | undefined;
+        setActiveCheckPreview(check ? { kind: "resolved", check } : null);
         const fallback = view.narration;
         const remoteIntent = (view.intent as Intent | undefined) ?? intent;
         lastTurn.current = {
@@ -545,6 +672,7 @@ export function useSession() {
       }
 
       const { state: nextState, log: nextLog, committed, check, narration: fallback } = outcome;
+      setActiveCheckPreview(check ? { kind: "resolved", check } : null);
       authoritative.current = { state: nextState, log: nextLog };
 
       const db = store.current;
@@ -815,6 +943,7 @@ export function useSession() {
       if (!db || !campaignId || busy) return;
       setBusy(true);
       setPending({ label: "切换分支", intent: null, check: null });
+      setActiveCheckPreview(null);
       try {
         const events = await db.loadEvents(target);
         const stored = await db.loadMessages(target);
@@ -822,10 +951,12 @@ export function useSession() {
 
         setBranchId(target);
         adopt({ state: restored, log: events });
+        const profile = investigatorFromState(restored);
+        setInvestigatorProfile(profile);
         const restoredMessages = stored
           .map((message, index) => fromStored(message, index))
           .filter((message): message is Message => message != null);
-        setMessages(restoredMessages.length > 0 ? restoredMessages : createOpening(restored));
+        setMessages(restoredMessages.length > 0 ? restoredMessages : createOpening(restored, profile));
         lastTurn.current = null;
         setLastUsage(null);
         setNarrationDraft(null);
@@ -849,6 +980,7 @@ export function useSession() {
       if (!db || !campaignId || !branchId || busy) return;
       setBusy(true);
       setPending({ label: `回到版本 v${mark.version}`, intent: null, check: null });
+      setActiveCheckPreview(null);
       try {
         const target = await db.fork({
           campaignId,
@@ -869,6 +1001,7 @@ export function useSession() {
 
         setBranchId(target);
         adopt({ state: restored, log: events });
+        setInvestigatorProfile(investigatorFromState(restored));
         setMessages([
           ...kept,
           {
@@ -936,13 +1069,17 @@ export function useSession() {
     [presented.state.version, pushNotice, refreshBranches, switchBranch],
   );
 
-  const adoptDesktopCampaign = useCallback((loaded: Awaited<ReturnType<typeof loadDesktopCampaign>>) => {
+  const adoptDesktopCampaign = useCallback((
+    loaded: Awaited<ReturnType<typeof loadDesktopCampaign>>,
+    profile: InvestigatorProfile | null,
+  ) => {
     if (!loaded) return false;
     origin.current = initialState();
     setCampaignId(loaded.campaign.campaignId);
     setBranchId(loaded.branchId);
     adopt({ state: loaded.state, log: loaded.events });
-    setMessages(loaded.history ? createRestoredMessages(loaded.state, loaded.history) : createOpening(loaded.state));
+    setInvestigatorProfile(profile);
+    setMessages(loaded.history ? createRestoredMessages(loaded.state, loaded.history) : createOpening(loaded.state, profile));
     lastTurn.current = null;
     memoryRef.current = emptyMemory();
     contextRef.current = emptyContextStore();
@@ -950,6 +1087,7 @@ export function useSession() {
     setLastUsage(null);
     setNarrationDraft(null);
     setPending(null);
+    setActiveCheckPreview(null);
     return true;
   }, [adopt]);
 
@@ -958,7 +1096,9 @@ export function useSession() {
     if (!remote || busy || inflight.current) return;
     setBusy(true);
     try {
-      adoptDesktopCampaign(await loadDesktopCampaign(remote, targetCampaignId));
+      const loaded = await loadDesktopCampaign(remote, targetCampaignId);
+      const profile = await getDesktopInvestigator(remote, targetCampaignId);
+      adoptDesktopCampaign(loaded, profile);
     } finally {
       setBusy(false);
     }
@@ -984,7 +1124,10 @@ export function useSession() {
       const loaded = next
         ? await loadDesktopCampaign(remote, next.campaignId)
         : await createFreshDesktopCampaign(remote);
-      if (!adoptDesktopCampaign(loaded)) {
+      const profile = loaded
+        ? await getDesktopInvestigator(remote, loaded.campaign.campaignId)
+        : null;
+      if (!adoptDesktopCampaign(loaded, profile)) {
         pushNotice("旧战役已删除，但新战役载入失败；请重新启动后重试。", 0);
       }
     } finally {
@@ -1011,7 +1154,8 @@ export function useSession() {
       const loaded = opened.ok
         ? await loadDesktopBranch(remote, opened.value, restored.value.branchId)
         : null;
-      if (adoptDesktopCampaign(loaded)) return true;
+      const profile = await getDesktopInvestigator(remote, campaignId);
+      if (adoptDesktopCampaign(loaded, profile)) return true;
       pushNotice("恢复副本已经创建，但载入失败；请重新启动后重试。", authoritative.current.state.version);
       return false;
     } finally {
@@ -1027,7 +1171,7 @@ export function useSession() {
       if (busy || inflight.current) return;
       setBusy(true);
       try {
-        adoptDesktopCampaign(await createFreshDesktopCampaign(remote));
+        adoptDesktopCampaign(await createFreshDesktopCampaign(remote), null);
       } finally {
         setBusy(false);
       }
@@ -1037,7 +1181,8 @@ export function useSession() {
     const fresh = initialState();
     origin.current = fresh;
     adopt({ state: fresh, log: [] });
-    setMessages(createOpening(fresh));
+    setInvestigatorProfile(null);
+    setMessages(createOpening(fresh, null));
     lastTurn.current = null;
     memoryRef.current = emptyMemory();
     contextRef.current = emptyContextStore();
@@ -1045,6 +1190,7 @@ export function useSession() {
     setLastUsage(null);
     setNarrationDraft(null);
     setPending(null);
+    setActiveCheckPreview(null);
 
     if (!db) return;
     const handle = await db.openCampaign({
@@ -1058,6 +1204,80 @@ export function useSession() {
     await refreshBranches(handle.campaignId);
   }, [adopt, adoptDesktopCampaign, busy, refreshBranches]);
 
+  const confirmInvestigator = useCallback(async (allocation: InvestigatorAllocation) => {
+    if (!campaignId || !branchId || busy || inflight.current || investigatorProfile) return false;
+    inflight.current = true;
+    setBusy(true);
+    setPending({ label: "确认调查员", intent: null, check: null });
+    setActiveCheckPreview(null);
+    try {
+      const remote = tryDesktopApi();
+      if (remote) {
+        const confirmed = await remote.campaign.confirmInvestigator({
+          campaignId,
+          branchId,
+          allocation,
+        });
+        if (!confirmed.ok) {
+          pushNotice(`调查员确认失败：${confirmed.error.messageKey}`, authoritative.current.state.version);
+          return false;
+        }
+        const loaded = await loadDesktopCampaign(remote, campaignId);
+        if (!adoptDesktopCampaign(loaded, confirmed.value.profile) || !loaded) {
+          pushNotice("调查员已经确认，但分支重载失败；请重新启动后重试。", confirmed.value.stateVersion);
+          return false;
+        }
+        setMessages(createOpening(loaded.state, confirmed.value.profile));
+        return true;
+      }
+
+      const desk = authoritative.current;
+      if (desk.state.version > 0) {
+        pushNotice("这一场已经开始，不能再确认新的调查员。", desk.state.version);
+        return false;
+      }
+      const projected = projectInvestigatorConfirmation({
+        state: desk.state,
+        log: desk.log,
+        allocation,
+      });
+      if (!projected) {
+        pushNotice("调查员点数或人生经历未通过校验。", desk.state.version);
+        return false;
+      }
+
+      const db = store.current;
+      if (db) {
+        try {
+          await db.appendEvents(branchId, projected.committed);
+          await db.saveCheckpoint({
+            branchId,
+            cursor: projected.log.length - 1,
+            stateVersion: projected.state.version,
+            stateHash: stateHash(projected.state),
+            packRef: pack.ref,
+          });
+          await refreshBranches(campaignId);
+        } catch (error) {
+          setStoreDurable(false);
+          setStoreNote("调查员确认只保留在当前页面，关闭后可能丢失。");
+          pushNotice(
+            `调查员确认未能落盘：${error instanceof Error ? error.message : String(error)}`,
+            projected.state.version,
+          );
+        }
+      }
+      adopt({ state: projected.state, log: projected.log });
+      setInvestigatorProfile(projected.profile);
+      setMessages(createOpening(projected.state, projected.profile));
+      return true;
+    } finally {
+      setPending(null);
+      setBusy(false);
+      inflight.current = false;
+    }
+  }, [adopt, adoptDesktopCampaign, branchId, busy, campaignId, investigatorProfile, pushNotice, refreshBranches]);
+
   const confirmCard = useCallback(
     async (draft: CardImportDraft) => {
       const input = sheetInputFromDraft(draft);
@@ -1068,6 +1288,7 @@ export function useSession() {
         );
         return;
       }
+
       const desk = authoritative.current;
       const applied = applyCharacterCard({ state: desk.state, log: desk.log, draft });
       adopt({ state: applied.state, log: applied.log });
@@ -1104,6 +1325,8 @@ export function useSession() {
   return {
     state: presented.state,
     log: presented.log,
+    investigatorProfile,
+    activeCheckPreview,
     pending,
     messages,
     narrationDraft,
@@ -1133,6 +1356,7 @@ export function useSession() {
     switchCampaign,
     deleteCampaign,
     restoreDesktopCheckpoint,
+    confirmInvestigator,
     confirmCard,
     pushSystem,
   };
