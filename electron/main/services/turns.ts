@@ -1,8 +1,10 @@
 import { keeperNarrate } from "../../../demo/src/keeper/keeper";
+import { handleFreeTurn, newFreeTurnTaskId } from "../../../demo/src/keeper/free-turn";
 import { playTurn } from "../../../demo/src/engine/play-turn";
 import { recentFromTurn } from "../../../demo/src/engine/recent";
 import { commit, replay } from "../../../demo/src/engine/runtime";
 import { initialState } from "../../../demo/src/engine/state";
+import { route } from "../../../demo/src/engine/router";
 import { storyMonitor } from "../../../demo/src/engine/story-monitor";
 import type { GameEvent, GameState, Intent } from "../../../demo/src/engine/types";
 import { runAfterCommit } from "../../../demo/src/ai/jobs";
@@ -75,7 +77,7 @@ export class TurnService {
     return this.finishing.get(operationId) ?? Promise.resolve();
   }
 
-  submit(input: SubmitActionInput): Result<{ operationId: string; turnId: string }> {
+  async submit(input: SubmitActionInput): Promise<Result<{ operationId: string; turnId: string }>> {
     const text = input.text.trim();
     if (text.length < 1 || text.length > 20_000) {
       return fail({
@@ -118,7 +120,22 @@ export class TurnService {
 
     const log = loadGameEvents(db, input.branchId);
     const state = replay(initialState(), log);
-    const outcome = playTurn({ text, state, log });
+    let intent = route(text, state);
+    let freeTurnTaskId: string | undefined;
+    if (intent.kind === "unclear") {
+      freeTurnTaskId = newFreeTurnTaskId();
+      const configured = withKeeperConfig(this.campaigns.settings, this.credentials, (config) =>
+        handleFreeTurn({ config, state, spoken: text, modelTaskId: freeTurnTaskId! }),
+      );
+      if (configured.ok) {
+        try {
+          intent = (await configured.value).intent;
+        } catch {
+          // Keep unclear: playTurn will ask a clarification without committing.
+        }
+      }
+    }
+    const outcome = playTurn({ text, state, log, intent });
     const now = this.clock.nowIso();
     const operationId = uuidv7();
     const turnId =
@@ -181,6 +198,7 @@ export class TurnService {
       spoken: text,
       view,
       stateAfter: outcome.kind === "committed" ? outcome.state : state,
+      modelTaskId: freeTurnTaskId,
     }).catch(() => undefined);
     this.finishing.set(operationId, task);
     return ok({ operationId, turnId });
@@ -375,6 +393,7 @@ export class TurnService {
     spoken: string;
     view: TurnView;
     stateAfter: GameState;
+    modelTaskId?: string;
   }): Promise<void> {
     const { db, operationId, turnId, view } = params;
     this.emit(operationId, {
@@ -412,7 +431,7 @@ export class TurnService {
     let narrationKind: NarrationKind = "模板";
     let text = fallback;
     let note: string | undefined;
-    let modelTaskId = "template";
+    let modelTaskId = params.modelTaskId ?? "template";
     if (view.events.length > 0) {
       const configured = withKeeperConfig(this.campaigns.settings, this.credentials, async (config) => ({
         result: await keeperNarrate({
@@ -436,7 +455,7 @@ export class TurnService {
           text = completed.result.text;
           narrationKind = completed.result.source;
           note = completed.result.note;
-          modelTaskId = narrationKind === "模型" ? completed.model : "template";
+          modelTaskId = narrationKind === "模型" ? (params.modelTaskId ?? completed.model) : "template";
         } catch (error) {
           note = error instanceof Error ? error.message : String(error);
         }

@@ -54,9 +54,9 @@ try {
   let command = 0;
   const operationIds: string[] = [];
 
-  function say(text: string) {
+  async function say(text: string) {
     command += 1;
-    const result = turns.submit({
+    const result = await turns.submit({
       campaignId,
       branchId,
       actorId: actor,
@@ -80,13 +80,13 @@ try {
     return { log, state: replay(initialState(), log) };
   }
 
-  console.log(say("我推开书房门").narration);
-  console.log(say("看看书桌锁").narration);
+  console.log((await say("我推开书房门")).narration);
+  console.log((await say("看看书桌锁")).narration);
   let { state, log } = desk();
   assert(state.known.includes("fact.lock_scratched"), "观察之后拿到公开线索");
   assert(!visibleItemsInRoom(state, "loc.study").includes("item.ledger"), "开锁前账本看不见");
 
-  say("把黑色账本收进包里");
+  await say("把黑色账本收进包里");
   ({ state, log } = desk());
   assert(
     log.some((event) => event.payload.type === "action_rejected"),
@@ -96,20 +96,20 @@ try {
   let attempts = 0;
   while (!state.unlocked["lock.desk"] && attempts < 12) {
     attempts += 1;
-    say("我撬这把锁");
+    await say("我撬这把锁");
     ({ state } = desk());
   }
   assert(Boolean(state.unlocked["lock.desk"]), `${attempts} 次之内把锁撬开了`);
 
-  say("把黑色账本收进包里");
-  const bag = say("背包里有什么");
+  await say("把黑色账本收进包里");
+  const bag = await say("背包里有什么");
   ({ state, log } = desk());
   assert(state.itemAt["item.ledger"] === "inv.pc", "账本进了背包");
   assert(bag.kind === "query", "背包询问是 query，不改版本");
   assert(bag.narration.includes("黑色账本"), "回答里提到账本");
 
   const sanBefore = state.san;
-  say("翻开账本读一读");
+  await say("翻开账本读一读");
   ({ state, log } = desk());
   assert(state.san === sanBefore - 5, "读到夹页之后理智扣了 5 点");
   assert(state.known.includes("fact.dock_time"), "拿到码头交易时间");

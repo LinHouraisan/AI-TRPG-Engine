@@ -186,7 +186,7 @@ try {
   assert(fresh.ok, "另开一场做回合探测");
   const live = fresh.ok ? fresh.value : undefined;
   if (live) {
-    const conflict = turns.submit({
+    const conflict = await turns.submit({
       campaignId: live.campaignId,
       branchId: live.headBranchId,
       actorId: actor,
@@ -197,7 +197,7 @@ try {
     });
     assert(!conflict.ok && conflict.error.code === "TURN_VERSION_CONFLICT", "版本对不上就拒写");
 
-    const moved = turns.submit({
+    const moved = await turns.submit({
       campaignId: live.campaignId,
       branchId: asBranchId(live.headBranchId),
       actorId: actor,
@@ -208,7 +208,7 @@ try {
     });
     assert(moved.ok, "主进程提交移动");
     if (moved.ok) {
-      const again = turns.submit({
+      const again = await turns.submit({
         campaignId: live.campaignId,
         branchId: live.headBranchId,
         actorId: actor,
