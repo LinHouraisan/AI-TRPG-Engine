@@ -25,4 +25,4 @@
 - 真实 DeepSeek：`deepseek-v4-flash` 在模型列表中，生成与 JSON 契约均通过；打包目录与覆盖安装后各运行一次最小 smoke。
 - 实际费用：客户端未返回可落账金额；共 2 次最小请求，远低于 4 元停止线，精确扣费以 DeepSeek 开放平台账单为准。
 - 已安装位置：`%LOCALAPPDATA%\Programs\AI TRPG Engine\AI TRPG Engine.exe`。
-- 可直接运行备份：`electron\release-manual\win-unpacked\AI TRPG Engine.exe`。
+- 可直接运行版本：`electron\release\win-unpacked\AI TRPG Engine.exe`。

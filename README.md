@@ -11,7 +11,6 @@
 | `demo/` | 事件内核与跑团桌的可运行切片（浏览器，不依赖 Tauri） |
 | `handbook/` | 作者手册（Astro），《寄宿公寓账本》的权威数据 |
 | `electron/` | V1 桌面外壳：Electron 主进程、`desktopApi`、`better-sqlite3` |
-| `src/`、`src-tauri/` | 旧 Tauri 聊天外壳，不再跟 |
 
 ## 运行桌面程序（Electron）
 
@@ -23,8 +22,6 @@ bun run dev
 ```
 
 窗口加载的是 `demo/` 跑团桌。有 `window.desktopApi` 时顶栏会出现 Electron 战役目录；浏览器里单独开 Demo 则没有这一栏。
-
-旧的 `bun run tauri dev` 不再是正道。
 
 ## 运行试玩 Demo
 
@@ -39,7 +36,7 @@ Demo 不依赖 Tauri，直接在浏览器里跑。守秘人叙述接本地 Ollam
 
 ## 说明
 
-- **权威内核在 `demo/` 的事件循环**：浏览器里自己提交；Electron 里走主进程 `turn:submitAction`。主持人写不了事实。`src/` 旧聊天壳不要当事实源。这一段做了什么见 [PRD/07](PRD/07-从文档对齐到现在.md)。
+- **权威内核在 `demo/` 的事件循环**：浏览器里自己提交；Electron 里走主进程 `turn:submitAction`。主持人写不了事实。这一段做了什么见 [PRD/07](PRD/07-从文档对齐到现在.md)。
 - V1.0 见 [`docs/05-implementation-design/`](docs/05-implementation-design/README.md)。外壳已锁定 Electron。正式分发目标是 Windows x64。
 - Demo 与桌面的 API 密钥都不进数据库。桌面走系统钥匙串；Demo 接本地 Ollama，默认不存云端密钥。
 - 随包的规则文本只有 5e SRD，本产品与《龙与地下城》没有官方关系。试玩切片走的是《克苏鲁的呼唤》式百分规则，文本是自写的。

@@ -23,5 +23,3 @@ bun run dev             # 拉起 Demo Vite + Electron 窗口
 主持人菜单「调试后台任务」只影响渲染进程记录栏：用确定性 after-commit 重放画 Information / Director / Memory，**不再调一次模型**。live 仍只在主进程跑。默认关。
 
 云凭据走 Main 的 `CredentialStore`（Electron `safeStorage`），密文 blob 写在 userData/`credentials.json`（`credentialId` / `ciphertext` / `createdAt` / `updatedAt`）。Renderer 只有 `settings:setSecret` / `hasSecret` / `deleteSecret`，没有 `getSecret`。`safeStorage` 不可用时拒绝持久化，只允许进程内会话密钥。`bun run persist:check` 用假 cipher 覆盖 set/has/use/delete、落盘无明文、以及不可用模式。
-
-`src-tauri/` 是旧外壳，不再跟。
