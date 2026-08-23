@@ -135,7 +135,13 @@ export class TurnService {
         }
       }
     }
-    const outcome = playTurn({ text, state, log, intent });
+    const outcome = playTurn({
+      text,
+      state,
+      log,
+      intent,
+      turnId: `${input.branchId}:turn-${state.turn + 1}`,
+    });
     const now = this.clock.nowIso();
     const operationId = uuidv7();
     const turnId =
@@ -278,7 +284,7 @@ export class TurnService {
     const log = loadGameEvents(db, input.branchId);
     const state = replay(initialState(), log);
     const before = state;
-    const turnId = `turn-${state.turn + 1}`;
+    const turnId = `${input.branchId}:turn-${state.turn + 1}`;
     const result = commit({
       state,
       log,

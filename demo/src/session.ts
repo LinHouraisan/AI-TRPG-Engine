@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ensureDesktopCampaign, loadDesktopEvents, submitDesktopTurn, tryDesktopApi } from "@/desktop-play";
+import { createFreshDesktopCampaign, ensureDesktopCampaign, loadDesktopBranch, loadDesktopCampaign, loadDesktopEvents, submitDesktopTurn, tryDesktopApi } from "@/desktop-play";
 import { emptyMemory, runAfterCommit, runAfterCommitLive, traceFromJobs, type JobTrace, type MemoryState } from "@/ai";
 import { recentFromTurn } from "@/engine/recent";
 import { storyMonitor } from "@/engine/story-monitor";
@@ -109,7 +109,7 @@ export type TurnMark = {
   forked: boolean;
 };
 
-function createOpening(state: GameState): Message[] {
+export function createOpening(state: GameState): Message[] {
   return [
     { id: "m0", role: "kp", text: openingLine(), stateVersion: state.version, source: "模板" },
     {
@@ -279,6 +279,7 @@ export function useSession() {
           if (events.length > 0) {
             const restored = replay(origin.current, events);
             adopt({ state: restored, log: events });
+            setMessages(createOpening(restored));
             pushNotice(
               `已续上主进程里的上一场：重放 ${events.length} 条事件，回到版本 v${restored.version}。`,
               restored.version,
@@ -359,7 +360,7 @@ export function useSession() {
   const act = useCallback(
     async (intent: Intent, spoken: string, held = false, modelTaskId?: string) => {
       if (!held) {
-        if (inflight.current) return;
+        if (inflight.current) return false;
         inflight.current = true;
       }
       const { state, log } = authoritative.current;
@@ -371,19 +372,56 @@ export function useSession() {
         intent,
         check: pendingCheckFor(intent, state),
       });
-      push({ role: "pl", text: spoken, stateVersion: state.version });
-
       const remote = tryDesktopApi();
       if (remote && campaignId && branchId) {
         setStatus("主持人正在组织语言…");
-        const view = await submitDesktopTurn({
-          api: remote,
-          campaignId,
-          branchId,
-          expectedStateVersion: state.version,
-          text: spoken,
-          onDraft: (draft) => setNarrationDraft(draft),
-        });
+        let baseState = state;
+        let baseLog = log;
+        let activeBranch = branchId;
+        let view: Awaited<ReturnType<typeof submitDesktopTurn>>;
+        try {
+          view = await submitDesktopTurn({
+            api: remote,
+            campaignId,
+            branchId: activeBranch,
+            expectedStateVersion: baseState.version,
+            text: spoken,
+            onDraft: (draft) => setNarrationDraft(draft),
+          });
+          if ("error" in view && view.errorCode === "TURN_VERSION_CONFLICT") {
+            const synced = await loadDesktopCampaign(remote, campaignId);
+            if (synced) {
+              baseState = synced.state;
+              baseLog = synced.events;
+              activeBranch = synced.branchId;
+              setBranchId(activeBranch);
+              adopt({ state: baseState, log: baseLog });
+              setMessages(createOpening(baseState));
+              lastTurn.current = null;
+              memoryRef.current = emptyMemory();
+              contextRef.current = emptyContextStore();
+              setLastTrace(null);
+              setLastUsage(null);
+              view = await submitDesktopTurn({
+                api: remote,
+                campaignId,
+                branchId: activeBranch,
+                expectedStateVersion: baseState.version,
+                text: spoken,
+                onDraft: (draft) => setNarrationDraft(draft),
+              });
+            }
+          }
+        } catch (error) {
+          setStatus(null);
+          setNarrationDraft(null);
+          pushNotice(`这一回合没能提交：${error instanceof Error ? error.message : String(error)}`, state.version);
+          reveal();
+          setPending(null);
+          setBusy(false);
+          if (!held) inflight.current = false;
+          return false;
+        }
         if ("error" in view) {
           setStatus(null);
           setNarrationDraft(null);
@@ -392,19 +430,20 @@ export function useSession() {
           setPending(null);
           setBusy(false);
           if (!held) inflight.current = false;
-          return;
+          return false;
         }
+        push({ role: "pl", text: spoken, stateVersion: baseState.version });
         if (view.kind !== "committed") {
           setStatus(null);
           setNarrationDraft(null);
-          push({ role: "kp", text: view.narration, stateVersion: state.version, source: "程序" });
+          push({ role: "kp", text: view.narration, stateVersion: baseState.version, source: "程序" });
           reveal();
           setPending(null);
           setBusy(false);
           if (!held) inflight.current = false;
-          return;
+          return true;
         }
-        const nextLog = [...log, ...view.events];
+        const nextLog = [...baseLog, ...view.events];
         const nextState = replay(origin.current, nextLog);
         authoritative.current = { state: nextState, log: nextLog };
         const check = view.check as import("@/engine/types").CheckResult | undefined;
@@ -428,14 +467,14 @@ export function useSession() {
           note: view.narrationNote,
         });
         const story = storyMonitor({
-          before: state,
+          before: baseState,
           after: nextState,
           committed: view.events,
           log: nextLog,
         });
         const jobs = runAfterCommit({
           taskId: `task-${nextState.turn}`,
-          branchId: branchId ?? "desktop",
+          branchId: activeBranch,
           state: nextState,
           committed: view.events,
           recent: recentFromTurn({
@@ -464,8 +503,10 @@ export function useSession() {
         setPending(null);
         setBusy(false);
         if (!held) inflight.current = false;
-        return;
+        return true;
       }
+
+      push({ role: "pl", text: spoken, stateVersion: state.version });
 
       const outcome = playTurn({ text: spoken, state, log, intent });
       if (outcome.kind === "query" || outcome.kind === "clarification") {
@@ -479,7 +520,7 @@ export function useSession() {
         setPending(null);
         setBusy(false);
         if (!held) inflight.current = false;
-        return;
+        return true;
       }
 
       const { state: nextState, log: nextLog, committed, check, narration: fallback } = outcome;
@@ -588,7 +629,7 @@ export function useSession() {
             stateVersion: result.state.version,
             source: "模板",
           });
-          return;
+          return true;
         }
 
         setStatus("主持人正在组织语言…");
@@ -644,6 +685,7 @@ export function useSession() {
         setBusy(false);
         if (!held) inflight.current = false;
       }
+      return true;
     },
     [
       branchId,
@@ -660,13 +702,12 @@ export function useSession() {
 
   const say = useCallback(
     async (text: string) => {
-      if (inflight.current) return;
+      if (inflight.current) return false;
       const desk = authoritative.current;
       // 快路径先走保守匹配；桌面主进程自己再路由一遍。只有浏览器才把听不懂的话交给模型。
       const fast = route(text, desk.state);
       if (tryDesktopApi() || fast.kind !== "unclear" || !config.enabled) {
-        await act(fast, text);
-        return;
+        return await act(fast, text);
       }
 
       inflight.current = true;
@@ -681,7 +722,7 @@ export function useSession() {
           modelTaskId,
         });
         setStatus(null);
-        await act(routed.intent, text, true, modelTaskId);
+        return await act(routed.intent, text, true, modelTaskId);
       } catch (error) {
         setStatus(null);
         setPending(null);
@@ -694,6 +735,7 @@ export function useSession() {
       } finally {
         inflight.current = false;
       }
+      return false;
     },
     [act, config, pushNotice, reveal],
   );
@@ -873,8 +915,103 @@ export function useSession() {
     [presented.state.version, pushNotice, refreshBranches, switchBranch],
   );
 
+  const adoptDesktopCampaign = useCallback((loaded: Awaited<ReturnType<typeof loadDesktopCampaign>>) => {
+    if (!loaded) return false;
+    origin.current = initialState();
+    setCampaignId(loaded.campaign.campaignId);
+    setBranchId(loaded.branchId);
+    adopt({ state: loaded.state, log: loaded.events });
+    setMessages(createOpening(loaded.state));
+    lastTurn.current = null;
+    memoryRef.current = emptyMemory();
+    contextRef.current = emptyContextStore();
+    setLastTrace(null);
+    setLastUsage(null);
+    setNarrationDraft(null);
+    setPending(null);
+    return true;
+  }, [adopt]);
+
+  const switchCampaign = useCallback(async (targetCampaignId: string) => {
+    const remote = tryDesktopApi();
+    if (!remote || busy || inflight.current) return;
+    setBusy(true);
+    try {
+      adoptDesktopCampaign(await loadDesktopCampaign(remote, targetCampaignId));
+    } finally {
+      setBusy(false);
+    }
+  }, [adoptDesktopCampaign, busy]);
+
+  const deleteCampaign = useCallback(async (targetCampaignId: string) => {
+    const remote = tryDesktopApi();
+    if (!remote || busy || inflight.current) return;
+    setBusy(true);
+    try {
+      const listed = await remote.campaign.list({ limit: 50 });
+      if (!listed.ok) {
+        pushNotice(`战役目录读取失败：${listed.error.messageKey}`, authoritative.current.state.version);
+        return;
+      }
+      const next = listed.value.items.find((item) => item.campaignId !== targetCampaignId);
+      const removed = await remote.campaign.moveToTrash({ campaignId: targetCampaignId });
+      if (!removed.ok) {
+        pushNotice(`战役删除失败：${removed.error.messageKey}`, authoritative.current.state.version);
+        return;
+      }
+      if (targetCampaignId !== campaignId) return;
+      const loaded = next
+        ? await loadDesktopCampaign(remote, next.campaignId)
+        : await createFreshDesktopCampaign(remote);
+      if (!adoptDesktopCampaign(loaded)) {
+        pushNotice("旧战役已删除，但新战役载入失败；请重新启动后重试。", 0);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }, [adoptDesktopCampaign, busy, campaignId, pushNotice]);
+
+  const restoreDesktopCheckpoint = useCallback(async (checkpointId: string) => {
+    const remote = tryDesktopApi();
+    if (!remote || !campaignId || busy || inflight.current) return false;
+    inflight.current = true;
+    setBusy(true);
+    try {
+      const restored = await remote.checkpoint.restoreCopy({
+        campaignId,
+        checkpointId,
+        label: "测试恢复副本",
+      });
+      if (!restored.ok) {
+        pushNotice(`恢复失败：${restored.error.messageKey}`, authoritative.current.state.version);
+        return false;
+      }
+      const opened = await remote.campaign.open({ campaignId });
+      const loaded = opened.ok
+        ? await loadDesktopBranch(remote, opened.value, restored.value.branchId)
+        : null;
+      if (adoptDesktopCampaign(loaded)) return true;
+      pushNotice("恢复副本已经创建，但载入失败；请重新启动后重试。", authoritative.current.state.version);
+      return false;
+    } finally {
+      setBusy(false);
+      inflight.current = false;
+    }
+  }, [adoptDesktopCampaign, busy, campaignId, pushNotice]);
+
   /** 重开：旧的那一场留在库里，只是不再是当前这一场。 */
   const reset = useCallback(async () => {
+    const remote = tryDesktopApi();
+    if (remote) {
+      if (busy || inflight.current) return;
+      setBusy(true);
+      try {
+        adoptDesktopCampaign(await createFreshDesktopCampaign(remote));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     const db = store.current;
     const fresh = initialState();
     origin.current = fresh;
@@ -898,7 +1035,7 @@ export function useSession() {
     setCampaignId(handle.campaignId);
     setBranchId(handle.branchId);
     await refreshBranches(handle.campaignId);
-  }, [adopt, refreshBranches]);
+  }, [adopt, adoptDesktopCampaign, busy, refreshBranches]);
 
   const confirmCard = useCallback(
     async (draft: CardImportDraft) => {
@@ -985,6 +1122,9 @@ export function useSession() {
     exportCampaign,
     importCampaign,
     reset,
+    switchCampaign,
+    deleteCampaign,
+    restoreDesktopCheckpoint,
     confirmCard,
     pushSystem,
   };

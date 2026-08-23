@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { Suggestion } from "@/engine/types";
+import { createSubmissionGate } from "./submission-gate";
 
 export function Composer({
   suggestions,
@@ -12,39 +13,35 @@ export function Composer({
   suggestions: Suggestion[];
   busy: boolean;
   canRetell: boolean;
-  onSuggestion: (suggestion: Suggestion) => void;
-  onSay: (text: string) => void;
+  onSuggestion: (suggestion: Suggestion) => Promise<boolean>;
+  onSay: (text: string) => Promise<boolean>;
   onRetell: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const [lastSpoken, setLastSpoken] = useState("");
   // busy 是下一帧才变的；连点会在那之前钻进去，两段草稿就会打架。
-  const held = useRef(false);
+  const gate = useRef(createSubmissionGate());
 
-  useEffect(() => {
-    if (!busy) held.current = false;
-  }, [busy]);
-
-  function submit() {
+  async function submit() {
     const text = draft.trim();
-    if (!text || busy || held.current) return;
-    held.current = true;
+    if (!text || busy) return;
     setLastSpoken(text);
-    setDraft("");
-    onSay(text);
+    const accepted = await gate.current.run(() => onSay(text));
+    if (accepted) setDraft((current) => current.trim() === text ? "" : current);
   }
 
   function pick(suggestion: Suggestion) {
-    if (busy || held.current) return;
-    held.current = true;
+    if (busy) return;
     setLastSpoken(suggestion.label);
-    onSuggestion(suggestion);
+    void gate.current.run(() => onSuggestion(suggestion));
   }
 
   function retell() {
-    if (busy || held.current || !canRetell) return;
-    held.current = true;
-    onRetell();
+    if (busy || !canRetell) return;
+    void gate.current.run(async () => {
+      onRetell();
+      return true;
+    });
   }
 
   return (
@@ -92,14 +89,14 @@ export function Composer({
               }
               if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();
-                submit();
+                void submit();
               }
             }}
             className="min-h-11 flex-1 resize-none bg-transparent text-sm leading-6 outline-none placeholder:text-muted/70"
           />
           <button
             type="button"
-            onClick={submit}
+            onClick={() => void submit()}
             disabled={busy || draft.trim().length === 0}
             className="min-h-11 min-w-11 rounded-md bg-brass px-3 text-sm font-medium text-ink transition hover:brightness-110 disabled:opacity-40"
           >

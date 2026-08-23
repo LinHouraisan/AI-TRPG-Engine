@@ -32,6 +32,7 @@ export function playTurn(params: {
   state: GameState;
   log: GameEvent[];
   intent?: Intent;
+  turnId?: string;
 }): PlayTurnOutcome {
   const intent = params.intent ?? route(params.text, params.state);
   const classification = classifyIntent(intent);
@@ -44,7 +45,7 @@ export function playTurn(params: {
     };
   }
 
-  const turnId = `turn-${params.state.turn + 1}`;
+  const turnId = params.turnId ?? `turn-${params.state.turn + 1}`;
   const resolved = resolveIntent({ intent, state: params.state, turnId });
   if (resolved.clarification) {
     return {

@@ -1,12 +1,18 @@
 import { useState } from "react";
 import { desktopApi } from "@/desktop";
+import { checkpointLabel, partitionCheckpoints, restoreNeedsConfirmation } from "./checkpoint-tests-state";
 
-type Row={checkpointId:string;label:string;stateVersion:number;purpose:string|null;passed:boolean|null;stateHash:string};
-export function CheckpointTests({campaignId,branchId}:{campaignId:string|null;branchId:string|null}){
+type Row={checkpointId:string;branchId:string;label:string;stateVersion:number;purpose:string|null;passed:boolean|null;stateHash:string};
+export function CheckpointTests({campaignId,branchId,currentVersion,busy,onRestore}:{campaignId:string|null;branchId:string|null;currentVersion:number;busy:boolean;onRestore:(checkpointId:string)=>Promise<boolean>}){
  const api=desktopApi(); const [open,setOpen]=useState(false); const [rows,setRows]=useState<Row[]>([]); const [note,setNote]=useState("");
  if(!api||!campaignId||!branchId)return null;
+ const visibleRows=partitionCheckpoints(rows,branchId);
  async function load(){const r=await api!.checkpoint.list({campaignId:campaignId!});if(r.ok)setRows(r.value);else setNote(r.error.messageKey);}
- async function create(){const r=await api!.checkpoint.create({campaignId:campaignId!,branchId:branchId!,label:`手动检查点 v${Date.now()}`});setNote(r.ok?"检查点已创建":r.error.messageKey);await load();}
- async function restore(id:string){const r=await api!.checkpoint.restoreCopy({campaignId:campaignId!,checkpointId:id,label:"测试恢复副本"});if(r.ok){window.location.reload();return;}setNote(r.error.messageKey);}
- return <div className="relative"><button type="button" onClick={()=>{setOpen(!open);if(!open)void load();}} className="rounded border border-line/70 px-2.5 py-1">测试与恢复</button>{open?<div className="absolute right-0 z-40 mt-1 w-80 rounded border border-line/70 bg-ink-2 p-3 shadow-xl"><button type="button" onClick={()=>void create()} className="rounded border border-brass/60 px-2 py-1 text-brass">创建检查点</button><ul className="mt-2 space-y-2">{rows.map(r=><li key={r.checkpointId} className="rounded border border-line/50 p-2"><p>{r.label} · v{r.stateVersion}</p>{r.purpose?<p className="text-xs text-muted">{r.purpose} · {r.passed?"通过":"失败"}</p>:null}<p className="truncate text-[10px] text-muted">{r.stateHash}</p><button type="button" onClick={()=>void restore(r.checkpointId)} className="mt-1 rounded border border-line/70 px-2 py-0.5">复制并恢复</button></li>)}</ul>{note?<p className="mt-2 text-xs text-muted">{note}</p>:null}</div>:null}</div>;
+ async function create(){const r=await api!.checkpoint.create({campaignId:campaignId!,branchId:branchId!,label:checkpointLabel(currentVersion)});setNote(r.ok?`检查点已创建：v${currentVersion}`:r.error.messageKey);await load();}
+ async function restore(row:Row){
+  if(restoreNeedsConfirmation(currentVersion,row.stateVersion)&&!window.confirm(`当前进度为 v${currentVersion}，这个存档是 v${row.stateVersion}。恢复后会回到较早进度，是否继续？`))return;
+  if(await onRestore(row.checkpointId))setOpen(false);
+ }
+ const renderRow=(r:Row)=><li key={r.checkpointId} className="rounded border border-line/50 p-2"><p>{r.label}</p><p className="text-xs text-muted">存档版本 v{r.stateVersion}</p>{r.purpose?<p className="text-xs text-muted">{r.purpose} · {r.passed?"通过":"失败"}</p>:null}<p className="truncate text-[10px] text-muted">{r.stateHash}</p><button type="button" disabled={busy} onClick={()=>void restore(r)} className="mt-1 rounded border border-line/70 px-2 py-0.5 disabled:opacity-40">复制并恢复</button></li>;
+ return <div className="relative"><button type="button" disabled={busy} onClick={()=>{setOpen(!open);if(!open)void load();}} className="rounded border border-line/70 px-2.5 py-1 disabled:opacity-40">测试与恢复</button>{open?<div className="absolute right-0 z-40 mt-1 w-80 rounded border border-line/70 bg-ink-2 p-3 shadow-xl"><button type="button" disabled={busy} onClick={()=>void create()} className="rounded border border-brass/60 px-2 py-1 text-brass disabled:opacity-40">创建检查点</button><p className="mt-2 text-xs text-muted">当前分支 · v{currentVersion}</p><ul className="mt-2 space-y-2">{visibleRows.current.map(renderRow)}</ul>{visibleRows.current.length===0?<p className="mt-2 text-xs text-muted">当前分支还没有检查点。</p>:null}{visibleRows.history.length?<details className="mt-3"><summary className="cursor-pointer text-xs text-muted">历史分支存档（{visibleRows.history.length}）</summary><ul className="mt-2 space-y-2">{visibleRows.history.map(renderRow)}</ul></details>:null}{note?<p className="mt-2 text-xs text-muted">{note}</p>:null}</div>:null}</div>;
 }

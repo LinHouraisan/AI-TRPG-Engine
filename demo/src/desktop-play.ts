@@ -1,4 +1,6 @@
 import type { GameEvent } from "@/engine/types";
+import { replay } from "@/engine/runtime";
+import { initialState } from "@/engine/state";
 import {
   desktopApi,
   type DesktopApi,
@@ -7,6 +9,50 @@ import {
 } from "@/desktop";
 
 export type RemoteTurnView = DesktopTurnView & { events: GameEvent[] };
+
+export type LoadedDesktopCampaign = {
+  campaign: DesktopCampaign;
+  branchId: string;
+  state: ReturnType<typeof initialState>;
+  events: GameEvent[];
+};
+
+export async function loadDesktopCampaign(
+  api: DesktopApi,
+  campaignId: string,
+): Promise<LoadedDesktopCampaign | null> {
+  const opened = await api.campaign.open({ campaignId });
+  if (!opened.ok) return null;
+  return loadDesktopBranch(api, opened.value, opened.value.headBranchId);
+}
+
+export async function loadDesktopBranch(
+  api: DesktopApi,
+  campaign: DesktopCampaign,
+  branchId: string,
+): Promise<LoadedDesktopCampaign | null> {
+  const page = await api.timeline.page({
+    campaignId: campaign.campaignId,
+    branchId,
+    page: { limit: 10_000 },
+  });
+  if (!page.ok) return null;
+  const events = ((page.value as { events?: GameEvent[] }).events ?? []);
+  return {
+    campaign,
+    branchId,
+    state: replay(initialState(), events),
+    events,
+  };
+}
+
+export async function createFreshDesktopCampaign(
+  api: DesktopApi,
+): Promise<LoadedDesktopCampaign | null> {
+  const created = await api.campaign.create({ name: "寄宿公寓试玩" });
+  if (!created.ok) return null;
+  return loadDesktopCampaign(api, created.value.campaignId);
+}
 
 export async function ensureDesktopCampaign(
   api: DesktopApi,
@@ -18,9 +64,8 @@ export async function ensureDesktopCampaign(
     ? { ok: true as const, value: existing }
     : await api.campaign.create({ name: "寄宿公寓试玩" });
   if (!created.ok) return null;
-  const opened = await api.campaign.open({ campaignId: created.value.campaignId });
-  if (!opened.ok) return null;
-  return { campaign: opened.value, branchId: opened.value.headBranchId };
+  const loaded = await loadDesktopCampaign(api, created.value.campaignId);
+  return loaded ? { campaign: loaded.campaign, branchId: loaded.branchId } : null;
 }
 
 export async function loadDesktopEvents(
@@ -52,7 +97,7 @@ export async function submitDesktopTurn(params: {
   expectedStateVersion: number;
   text: string;
   onDraft?: (draft: string) => void;
-}): Promise<RemoteTurnView | { error: string }> {
+}): Promise<RemoteTurnView | { error: string; errorCode: string }> {
   const commandId = crypto.randomUUID();
   let acc = "";
   const seen = new Set<number>();
@@ -90,7 +135,7 @@ export async function submitDesktopTurn(params: {
       commandId,
       text: params.text,
     });
-    if (!submitted.ok) return { error: submitted.error.messageKey };
+    if (!submitted.ok) return { error: submitted.error.messageKey, errorCode: submitted.error.code };
     operationId = submitted.value.operationId;
     const sub = await params.api.operation.subscribe({ operationId });
     const first = await params.api.operation.get({
@@ -99,7 +144,7 @@ export async function submitDesktopTurn(params: {
     });
     if (!first.ok) {
       if (sub.ok) await params.api.operation.unsubscribe({ subscriptionId: sub.value.subscriptionId });
-      return { error: first.error.messageKey };
+      return { error: first.error.messageKey, errorCode: first.error.code };
     }
     const firstView = asTurnView(first.value);
     if (firstView.kind !== "committed") {
@@ -119,7 +164,7 @@ export async function submitDesktopTurn(params: {
       campaignId: params.campaignId,
     });
     if (sub.ok) await params.api.operation.unsubscribe({ subscriptionId: sub.value.subscriptionId });
-    if (!op.ok) return { error: op.error.messageKey };
+    if (!op.ok) return { error: op.error.messageKey, errorCode: op.error.code };
     return asTurnView(op.value);
   } finally {
     stop();

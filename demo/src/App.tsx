@@ -42,11 +42,11 @@ export default function App() {
   });
 
   function actFromSuggestion(suggestion: Suggestion) {
-    void session.act(suggestion.intent, suggestion.label);
+    return session.act(suggestion.intent, suggestion.label);
   }
 
   function sayText(text: string) {
-    void session.say(text);
+    return session.say(text);
   }
 
   function rewindTo(mark: TurnMark) {
@@ -61,7 +61,12 @@ export default function App() {
     <div className="flex h-full max-w-full flex-col overflow-x-hidden">
       <header className="flex h-12 shrink-0 flex-nowrap items-center gap-2 border-b border-line/60 px-3 md:h-auto md:gap-4 md:px-6 md:py-2.5">
         <div className="min-w-0 flex-1">
-          <CampaignDock />
+          <CampaignDock
+            currentCampaign={session.campaignId}
+            busy={session.busy}
+            onSwitch={(campaignId) => void session.switchCampaign(campaignId)}
+            onDelete={(campaignId) => void session.deleteCampaign(campaignId)}
+          />
           <PackSelector
             campaignVersion={session.state.version}
             campaignEvents={session.log.length}
@@ -80,7 +85,14 @@ export default function App() {
         <div className="flex shrink-0 items-center gap-1.5 text-[13px] md:gap-2">
           <CardImport onConfirm={(draft) => void session.confirmCard(draft)} />
           <ModelSettings />
-          <CheckpointTests campaignId={session.campaignId} branchId={session.branchId} />
+          <CheckpointTests
+            key={session.campaignId ?? "no-campaign"}
+            campaignId={session.campaignId}
+            branchId={session.branchId}
+            currentVersion={session.state.version}
+            busy={session.busy}
+            onRestore={(checkpointId) => session.restoreDesktopCheckpoint(checkpointId)}
+          />
           {!desktop ? <KeeperSettings config={session.config} onChange={session.setConfig} /> : null}
           <button
             type="button"
@@ -109,8 +121,9 @@ export default function App() {
           />
           <button
             type="button"
+            disabled={session.busy}
             onClick={() => void session.reset()}
-            className="min-h-11 shrink-0 rounded border border-line/70 px-2.5 text-muted transition hover:border-blood/60 hover:text-blood md:min-h-0 md:px-2.5 md:py-1"
+            className="min-h-11 shrink-0 rounded border border-line/70 px-2.5 text-muted transition hover:border-blood/60 hover:text-blood disabled:opacity-40 md:min-h-0 md:px-2.5 md:py-1"
           >
             重开
           </button>

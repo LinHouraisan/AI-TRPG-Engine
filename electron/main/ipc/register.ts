@@ -60,7 +60,8 @@ function wrap(
         });
       }
       return await fn(payload, event);
-    } catch {
+    } catch (error) {
+      console.error("IPC handler failed", error);
       return fail({
         code: "IPC_INTERNAL_ERROR",
         messageKey: "ipc.internal",

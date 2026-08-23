@@ -1,7 +1,7 @@
 /** Electron preload 挂上的桥。浏览器里没有，Demo 继续走自己的 wasm 库。 */
 export type DesktopResult<T> =
   | { ok: true; value: T }
-  | { ok: false; error: { code: string; messageKey: string } };
+  | { ok: false; error: { code: string; messageKey: string; retryable?: boolean } };
 
 export interface DesktopCampaign {
   campaignId: string;
@@ -36,8 +36,9 @@ export interface DesktopApi {
   version: { major: 1; minor: number };
   campaign: {
     create(input: { name: string }): Promise<DesktopResult<DesktopCampaign>>;
-    list(input: { limit: number }): Promise<DesktopResult<{ items: DesktopCampaign[] }>>;
+    list(input: { limit: number }): Promise<DesktopResult<{ items: DesktopCampaign[]; nextCursor?: string | null }>>;
     open(input: { campaignId: string }): Promise<DesktopResult<DesktopCampaign>>;
+    moveToTrash(input: { campaignId: string }): Promise<DesktopResult<void>>;
     applyCharacterCard?(input: {
       campaignId: string;
       branchId: string;
