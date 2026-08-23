@@ -1,4 +1,6 @@
 /** Electron preload 挂上的桥。浏览器里没有，Demo 继续走自己的 wasm 库。 */
+import type { InvestigatorAllocation, InvestigatorProfile } from "./character/types";
+
 export type DesktopResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: { code: string; messageKey: string; retryable?: boolean } };
@@ -59,6 +61,19 @@ export interface DesktopApi {
       skills: Record<string, number>;
       cardHash: string;
     }): Promise<DesktopResult<{ operationId: string; turnId: string; stateVersion: number }>>;
+    confirmInvestigator(input: {
+      campaignId: string;
+      branchId: string;
+      allocation: InvestigatorAllocation;
+    }): Promise<DesktopResult<{
+      profile: InvestigatorProfile;
+      branchId: string;
+      stateVersion: number;
+      checkpointId: string;
+    }>>;
+    getInvestigator(input: {
+      campaignId: string;
+    }): Promise<DesktopResult<InvestigatorProfile | null>>;
   };
   settings: {
     get(input: { key: string }): Promise<DesktopResult<unknown>>;

@@ -24,7 +24,8 @@ const desktopApi: DesktopApi = {
     close: (input) => invoke("campaign:close", input),
     moveToTrash: (input) => invoke("campaign:moveToTrash", input),
     restoreFromTrash: (input) => invoke("campaign:restoreFromTrash", input),
-    applyCharacterCard: (input) => invoke("campaign:applyCharacterCard", input),
+    confirmInvestigator: (input) => invoke("campaign:confirmInvestigator", input),
+    getInvestigator: (input) => invoke("campaign:getInvestigator", input),
   },
   settings: {
     get: (input) => invoke("settings:get", input),

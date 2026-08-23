@@ -1,5 +1,9 @@
 import type { BranchId, CampaignId, EntityId, OperationId, StateVersion, TurnId } from "./ids";
 import type { Result } from "./result";
+import type {
+  InvestigatorAllocation,
+  InvestigatorProfile,
+} from "../../demo/src/character/types";
 
 export interface ApiVersion {
   major: 1;
@@ -36,6 +40,19 @@ export interface CampaignView extends CampaignSummary {
 export interface CreateCampaignInput {
   name: string;
 }
+
+export type ConfirmInvestigatorInput = {
+  campaignId: CampaignId;
+  branchId: BranchId;
+  allocation: InvestigatorAllocation;
+};
+
+export type ConfirmInvestigatorView = {
+  profile: InvestigatorProfile;
+  branchId: string;
+  stateVersion: number;
+  checkpointId: string;
+};
 
 export interface SubmitActionInput {
   campaignId: CampaignId;
@@ -136,9 +153,8 @@ export interface CampaignApi {
   close(input: { campaignId: CampaignId }): Promise<Result<void>>;
   moveToTrash(input: { campaignId: CampaignId }): Promise<Result<void>>;
   restoreFromTrash(input: { campaignId: CampaignId }): Promise<Result<void>>;
-  applyCharacterCard(input: ApplyCharacterCardInput): Promise<
-    Result<{ operationId: string; turnId: string; stateVersion: number }>
-  >;
+  confirmInvestigator(input: ConfirmInvestigatorInput): Promise<Result<ConfirmInvestigatorView>>;
+  getInvestigator(input: { campaignId: CampaignId }): Promise<Result<InvestigatorProfile | null>>;
 }
 
 export interface SettingsApi {
@@ -204,21 +220,6 @@ export interface SetTaskRouteInput {
   fallbackModelProfileId?: string | null;
 }
 
-export interface ApplyCharacterCardInput {
-  campaignId: CampaignId;
-  branchId: BranchId;
-  expectedStateVersion: StateVersion;
-  commandId: string;
-  name: string;
-  occupation: string;
-  hp: number;
-  hpMax: number;
-  san: number;
-  sanMax: number;
-  skills: Record<string, number>;
-  cardHash: string;
-}
-
 export interface DesktopApi {
   version: ApiVersion;
   app: AppApi;
@@ -278,7 +279,8 @@ export const CHANNELS = {
   "operation:get": true,
   "operation:subscribe": true,
   "operation:unsubscribe": true,
-  "campaign:applyCharacterCard": true,
+  "campaign:confirmInvestigator": true,
+  "campaign:getInvestigator": true,
   "checkpoint:list": true,
   "checkpoint:create": true,
   "checkpoint:restoreCopy": true,

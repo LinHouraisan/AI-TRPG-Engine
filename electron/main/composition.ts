@@ -40,6 +40,7 @@ export function createComposition(input: {
   const campaignSql = readFileSync(join(input.sqlDir, "campaign.sql"), "utf8");
   const memorySql = readFileSync(join(input.sqlDir, "campaign-0002-memory.sql"), "utf8");
   const checkpointSql = readFileSync(join(input.sqlDir, "campaign-0003-checkpoint-tests.sql"), "utf8");
+  const investigatorSql = readFileSync(join(input.sqlDir, "campaign-0004-investigator.sql"), "utf8");
   const settings = input.openDriver(input.paths.settingsDb);
   applyInit(settings, input.clock, settingsSql, "0001_init");
   ensureDefaultProvider(
@@ -54,7 +55,11 @@ export function createComposition(input: {
     input.clock,
     input.openDriver,
     campaignSql,
-    [{ id: "0002_memory", sql: memorySql }, { id: "0003_checkpoint_tests", sql: checkpointSql }],
+    [
+      { id: "0002_memory", sql: memorySql },
+      { id: "0003_checkpoint_tests", sql: checkpointSql },
+      { id: "0004_investigator", sql: investigatorSql },
+    ],
   );
   const credentials = new CredentialStore(
     join(input.paths.root, "credentials.json"),

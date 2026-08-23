@@ -1,6 +1,17 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import type { CampaignSummary, CampaignView, Page, PageRequest } from "../../shared/api";
+import { validateAllocation } from "../../../demo/src/character/creation";
+import { loadPackById } from "../../../demo/src/engine/pack";
+import type { EventDraft, GameEvent } from "../../../demo/src/engine/types";
+import { sheetDraft } from "../../../demo/src/cards/apply";
+import type {
+  CampaignSummary,
+  CampaignView,
+  ConfirmInvestigatorInput,
+  ConfirmInvestigatorView,
+  Page,
+  PageRequest,
+} from "../../shared/api";
 import {
   asBranchId,
   asCampaignId,
@@ -22,10 +33,20 @@ import {
 } from "../persist/catalog";
 import type { Driver } from "../persist/driver";
 import { applyInit, applyMigration } from "../persist/migrate";
+import { createCheckpoint } from "../persist/checkpoints";
+import {
+  bindInvestigator,
+  hashProfile,
+  loadInvestigator,
+  saveInvestigator,
+} from "../persist/investigator";
+import { appendCommitted } from "../persist/turns";
 
 export type OpenDriver = (path: string) => Driver;
 
 export type NamedSql = { id: string; sql: string };
+
+const investigatorPack = loadPackById("mist-harbor");
 
 export class CampaignService {
   private readonly openCampaigns = new Map<string, Driver>();
@@ -174,6 +195,180 @@ export class CampaignService {
       });
     }
     return ok(driver);
+  }
+
+  confirmInvestigator(input: ConfirmInvestigatorInput): Result<ConfirmInvestigatorView> {
+    const opened = this.ensureOpen(input.campaignId);
+    if (!opened.ok) return opened;
+    const db = opened.value;
+    const catalog = getCatalog(this.settings, input.campaignId);
+    if (!catalog || catalog.head_branch_id !== input.branchId) {
+      return fail({
+        code: "TURN_VERSION_CONFLICT",
+        messageKey: "turn.branch_mismatch",
+        retryable: true,
+      });
+    }
+    if (loadInvestigator(db, input.branchId)) {
+      return fail({
+        code: "INVESTIGATOR_ALREADY_CONFIRMED",
+        messageKey: "investigator.already_confirmed",
+        retryable: false,
+      });
+    }
+    const formalTurns = db.get<{ count: number }>(
+      "SELECT count(*) AS count FROM turns WHERE branch_id = ?",
+      [input.branchId],
+    )?.count ?? 0;
+    if (formalTurns > 0) {
+      return fail({
+        code: "INVESTIGATOR_BRANCH_STARTED",
+        messageKey: "investigator.branch_started",
+        retryable: false,
+      });
+    }
+    const rules = investigatorPack.manifest.creation;
+    if (!rules) {
+      return fail({
+        code: "INVESTIGATOR_CREATION_UNAVAILABLE",
+        messageKey: "investigator.creation_unavailable",
+        retryable: false,
+      });
+    }
+    const validated = validateAllocation(rules, input.allocation);
+    if (!validated.ok) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "investigator.allocation_invalid",
+        retryable: false,
+        details: { issueCount: validated.issues.length },
+      });
+    }
+    const history = rules.lifeHistories.find(
+      (candidate) => candidate.id === validated.profile.lifeHistoryId,
+    );
+    if (!history) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "investigator.life_history_invalid",
+        retryable: false,
+      });
+    }
+
+    const profile = validated.profile;
+    const profileHash = hashProfile(profile);
+    const turnId = `${input.branchId}:turn-1`;
+    const drafts: EventDraft[] = [
+      sheetDraft({
+        name: profile.name,
+        occupation: profile.occupation,
+        hp: profile.hp,
+        hpMax: profile.hp,
+        san: profile.san,
+        sanMax: profile.sanMax,
+        skills: profile.skills,
+        cardHash: profileHash,
+        characteristics: profile.characteristics,
+        baseSkills: profile.baseSkills,
+        occupationPoints: profile.occupationPoints,
+        interestPoints: profile.interestPoints,
+        lifeHistoryId: profile.lifeHistoryId,
+      }),
+      history.initialGrant.kind === "fact"
+        ? {
+            payload: { type: "fact_known", fact: history.initialGrant.id },
+            summary: `人生经历带来已知线索「${history.initialGrant.id}」。`,
+            cause: `history:${history.id}`,
+          }
+        : {
+            payload: {
+              type: "item_moved",
+              item: history.initialGrant.id,
+              from:
+                investigatorPack.items.find((item) => item.id === history.initialGrant.id)?.at ??
+                "unknown",
+              to: "inv.pc",
+            },
+            summary: `人生经历带来初始物品「${history.initialGrant.id}」。`,
+            cause: `history:${history.id}`,
+          },
+      {
+        payload: {
+          type: "relationship_established",
+          npc: history.relationship.npcId,
+          text: history.relationship.text,
+        },
+        summary: history.relationship.text,
+        cause: `history:${history.id}`,
+      },
+    ];
+    const committed: GameEvent[] = drafts.map((draft, index) => ({
+      ...draft,
+      id: `${turnId}-${index}`,
+      seq: index,
+      turnId,
+      versionAfter: 1,
+      clock: 0,
+      visibility: draft.visibility ?? "public",
+    }));
+    const now = this.clock.nowIso();
+    const operationId = uuidv7();
+    let checkpointId = "";
+    try {
+      db.transaction(() => {
+        const record = saveInvestigator(db, { profile, profileHash, createdAt: now });
+        bindInvestigator(db, input.branchId, record.profileId);
+        appendCommitted({
+          db,
+          campaignId: input.campaignId,
+          branchId: input.branchId,
+          turnId,
+          operationId,
+          commandId: `${input.branchId}:confirm-investigator`,
+          actorId: investigatorPack.manifest.investigator.id,
+          controllerId: "player",
+          text: `确认调查员 ${profile.name}`,
+          now,
+          status: "completed",
+          baseVersion: 0,
+          committedVersion: 1,
+          events: committed,
+          result: { profile, stateVersion: 1 },
+        });
+        checkpointId = createCheckpoint(db, {
+          branchId: input.branchId,
+          label: "正式开局前",
+          now,
+        }).checkpointId;
+      });
+    } catch {
+      return fail({
+        code: "INVESTIGATOR_CONFIRMATION_FAILED",
+        messageKey: "investigator.confirmation_failed",
+        retryable: false,
+      });
+    }
+    this.setHead(input.campaignId, 1);
+    return ok({
+      profile,
+      branchId: input.branchId,
+      stateVersion: 1,
+      checkpointId,
+    });
+  }
+
+  getInvestigator(campaignId: CampaignId): Result<ConfirmInvestigatorView["profile"] | null> {
+    const opened = this.ensureOpen(campaignId);
+    if (!opened.ok) return opened;
+    const catalog = getCatalog(this.settings, campaignId);
+    if (!catalog) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "campaign.not_found",
+        retryable: false,
+      });
+    }
+    return ok(loadInvestigator(opened.value, catalog.head_branch_id)?.profile ?? null);
   }
 
   setHead(campaignId: CampaignId, version: number): void {
