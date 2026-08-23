@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolveElectronPacksRoot } from "./pack-root";
 import {
   conditionSchema,
   factSchema,
@@ -127,7 +128,11 @@ function scanPacksWithNode(): Record<string, unknown> {
   const path = process.getBuiltinModule?.("path") as {
     join: (...parts: string[]) => string;
   };
-  const root = process.env.AI_TRPG_PACKS_DIR;
+  const root = resolveElectronPacksRoot(
+    process.env.AI_TRPG_PACKS_DIR,
+    (process as typeof process & { resourcesPath?: string }).resourcesPath,
+    path?.join,
+  );
   if (!fs || !path || !root) {
     throw new Error("主进程找不到资料包目录（AI_TRPG_PACKS_DIR）。");
   }
