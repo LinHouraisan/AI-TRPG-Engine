@@ -404,6 +404,8 @@ export function lintPack(pack: Pack): LintIssue[] {
   const factIds = new Set(pack.facts.map((f) => f.id));
   const npcIds = new Set(pack.npcs.map((n) => n.id));
   const investigationIds = new Set(pack.investigations.map((investigation) => investigation.id));
+  const historyIds = new Set((pack.manifest.creation?.lifeHistories ?? []).map((history) => history.id));
+  const authoredSkills = new Set(Object.keys(pack.manifest.creation?.baseSkills ?? pack.manifest.investigator.skills));
 
   const refs = { roomIds, itemIds, lockIds, factIds, npcIds };
   const seen = new Set<string>();
@@ -415,6 +417,7 @@ export function lintPack(pack: Pack): LintIssue[] {
     ...pack.npcs.map((n) => n.id),
     ...pack.story.map((n) => n.id),
     ...pack.conditions.map((c) => c.id),
+    ...pack.investigations.map((investigation) => investigation.id),
   ]) {
     if (seen.has(id)) issues.push({ level: "错误", where: id, message: "编号重复" });
     seen.add(id);
@@ -544,6 +547,24 @@ export function lintPack(pack: Pack): LintIssue[] {
     }
   }
 
+  for (const investigation of pack.investigations) {
+    if (!roomIds.has(investigation.room)) {
+      issues.push({ level: "错误", where: investigation.id, message: `所在位置 ${investigation.room} 不是房间` });
+    }
+    checkPredicate(investigation.visibleWhen, `${investigation.id}.visibleWhen`, refs, issues);
+    if (investigation.lifeHistoryId && !historyIds.has(investigation.lifeHistoryId)) {
+      issues.push({ level: "错误", where: investigation.id, message: `人生经历 ${investigation.lifeHistoryId} 不存在` });
+    }
+    for (const skill of [investigation.defaultSkill, ...investigation.alternateSkills]) {
+      if (!authoredSkills.has(skill)) {
+        issues.push({ level: "错误", where: investigation.id, message: `技能「${skill}」不在调查员规则中` });
+      }
+    }
+    for (const effect of [...investigation.outcomes.success, ...investigation.outcomes.failure]) {
+      checkEffectRefs(effect.event, investigation.id, refs, issues);
+    }
+  }
+
   if (!roomIds.has(pack.manifest.investigator.startAt)) {
     issues.push({
       level: "错误",
@@ -559,21 +580,7 @@ export function lintPack(pack: Pack): LintIssue[] {
   for (const condition of pack.conditions) {
     checkPredicate(condition.when, `${condition.id}.when`, refs, issues);
     for (const effect of condition.effects) {
-      const event = effect.event;
-      if (event.type === "npc_moved") {
-        if (!npcIds.has(event.npc)) {
-          issues.push({ level: "错误", where: condition.id, message: `NPC ${event.npc} 不存在` });
-        }
-        if (!roomIds.has(event.to)) {
-          issues.push({ level: "错误", where: condition.id, message: `房间 ${event.to} 不存在` });
-        }
-      }
-      if (event.type === "fact_known" && !factIds.has(event.fact)) {
-        issues.push({ level: "错误", where: condition.id, message: `线索 ${event.fact} 不存在` });
-      }
-      if (event.type === "item_moved" && !itemIds.has(event.item)) {
-        issues.push({ level: "错误", where: condition.id, message: `道具 ${event.item} 不存在` });
-      }
+      checkEffectRefs(effect.event, condition.id, refs, issues);
     }
   }
 
@@ -595,6 +602,28 @@ type Refs = {
   factIds: Set<string>;
   npcIds: Set<string>;
 };
+
+function checkEffectRefs(
+  event: import("./types").EventPayload,
+  where: string,
+  refs: Refs,
+  issues: LintIssue[],
+): void {
+  if (event.type === "npc_moved") {
+    if (!refs.npcIds.has(event.npc)) {
+      issues.push({ level: "错误", where, message: `NPC ${event.npc} 不存在` });
+    }
+    if (!refs.roomIds.has(event.to)) {
+      issues.push({ level: "错误", where, message: `房间 ${event.to} 不存在` });
+    }
+  }
+  if (event.type === "fact_known" && !refs.factIds.has(event.fact)) {
+    issues.push({ level: "错误", where, message: `线索 ${event.fact} 不存在` });
+  }
+  if (event.type === "item_moved" && !refs.itemIds.has(event.item)) {
+    issues.push({ level: "错误", where, message: `道具 ${event.item} 不存在` });
+  }
+}
 
 function checkPredicate(
   predicate: Predicate,
@@ -647,6 +676,7 @@ export function indexPack(pack: Pack) {
     lock: (id: string) => pack.locks.find((l) => l.id === id),
     fact: (id: string) => pack.facts.find((f) => f.id === id),
     npc: (id: string) => pack.npcs.find((n) => n.id === id),
+    investigation: (id: string) => pack.investigations.find((entry) => entry.id === id),
   };
 }
 

@@ -191,6 +191,19 @@ const creationSchema: z.ZodType<InvestigatorCreationRules> = z.object({
 export const investigationSchema = z.object({
   id: z.string().startsWith("investigation."),
   title: z.string(),
+  room: z.string().startsWith("loc."),
+  visibleWhen: predicateSchema,
+  description: z.string(),
+  phrases: z.array(z.string()).min(1),
+  defaultSkill: z.string(),
+  alternateSkills: z.array(z.string()).default([]),
+  difficulty: z.enum(["regular", "hard", "extreme"]),
+  minutes: z.object({ success: z.number().int().nonnegative(), failure: z.number().int().nonnegative() }),
+  lifeHistoryId: z.string().startsWith("history.").optional(),
+  outcomes: z.object({
+    success: z.array(effectSchema).min(1),
+    failure: z.array(effectSchema).min(1),
+  }),
 });
 
 export const manifestSchema = z.object({

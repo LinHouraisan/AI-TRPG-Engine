@@ -1,4 +1,5 @@
 import { keeperNarrate } from "../../../demo/src/keeper/keeper";
+import type { InvestigatorProfile } from "../../../demo/src/character/types";
 import { handleFreeTurn, newFreeTurnTaskId } from "../../../demo/src/keeper/free-turn";
 import { playTurn } from "../../../demo/src/engine/play-turn";
 import { recentFromTurn } from "../../../demo/src/engine/recent";
@@ -121,12 +122,22 @@ export class TurnService {
 
     const log = loadGameEvents(db, input.branchId);
     const state = replay(initialState(), log);
+    let profile: InvestigatorProfile | null = null;
     let intent = route(text, state);
     let freeTurnTaskId: string | undefined;
     if (intent.kind === "unclear") {
+      const loadedProfile = this.campaigns.getInvestigator(input.campaignId);
+      profile = loadedProfile.ok ? loadedProfile.value : null;
       freeTurnTaskId = newFreeTurnTaskId();
       const configured = withKeeperConfig(this.campaigns.settings, this.credentials, (config) =>
-        handleFreeTurn({ config, state, spoken: text, modelTaskId: freeTurnTaskId! }),
+        handleFreeTurn({
+          config,
+          state,
+          profile,
+          spoken: text,
+          modelTaskId: freeTurnTaskId!,
+          currentStateVersion: () => getCatalog(this.campaigns.settings, input.campaignId)?.head_state_version ?? -1,
+        }),
       );
       if (configured.ok) {
         try {
@@ -141,6 +152,7 @@ export class TurnService {
       state,
       log,
       intent,
+      profile,
       turnId: `${input.branchId}:turn-${state.turn + 1}`,
     });
     const now = this.clock.nowIso();

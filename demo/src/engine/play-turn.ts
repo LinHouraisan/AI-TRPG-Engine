@@ -6,6 +6,7 @@ import { route } from "./router";
 import { commit } from "./runtime";
 import { storyMonitor, type StoryMonitorView } from "./story-monitor";
 import type { CheckResult, GameEvent, GameState, Intent } from "./types";
+import type { InvestigationProfile } from "./investigation";
 
 export type PlayTurnOutcome =
   | { kind: "query"; text: string; intent: Intent; classification: TurnClassification }
@@ -32,6 +33,7 @@ export function playTurn(params: {
   state: GameState;
   log: GameEvent[];
   intent?: Intent;
+  profile?: InvestigationProfile | null;
   turnId?: string;
 }): PlayTurnOutcome {
   const intent = params.intent ?? route(params.text, params.state);
@@ -46,7 +48,7 @@ export function playTurn(params: {
   }
 
   const turnId = params.turnId ?? `turn-${params.state.turn + 1}`;
-  const resolved = resolveIntent({ intent, state: params.state, turnId });
+  const resolved = resolveIntent({ intent, state: params.state, turnId, profile: params.profile });
   if (resolved.clarification) {
     return {
       kind: "clarification",

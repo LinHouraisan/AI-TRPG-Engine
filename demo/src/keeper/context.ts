@@ -1,4 +1,5 @@
-import { pack, packIndex } from "@/engine/pack";
+import { pack, packIndex, type Pack } from "@/engine/pack";
+import { allowedInvestigationSkills, visibleInvestigations, type InvestigationProfile } from "@/engine/investigation";
 import { itemsInRoom, npcsInRoom, visibleItemsInRoom } from "@/engine/state";
 import type { GameEvent, GameState } from "@/engine/types";
 import { DEFAULT_CONTEXT_BUDGET_CHARS } from "./config";
@@ -260,9 +261,11 @@ function namesIn(event: GameEvent): string[] {
     case "observed":
       return [packIndex.item(payload.item)?.title].filter(isName);
     case "check_resolved":
-      return [packIndex.lock(payload.target)?.title, packIndex.item(payload.target)?.title].filter(
-        isName,
-      );
+      return [
+        packIndex.lock(payload.target)?.title,
+        packIndex.item(payload.target)?.title,
+        packIndex.investigation(payload.target)?.title,
+      ].filter(isName);
     case "lock_opened":
       return [packIndex.lock(payload.lock)?.title].filter(isName);
     case "item_moved":
@@ -292,7 +295,11 @@ function roomName(id: string, state: GameState): string {
 }
 
 /** 路由用的备选清单：模型只能从这些编号里挑，挑不出就追问。 */
-export function buildRouteContext(state: GameState): string {
+export function buildRouteContext(
+  state: GameState,
+  profile?: InvestigationProfile | null,
+  scenarioPack: Pack = pack,
+): string {
   const room = packIndex.room(state.pcAt);
   const here = visibleItemsInRoom(state, state.pcAt);
   const bag = itemsInRoom(state, "inv.pc");
@@ -325,6 +332,16 @@ export function buildRouteContext(state: GameState): string {
       npcsInRoom(state, state.pcAt)
         .map((id) => `${id}（${packIndex.npc(id)?.title}）`)
         .join("；") || "无"
+    }`,
+  );
+  const investigationProfile = profile ?? null;
+  const investigationLines = investigationProfile
+    ? visibleInvestigations(state, investigationProfile, scenarioPack)
+        .map((entry) => `${entry.id}（${entry.description}；技能：${allowedInvestigationSkills(entry, investigationProfile).join("、")}；措辞：${entry.phrases.join("、")}）`)
+    : [];
+  lines.push(
+    `【可用调查入口】${
+      investigationLines.join("；") || "无"
     }`,
   );
   return lines.join("\n");

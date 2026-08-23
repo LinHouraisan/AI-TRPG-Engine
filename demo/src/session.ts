@@ -12,6 +12,7 @@ import { storyMonitor } from "@/engine/story-monitor";
 import { emptyContextStore, type ContextStore } from "@/engine/context-store";
 import { narrate, openingLine, suggest } from "@/engine/narrate";
 import { pack, packIndex } from "@/engine/pack";
+import { allowedInvestigationSkills, visibleInvestigations } from "@/engine/investigation";
 import { playTurn } from "@/engine/play-turn";
 import { route } from "@/engine/router";
 import { thresholdFor } from "@/engine/rules";
@@ -183,18 +184,38 @@ type Desk = {
  * 门槛只问 rules，不走裁定。裁定会立刻带出点数；
  * 界面如果等它，等待条就会变成剧透。
  */
-function pendingCheckFor(intent: Intent, state: GameState): PendingCheck | null {
-  if (intent.kind !== "unlock") return null;
-  const lock = packIndex.lock(intent.lock);
-  if (!lock || lock.at !== state.pcAt || state.unlocked[lock.id]) return null;
-  const skillValue = state.skills[lock.skill];
+function pendingCheckFor(
+  intent: Intent,
+  state: GameState,
+  profile: InvestigatorProfile | null,
+): PendingCheck | null {
+  if (intent.kind === "unlock") {
+    const lock = packIndex.lock(intent.lock);
+    if (!lock || lock.at !== state.pcAt || state.unlocked[lock.id]) return null;
+    const skillValue = state.skills[lock.skill];
+    if (skillValue == null) return null;
+    return {
+      title: lock.title,
+      skill: lock.skill,
+      skillValue,
+      difficulty: lock.difficulty,
+      threshold: thresholdFor(skillValue, lock.difficulty),
+    };
+  }
+  if (intent.kind !== "investigation" || !profile) return null;
+  const investigation = visibleInvestigations(state, profile)
+    .find((candidate) => candidate.id === intent.investigationId);
+  if (!investigation || !allowedInvestigationSkills(investigation, profile).includes(intent.skill)) {
+    return null;
+  }
+  const skillValue = profile.skills[intent.skill];
   if (skillValue == null) return null;
   return {
-    title: lock.title,
-    skill: lock.skill,
+    title: investigation.title,
+    skill: intent.skill,
     skillValue,
-    difficulty: lock.difficulty,
-    threshold: thresholdFor(skillValue, lock.difficulty),
+    difficulty: investigation.difficulty,
+    threshold: thresholdFor(skillValue, investigation.difficulty),
   };
 }
 
@@ -533,7 +554,7 @@ export function useSession() {
       const { state, log } = authoritative.current;
       setBusy(true);
       setNarrationDraft(null);
-      const candidateCheck = pendingCheckFor(intent, state);
+      const candidateCheck = pendingCheckFor(intent, state, investigatorProfile);
       dispatchCheckPreview({ type: "began", check: candidateCheck });
       // 路由之后、掷骰之前：只公开意图和门槛，绝不带点数。
       setPending({
@@ -680,7 +701,7 @@ export function useSession() {
 
       push({ role: "pl", text: spoken, stateVersion: state.version });
 
-      const outcome = playTurn({ text: spoken, state, log, intent });
+      const outcome = playTurn({ text: spoken, state, log, intent, profile: investigatorProfile });
       if (outcome.kind === "query" || outcome.kind === "clarification") {
         push({
           role: "kp",
@@ -870,6 +891,7 @@ export function useSession() {
       refreshBranches,
       rememberUsage,
       reveal,
+      investigatorProfile,
     ],
   );
 
@@ -891,6 +913,8 @@ export function useSession() {
         const routed = await handleFreeTurn({
           config,
           state: desk.state,
+          profile: investigatorProfile,
+          currentStateVersion: () => authoritative.current.state.version,
           spoken: text,
           modelTaskId,
         });
@@ -910,7 +934,7 @@ export function useSession() {
       }
       return false;
     },
-    [act, config, pushNotice, reveal],
+    [act, config, investigatorProfile, pushNotice, reveal],
   );
 
   /** 换一种说法：同一批已提交事件重讲一遍，状态版本和骰子都不动。 */

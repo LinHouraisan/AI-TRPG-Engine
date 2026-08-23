@@ -1,4 +1,10 @@
-import { pack, packIndex } from "@/engine/pack";
+import { pack, packIndex, type Pack } from "@/engine/pack";
+import {
+  allowedInvestigationSkills,
+  investigationProfileFromState,
+  visibleInvestigations,
+  type InvestigationProfile,
+} from "@/engine/investigation";
 import { itemsInRoom, npcsInRoom, visibleItemsInRoom } from "@/engine/state";
 import type { GameEvent, GameState, Intent, QueryTopic } from "@/engine/types";
 import { askKeeper, extractNarrationDraft, KeeperError } from "./client";
@@ -8,6 +14,7 @@ import {
   narrationReplySchema,
   routeJsonSchema,
   routeReplySchema,
+  type RouteReply,
 } from "./contract";
 import { buildContext, buildRouteContext, type ContextUsage } from "./context";
 import { checkNarration } from "./guard";
@@ -31,6 +38,7 @@ const ROUTE_SYSTEM = [
   "动词从这些里选：move（去某处）、observe（观察某物）、unlock（撬锁或开锁）、take（拿走某物）、read（阅读某物）、talk（说话）、query（询问已知信息，不是行动）、free（合理但不属于上述固定动作的自由尝试）、unclear（连玩家想做什么都看不出来）。",
   "query 用在玩家只是在问自己已经知道的事，例如背包、人物卡、线索、团内时间、出口、刚才发生了什么。此时 target 只能是 inventory、sheet、clues、time、exits、recap 之一，query 不掷骰、也不改状态。",
   "move、observe、unlock、take、read 的 target 必须原样抄用备选清单里的编号。free、talk、unclear 的 target 留空。玩家明确表达了剧本外尝试时选 free，不要仅因清单里没有目标而选 unclear。",
+  "玩家的方法明确对应【可用调查入口】时，输出 kind=investigation、原样抄写 investigationId，并从该入口列出的技能中选择 skill；approach 用一句话概括玩家做法。不可见或清单外的调查入口绝不能输出。",
   "只要有一点拿不准，就返回 unclear，并在 text 里写一句反问玩家的话——猜错比问一句代价大得多。",
   "talk 不需要 target。unclear 时 target 留空。",
   "只输出 JSON。",
@@ -149,6 +157,9 @@ export type RouteResult = {
 export async function keeperRoute(params: {
   config: KeeperConfig;
   state: GameState;
+  profile?: InvestigationProfile | null;
+  scenarioPack?: Pack;
+  currentStateVersion?: () => number;
   spoken: string;
   signal?: AbortSignal;
 }): Promise<RouteResult> {
@@ -159,19 +170,36 @@ export async function keeperRoute(params: {
     const { value } = await askKeeper({
       config,
       system: ROUTE_SYSTEM,
-      user: `${buildRouteContext(state)}\n\n【玩家说】${spoken}`,
+      user: `${buildRouteContext(state, params.profile ?? investigationProfileFromState(state), params.scenarioPack)}\n\n【玩家说】${spoken}`,
       schema: routeReplySchema,
       jsonSchema: routeJsonSchema,
       maxTokens: 160,
       signal: params.signal,
     });
 
-    const intent = toIntent(value.verb, value.target, spoken, state);
-    if (!intent) {
+    if ((params.currentStateVersion?.() ?? state.version) !== state.version) {
       return {
-        intent: { kind: "unclear", text: value.text || spoken },
+        intent: { kind: "unclear", text: spoken },
         source: "模型",
-        note: `模型给的目标 ${value.target || "（空）"} 不在场，已作废`,
+        note: `模型候选基于状态版本 ${state.version}，当前版本已经变化，已作废`,
+      };
+    }
+
+    const intent = toIntent(
+      value,
+      spoken,
+      state,
+      params.profile ?? investigationProfileFromState(state),
+      params.scenarioPack ?? pack,
+    );
+    if (!intent) {
+      const target = "kind" in value ? value.investigationId : value.target;
+      return {
+        intent: { kind: "unclear", text: "kind" in value ? spoken : value.text || spoken },
+        source: "模型",
+        note: "kind" in value
+          ? `模型给的调查入口 ${target} 此刻不可用，已作废`
+          : `模型给的目标 ${target || "（空）"} 不在场，已作废`,
       };
     }
     return { intent, source: "模型" };
@@ -183,11 +211,27 @@ export async function keeperRoute(params: {
 
 /** 把模型给的动词与编号翻成意图；编号不在场就返回空，交回追问。 */
 function toIntent(
-  verb: string,
-  target: string,
+  reply: RouteReply,
   spoken: string,
   state: GameState,
+  profile: InvestigationProfile | null,
+  scenarioPack: Pack,
 ): Intent | undefined {
+  if ("kind" in reply) {
+    if (!profile) return undefined;
+    const investigation = visibleInvestigations(state, profile, scenarioPack)
+      .find((candidate) => candidate.id === reply.investigationId);
+    return investigation && allowedInvestigationSkills(investigation, profile).includes(reply.skill)
+      ? {
+          kind: "investigation",
+          investigationId: investigation.id,
+          skill: reply.skill,
+          approach: reply.approach,
+        }
+      : undefined;
+  }
+
+  const { verb, target } = reply;
   const here = visibleItemsInRoom(state, state.pcAt);
   const bag = itemsInRoom(state, "inv.pc");
 

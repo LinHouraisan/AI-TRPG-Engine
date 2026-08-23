@@ -22,11 +22,17 @@ for (const history of creation.lifeHistories) {
     pack.investigations.some((investigation) => investigation.id === history.investigationId),
     `${history.id} 的调查入口存在`,
   );
+  const investigation = pack.investigations.find((candidate) => candidate.id === history.investigationId);
+  assert(investigation?.lifeHistoryId === history.id, `${history.id} 的调查入口仅对该经历开放`);
+  assert(Boolean(investigation?.room && investigation.phrases.length && investigation.outcomes.success.length && investigation.outcomes.failure.length), `${history.id} 的调查入口可在运行时裁定`);
   assert(
     !endings.some((ending) => JSON.stringify(ending.doneWhen).includes(history.initialGrant.id)),
     `${history.id} 不直接赠送结局条件`,
   );
 }
+const conductorInvestigation = pack.investigations.find((entry) => entry.id === "investigation.conductor-leverage");
+assert(pack.investigations.length === 5, "恰有五项作者编写的调查入口");
+assert(conductorInvestigation?.defaultSkill === "侦查", "列车员破绽入口使用侦查检定");
 assert(pack.rooms.length >= 7 && pack.rooms.length <= 9, "场景数量为 7–9");
 assert(pack.npcs.length === 5, "主要 NPC 为 5 个");
 assert(pack.items.length >= 12 && pack.items.length <= 16, "关键道具为 12–16 件");

@@ -1,4 +1,6 @@
 import type { GameEvent, GameState, Intent } from "@/engine/types";
+import type { InvestigationProfile } from "@/engine/investigation";
+import type { Pack } from "@/engine/pack";
 import type { KeeperConfig } from "./config";
 import { narrationReplySchema, routeReplySchema } from "./contract";
 import {
@@ -42,6 +44,9 @@ export function newFreeTurnTaskId(): string {
 export async function handleFreeTurn(params: {
   config: KeeperConfig;
   state: GameState;
+  profile?: InvestigationProfile | null;
+  scenarioPack?: Pack;
+  currentStateVersion?: () => number;
   spoken: string;
   modelTaskId: string;
   signal?: AbortSignal;
@@ -49,6 +54,9 @@ export async function handleFreeTurn(params: {
   const routed = await keeperRoute({
     config: params.config,
     state: params.state,
+    profile: params.profile,
+    scenarioPack: params.scenarioPack,
+    currentStateVersion: params.currentStateVersion,
     spoken: params.spoken,
     signal: params.signal,
   });

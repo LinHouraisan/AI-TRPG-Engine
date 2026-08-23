@@ -108,6 +108,7 @@ export type Intent =
   | { kind: "take"; item: string }
   | { kind: "read"; item: string }
   | { kind: "talk"; text: string }
+  | { kind: "investigation"; investigationId: string; skill: string; approach: string }
   | { kind: "free_action"; text: string }
   | { kind: "query"; topic: QueryTopic }
   | { kind: "unclear"; text: string };
