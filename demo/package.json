@@ -11,6 +11,7 @@
     "typecheck": "tsc -b --noEmit",
     "pack:lint": "bun scripts/pack-lint.ts",
     "card:check": "bun scripts/card-check.ts",
+    "mist:check": "bun scripts/mist-harbor-check.ts",
     "kernel:check": "bun scripts/kernel-check.ts",
     "architecture:check": "bun scripts/architecture-check.ts",
     "keeper:check": "bun scripts/keeper-check.ts",

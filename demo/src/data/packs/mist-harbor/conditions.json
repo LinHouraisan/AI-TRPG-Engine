@@ -1,0 +1,5 @@
+[
+ {"id":"cond.train_departed","title":"末班车发车","once":true,"when":{"pcAt":"loc.carriage"},"effects":[{"event":{"type":"flag_set","flag":"act.two","value":true},"summary":"末班车驶入海雾。","narration":"车门在身后合拢，站台像被海水吞没。"}]},
+ {"id":"cond.girl_remembered","title":"记起许遥","once":true,"when":{"known":"fact.child_name"},"effects":[{"event":{"type":"flag_set","flag":"route.hidden","value":true},"summary":"许遥的名字被重新记住。"}]},
+ {"id":"cond.terminus","title":"抵达旧终点","once":true,"when":{"all":[{"known":"fact.old_line"},{"pcAt":"loc.cab"}]},"effects":[{"event":{"type":"npc_moved","npc":"npc.shen","to":"loc.terminus"},"summary":"旧雾港终点在前方出现。"}]}
+]

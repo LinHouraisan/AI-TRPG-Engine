@@ -1,0 +1,17 @@
+[
+ {"id":"item.ticket48","title":"四十八号车票","aliases":["车票"],"at":"loc.concourse","observed":"票面终点被黑墨涂去，背面是沈鹭的字。","observeGrants":"fact.ticket_48","portable":true},
+ {"id":"item.roster","title":"乘客名单","aliases":["名单"],"at":"loc.ticket","observed":"第十三行被刮去，却仍能看出墨痕。","observeGrants":"fact.roster_gap","portable":true},
+ {"id":"item.photo","title":"站员合影","aliases":["合影"],"at":"loc.luggage","observed":"照片有六个人，题字只列出五个名字。","observeGrants":"fact.photo_six","portable":true,"hidden":true,"revealedWhen":{"unlocked":"lock.luggage"}},
+ {"id":"item.watch","title":"停走怀表","aliases":["怀表"],"at":"loc.concourse","observed":"秒针每十三分钟退回原处。","observeGrants":"fact.clock_loop","portable":true},
+ {"id":"item.map","title":"旧线路图","aliases":["线路图"],"at":"loc.cab","observed":"潮汐支线被红笔重新接回主线。","observeGrants":"fact.old_line","portable":true,"hidden":true,"lockedBy":"lock.cab"},
+ {"id":"item.clipping","title":"旧线事故剪报","aliases":["剪报"],"at":"loc.dining","observed":"死者名单里有顾弦的姐姐。","observeGrants":"fact.reporter_note","portable":true},
+ {"id":"item.archive_box","title":"潮汐支线档案箱","aliases":["档案箱"],"at":"loc.baggage-car","observed":"记录称列车会抹去一名乘客以维持旧终点。","observeGrants":"fact.memory_fuel","portable":true,"hidden":true,"lockedBy":"lock.archive"},
+ {"id":"item.bell_diagram","title":"铜铃结构图","aliases":["结构图"],"at":"loc.baggage-car","observed":"图纸把铜铃标为现实锚点。","observeGrants":"fact.bell_anchor","portable":true,"hidden":true,"revealedWhen":{"known":"fact.memory_fuel"}},
+ {"id":"item.oath","title":"列车员誓约","aliases":["誓约"],"at":"loc.cab","observed":"许澄必须送满四十八名乘客才能结束值守。","observeGrants":"fact.conductor_oath","portable":true,"hidden":true,"lockedBy":"lock.cab"},
+ {"id":"item.name_tag","title":"许遥的姓名牌","aliases":["姓名牌"],"at":"loc.carriage","observed":"铜牌背面刻着许遥，字迹被摸得发亮。","observeGrants":"fact.child_name","portable":true,"hidden":true,"revealedWhen":{"known":"fact.photo_six"}},
+ {"id":"item.emergency_hammer","title":"紧急锤","aliases":["锤子"],"at":"loc.carriage","observed":"锤柄写着：只在愿意承担后果时使用。","portable":true},
+ {"id":"item.furnace_note","title":"炉门操作便笺","aliases":["便笺"],"at":"loc.cab","observed":"投入车票并念出姓名，可从旧终点带回一人。","observeGrants":"fact.return_method","portable":true,"hidden":true,"revealedWhen":{"known":"fact.old_line"}},
+ {"id":"item.bell_note","title":"值班钟记录","aliases":["钟记录"],"at":"loc.ticket","observed":"补全名单后敲铃，列车将完成循环。","observeGrants":"fact.loop_method","portable":true,"hidden":true,"revealedWhen":{"known":"fact.roster_gap"}},
+ {"id":"item.blank_ticket","title":"空白纪念票","aliases":["空白票"],"at":"loc.terminus","observed":"票背写着：留下一个真实记忆，门就会开一次。","observeGrants":"fact.bargain","portable":true},
+ {"id":"item.brake_key","title":"紧急制动钥匙","aliases":["制动钥匙"],"at":"loc.dining","observed":"钥匙能切断铜铃与列车的传动。","observeGrants":"fact.break_cost","portable":true,"hidden":true,"revealedWhen":{"known":"fact.bell_anchor"}}
+]

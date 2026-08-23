@@ -1,0 +1,9 @@
+{
+  "id": "mist-harbor",
+  "title": "雾港末班车",
+  "version": "0.1.0",
+  "kind": "one-shot",
+  "rules": "percentile",
+  "opening": "海雾漫过钟楼时，雾港站只剩最后一班列车。档案员沈鹭失踪前寄来的车票躺在你掌心，背面只有一句话：不要让他们忘记我。",
+  "investigator": { "id": "pc.linwan", "name": "林晚", "occupation": "记者", "hp": 11, "san": 65, "sanMax": 99, "startAt": "loc.concourse", "skills": { "侦查": 65, "聆听": 55, "图书馆使用": 60, "话术": 55, "心理学": 50, "开锁": 40 } }
+}

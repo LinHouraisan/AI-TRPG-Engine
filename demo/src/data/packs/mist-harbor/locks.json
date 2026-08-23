@@ -1,0 +1,5 @@
+[
+  {"id":"lock.luggage","title":"行李房铁门","at":"loc.concourse","skill":"开锁","difficulty":"regular","opens":"item.photo","minutes":{"ok":2,"fail":4},"text":{"ok":"锁舌退开，潮湿纸张的气味涌出来。","fail":"锁芯咬住工具，站钟又走回原位。","fumble":"工具断在锁孔里，远处响起检票铃。","alreadyOpen":"铁门已经打开。"}},
+  {"id":"lock.cab","title":"驾驶室乘务门","at":"loc.dining","skill":"开锁","difficulty":"hard","opens":"item.map","minutes":{"ok":3,"fail":5},"text":{"ok":"乘务门无声滑开。","fail":"门锁发出一声短促蜂鸣。","fumble":"红灯亮起，列车员开始向餐车走来。","alreadyOpen":"乘务门已经打开。"}},
+  {"id":"lock.archive","title":"档案货柜封条","at":"loc.baggage-car","skill":"侦查","difficulty":"regular","opens":"item.archive_box","minutes":{"ok":2,"fail":3},"text":{"ok":"你找到封条重复粘贴的接缝。","fail":"纸封看不出破绽。","fumble":"潮气毁掉了一角编号。","alreadyOpen":"档案货柜已经拆封。"}}
+]

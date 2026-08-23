@@ -1,0 +1,11 @@
+[
+  {"id":"loc.concourse","title":"雾港站大厅","intro":"铜钟停在十一点四十七分。售票窗亮着一盏绿灯，站台门外全是海雾。","exits":[{"to":"loc.ticket","via":"售票窗侧门"},{"to":"loc.platform","via":"检票口"},{"to":"loc.luggage","via":"行李房铁门"}]},
+  {"id":"loc.ticket","title":"售票室","intro":"账册摊在台灯下，墨迹像刚被水洇过。","exits":[{"to":"loc.concourse","via":"侧门"}]},
+  {"id":"loc.luggage","title":"行李房","intro":"成排木架隐没在雾气里，一只没有姓名牌的皮箱单独放在秤上。","exits":[{"to":"loc.concourse","via":"铁门"}]},
+  {"id":"loc.platform","title":"七号站台","intro":"黑色列车无声停靠，车窗里的人影都背对站台。","exits":[{"to":"loc.concourse","via":"检票口"},{"to":"loc.carriage","via":"三号车厢门"}]},
+  {"id":"loc.carriage","title":"三号车厢","intro":"座位上散落着尚有余温的茶杯，但乘客人数总比车票少一个。","exits":[{"to":"loc.platform","via":"车门"},{"to":"loc.dining","via":"前车门"},{"to":"loc.baggage-car","via":"后车门"}]},
+  {"id":"loc.dining","title":"餐车","intro":"银餐具随轨道震动轻响，镜子里偶尔多出一个空座位。","exits":[{"to":"loc.carriage","via":"后车门"},{"to":"loc.cab","via":"乘务门"}]},
+  {"id":"loc.baggage-car","title":"行李车","intro":"封条覆盖旧货柜，潮湿纸张的气味从最深处渗出来。","exits":[{"to":"loc.carriage","via":"前车门"}]},
+  {"id":"loc.cab","title":"驾驶室","intro":"速度表没有刻度，线路图尽头写着一座从地图上抹去的车站。","exits":[{"to":"loc.dining","via":"乘务门"},{"to":"loc.terminus","via":"紧急舱门"}]},
+  {"id":"loc.terminus","title":"旧雾港终点","intro":"月台浸在灰白晨光里，无数姓名在砖墙上明灭。","exits":[{"to":"loc.cab","via":"紧急舱门"}]}
+]

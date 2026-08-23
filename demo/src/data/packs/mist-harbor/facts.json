@@ -1,0 +1,17 @@
+[
+  {"id":"fact.ticket_48","title":"沈鹭持有不存在的四十八号车票","visibility":"public"},
+  {"id":"fact.roster_gap","title":"乘客名单在第十三行留下被刮去的空位","visibility":"public"},
+  {"id":"fact.photo_six","title":"合影中有六个人，现场所有人却只记得五个","visibility":"public"},
+  {"id":"fact.clock_loop","title":"站钟每隔十三分钟回到十一点四十七分","visibility":"public"},
+  {"id":"fact.old_line","title":"列车驶入三十年前封闭的潮汐支线","visibility":"public"},
+  {"id":"fact.shen_alive","title":"沈鹭仍被困在旧终点的候车室","visibility":"secret"},
+  {"id":"fact.memory_fuel","title":"列车以乘客被遗忘的记忆维持旧车站","visibility":"secret"},
+  {"id":"fact.bell_anchor","title":"站钟铜铃是循环的现实锚点","visibility":"secret"},
+  {"id":"fact.conductor_oath","title":"列车员许澄必须送满四十八名乘客才能离开","visibility":"secret"},
+  {"id":"fact.reporter_note","title":"记者顾弦曾在旧线事故中失去姐姐","visibility":"public"},
+  {"id":"fact.child_name","title":"无名女孩真正的名字是许遥","visibility":"secret"},
+  {"id":"fact.break_cost","title":"破坏铜铃会释放乘客，但旧终点中的人可能无法返回","visibility":"secret"},
+  {"id":"fact.return_method","title":"将四十八号票投入炉门并念出失踪者姓名可带回一人","visibility":"secret"},
+  {"id":"fact.loop_method","title":"补全名单并敲响铜铃可让列车完成循环","visibility":"secret"},
+  {"id":"fact.bargain","title":"自愿留下一个真实记忆，可以换取旧终点开放一次","visibility":"secret"}
+]
