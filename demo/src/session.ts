@@ -28,6 +28,12 @@ import {
 
 export type MessageKind = "play" | "notice";
 
+export function canApplyImportedCardLocally(
+  api: ReturnType<typeof tryDesktopApi>,
+): boolean {
+  return api === undefined;
+}
+
 export type Message = {
   id: string;
   role: "kp" | "pl" | "system";
@@ -1055,26 +1061,13 @@ export function useSession() {
   const confirmCard = useCallback(
     async (draft: CardImportDraft) => {
       const input = sheetInputFromDraft(draft);
-      const remote = tryDesktopApi();
-      if (remote?.campaign.applyCharacterCard && campaignId && branchId) {
-        const result = await remote.campaign.applyCharacterCard({
-          campaignId,
-          branchId,
-          expectedStateVersion: authoritative.current.state.version,
-          commandId: `card-${input.cardHash}`,
-          ...input,
-        });
-        if (!result.ok) {
-          pushNotice(`人设卡没写进战役：${result.error.code}`, authoritative.current.state.version);
-          return;
-        }
-        const events = await loadDesktopEvents(remote, campaignId, branchId);
-        const restored = replay(origin.current, events);
-        adopt({ state: restored, log: events });
-        pushNotice(`已确认「${input.name}」写入这场战役（人设卡）。`, restored.version);
+      if (!canApplyImportedCardLocally(tryDesktopApi())) {
+        pushNotice(
+          "桌面战役的调查员只能在开局时确认，不能通过人设卡编辑。",
+          authoritative.current.state.version,
+        );
         return;
       }
-
       const desk = authoritative.current;
       const applied = applyCharacterCard({ state: desk.state, log: desk.log, draft });
       adopt({ state: applied.state, log: applied.log });
@@ -1098,7 +1091,7 @@ export function useSession() {
       }
       pushNotice(`已确认「${input.name}」写入这场战役（人设卡）。`, applied.state.version);
     },
-    [adopt, branchId, campaignId, pushNotice],
+    [adopt, branchId, pushNotice],
   );
 
   const pushSystem = useCallback(

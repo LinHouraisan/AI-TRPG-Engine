@@ -47,20 +47,6 @@ export interface DesktopApi {
     list(input: { limit: number }): Promise<DesktopResult<{ items: DesktopCampaign[]; nextCursor?: string | null }>>;
     open(input: { campaignId: string }): Promise<DesktopResult<DesktopCampaign>>;
     moveToTrash(input: { campaignId: string }): Promise<DesktopResult<void>>;
-    applyCharacterCard?(input: {
-      campaignId: string;
-      branchId: string;
-      expectedStateVersion: number;
-      commandId: string;
-      name: string;
-      occupation: string;
-      hp: number;
-      hpMax: number;
-      san: number;
-      sanMax: number;
-      skills: Record<string, number>;
-      cardHash: string;
-    }): Promise<DesktopResult<{ operationId: string; turnId: string; stateVersion: number }>>;
     confirmInvestigator(input: {
       campaignId: string;
       branchId: string;
@@ -159,5 +145,11 @@ export interface DesktopApi {
 
 export function desktopApi(): DesktopApi | undefined {
   const api = (window as Window & { desktopApi?: DesktopApi }).desktopApi;
-  return api;
+  return api ? withoutLegacyInvestigatorEdit(api) : undefined;
+}
+
+export function withoutLegacyInvestigatorEdit(api: DesktopApi): DesktopApi {
+  const campaign = { ...api.campaign } as Record<string, unknown>;
+  delete campaign.applyCharacterCard;
+  return { ...api, campaign: campaign as unknown as DesktopApi["campaign"] };
 }
