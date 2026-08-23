@@ -37,6 +37,7 @@ export function ModelSettings() {
   const [note, setNote] = useState<string | null>(null);
   const [secret, setSecret] = useState("");
   const [secretPresent, setSecretPresent] = useState(false);
+  const [usage, setUsage] = useState<{ calls: number; promptTokens: number; completionTokens: number; estimatedMicros: number } | null>(null);
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,14 +51,16 @@ export function ModelSettings() {
 
   async function reload() {
     if (!api) return;
-    const [p, m, r] = await Promise.all([
+    const [p, m, r, u] = await Promise.all([
       api.settings.listProviders(),
       api.settings.listProfiles(),
       api.settings.listTaskRoutes(),
+      api.settings.getModelUsage(),
     ]);
     if (p.ok) setProviders(p.value);
     if (m.ok) setProfiles(m.value);
     if (r.ok) setRoutes(r.value);
+    if (u.ok) setUsage(u.value);
     const first = p.ok ? p.value[0] : undefined;
     if (first?.credentialId) {
       const present = await api.settings.hasSecret({ credentialId: first.credentialId });
@@ -151,7 +154,7 @@ export function ModelSettings() {
     const tested = await api.settings.testProvider();
     setNote(
       tested.ok
-        ? `连接成功，可用模型 ${tested.value.models.length} 个`
+        ? `连接成功；模型${tested.value.modelFound ? "存在" : "不存在"}，生成${tested.value.generationOk ? "通过" : "失败"}，JSON ${tested.value.jsonOk ? "通过" : "失败"}`
         : `连接失败：${tested.error.messageKey}`,
     );
   }
@@ -267,6 +270,7 @@ export function ModelSettings() {
                 />
               </label>
               <div className="border-t border-line/40 pt-2">
+                {usage ? <p className="mb-1 text-[11px] text-muted">云调用 {usage.calls} 次，Token {usage.promptTokens + usage.completionTokens}</p> : null}
                 <p className="text-[11px] text-muted">当前仅云端生成 GM 叙述；后台任务保持本地确定性。</p>
                 {TASKS.map((task) => {
                   const route = routes.find((item) => item.taskType === task);

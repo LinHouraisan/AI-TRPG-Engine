@@ -59,7 +59,8 @@ export interface DesktopApi {
     setSecret(input: { credentialId?: string; value: string }): Promise<DesktopResult<{ credentialId: string }>>;
     hasSecret(input: { credentialId: string }): Promise<DesktopResult<{ present: boolean }>>;
     deleteSecret(input: { credentialId: string }): Promise<DesktopResult<void>>;
-    testProvider(): Promise<DesktopResult<{ models: string[] }>>;
+    testProvider(): Promise<DesktopResult<{ models: string[]; modelFound: boolean; generationOk: boolean; jsonOk: boolean }>>;
+    getModelUsage(): Promise<DesktopResult<{ calls: number; promptTokens: number; completionTokens: number; estimatedMicros: number }>>;
     listProviders(): Promise<DesktopResult<Array<{
       providerInstanceId: string;
       providerType: string;

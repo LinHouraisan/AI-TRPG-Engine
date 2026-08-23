@@ -113,6 +113,74 @@ export async function askKeeper<T>(params: {
   return { value: parseKeeperReply(content, schema), ms: Date.now() - started };
 }
 
+export type ProviderFailure =
+  | "auth"
+  | "balance"
+  | "rate_limit"
+  | "model_not_found"
+  | "timeout"
+  | "server"
+  | "contract"
+  | "network";
+
+export function classifyProviderFailure(input: {
+  status?: number;
+  error?: unknown;
+  malformed?: boolean;
+}): ProviderFailure {
+  if (input.malformed) return "contract";
+  if (input.error instanceof Error && input.error.name === "AbortError") return "timeout";
+  if (input.status === 401 || input.status === 403) return "auth";
+  if (input.status === 402) return "balance";
+  if (input.status === 404) return "model_not_found";
+  if (input.status === 429) return "rate_limit";
+  if (input.status !== undefined && input.status >= 500) return "server";
+  return "network";
+}
+
+export type ProviderProbe = {
+  models: string[];
+  modelFound: boolean;
+  generationOk: boolean;
+  jsonOk: boolean;
+};
+
+export async function probeKeeper(config: KeeperConfig): Promise<ProviderProbe> {
+  const models = await pingKeeper(config);
+  if (config.protocol !== "openai_compatible") {
+    return { models, modelFound: models.includes(config.model), generationOk: true, jsonOk: true };
+  }
+  const response = await fetch(`${config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${config.apiKey ?? ""}`,
+    },
+    signal: AbortSignal.timeout(10_000),
+    body: JSON.stringify({
+      model: config.model,
+      stream: false,
+      response_format: { type: "json_object" },
+      ...(config.disableThinking ? { thinking: { type: "disabled" } } : {}),
+      temperature: 0,
+      max_tokens: 16,
+      messages: [
+        { role: "system", content: "只输出 JSON。" },
+        { role: "user", content: '输出 {"ok":true}' },
+      ],
+    }),
+  });
+  if (!response.ok) throw new KeeperError(`主持人返回 ${response.status}`, "network");
+  const content = await readOpenAiChatOnce(response);
+  let jsonOk = false;
+  try {
+    jsonOk = (JSON.parse(content) as { ok?: unknown }).ok === true;
+  } catch {
+    jsonOk = false;
+  }
+  return { models, modelFound: models.includes(config.model), generationOk: content.length > 0, jsonOk };
+}
+
 async function readOpenAiChatOnce(response: Response): Promise<string> {
   const body = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;

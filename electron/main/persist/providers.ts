@@ -249,15 +249,15 @@ export function setTaskRoute(
   };
 }
 
-/** First-run Ollama row so the settings UI is not empty. */
-export function ensureDefaultProvider(db: Driver, now: string, model: string, baseUrl: string): void {
+/** First-run DeepSeek row. The credential is attached after the user saves it. */
+export function ensureDefaultProvider(db: Driver, now: string, _model: string, _baseUrl: string): void {
   if (listProviders(db).length > 0) return;
   const provider = upsertProvider(
     db,
     {
-      providerType: "ollama",
-      displayName: "Local Ollama",
-      baseUrl,
+      providerType: "deepseek",
+      displayName: "DeepSeek",
+      baseUrl: "https://api.deepseek.com",
       enabled: true,
     },
     now,
@@ -266,8 +266,8 @@ export function ensureDefaultProvider(db: Driver, now: string, model: string, ba
     db,
     {
       providerInstanceId: provider.providerInstanceId,
-      modelId: model,
-      displayName: model,
+      modelId: "deepseek-v4-flash",
+      displayName: "deepseek-v4-flash",
       enabled: true,
     },
     now,

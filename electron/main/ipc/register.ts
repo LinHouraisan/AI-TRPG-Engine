@@ -19,7 +19,8 @@ import {
 } from "../persist/providers";
 import type { LifecycleState } from "../lifecycle";
 import { withKeeperConfig } from "../model-config";
-import { pingKeeper } from "../../../demo/src/keeper/client";
+import { probeKeeper } from "../../../demo/src/keeper/client";
+import { summarizeModelUsage } from "../model-usage";
 
 const MAX_BYTES = 1024 * 1024;
 
@@ -219,11 +220,11 @@ export function registerIpc(
 
   handle("settings:testProvider", async () => {
     const configured = withKeeperConfig(composition.settings, composition.credentials, (config) =>
-      pingKeeper(config),
+      probeKeeper(config),
     );
     if (!configured.ok) return configured;
     try {
-      return ok({ models: await configured.value });
+      return ok(await configured.value);
     } catch (error) {
       return fail({
         code: "PROVIDER_UNAVAILABLE",
@@ -232,6 +233,8 @@ export function registerIpc(
       });
     }
   });
+
+  handle("settings:getModelUsage", () => ok(summarizeModelUsage(composition.settings)));
 
   const providerTypes = [
     "openai",

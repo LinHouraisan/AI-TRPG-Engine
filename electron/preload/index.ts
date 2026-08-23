@@ -33,6 +33,7 @@ const desktopApi: DesktopApi = {
     hasSecret: (input) => invoke("settings:hasSecret", input),
     deleteSecret: (input) => invoke("settings:deleteSecret", input),
     testProvider: () => invoke("settings:testProvider"),
+    getModelUsage: () => invoke("settings:getModelUsage"),
     listProviders: () => invoke("settings:listProviders"),
     upsertProvider: (input) => invoke("settings:upsertProvider", input),
     deleteProvider: (input) => invoke("settings:deleteProvider", input),
