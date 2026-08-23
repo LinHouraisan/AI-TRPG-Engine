@@ -8,6 +8,7 @@ import { ContextUsagePanel } from "@/ui/ContextUsage";
 import { JobTracePanel } from "@/ui/JobTrace";
 import { InvestigatorSheet } from "@/ui/InvestigatorSheet";
 import { InvestigatorCreation } from "@/ui/InvestigatorCreation";
+import { openingGate } from "@/ui/investigator-creation-state";
 import { KeeperSettings } from "@/ui/KeeperSettings";
 import { ModelSettings } from "@/ui/ModelSettings";
 import { FirstRunFlow } from "@/ui/FirstRunFlow";
@@ -35,6 +36,7 @@ export default function App() {
   const desktop = Boolean(desktopApi());
   const filePicker = useRef<HTMLInputElement>(null);
   const [mobilePane, setMobilePane] = useState<MobilePane>("narration");
+  const gate = openingGate(session.investigatorProfile != null, pack.manifest.creation != null);
 
   const wait = composeWait({
     busy: session.busy,
@@ -131,14 +133,22 @@ export default function App() {
       </header>
 
       <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-3 overflow-x-hidden p-3 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)_minmax(0,300px)]">
-        {!session.investigatorProfile && pack.manifest.creation ? (
+        {gate === "creation" && pack.manifest.creation ? (
           <main className="flex min-h-0 min-w-0 flex-col rounded-lg border border-line/60 bg-ink-2/40 md:col-span-3">
             <InvestigatorCreation
               rules={pack.manifest.creation}
               busy={session.busy}
               ready={session.ready}
+              error={session.confirmationError}
               onConfirm={session.confirmInvestigator}
             />
+          </main>
+        ) : gate === "unsupported" ? (
+          <main className="flex min-h-0 min-w-0 flex-col items-center justify-center rounded-lg border border-line/60 bg-ink-2/40 p-6 text-center md:col-span-3">
+            <h1 className="font-serif text-xl text-brass">此资料包尚未提供调查员创建规则</h1>
+            <p className="mt-2 max-w-lg text-sm leading-6 text-muted">
+              正式游戏保持锁定。请选择支持开局创建的资料包后再开始。
+            </p>
           </main>
         ) : (
           <>
@@ -231,7 +241,7 @@ export default function App() {
         )}
       </div>
 
-      {session.investigatorProfile ? <nav aria-label="桌面栏目" className="flex shrink-0 border-t border-line/60 md:hidden">
+      {gate === "play" ? <nav aria-label="桌面栏目" className="flex shrink-0 border-t border-line/60 md:hidden">
         {PANES.map((pane) => (
           <button
             key={pane.id}

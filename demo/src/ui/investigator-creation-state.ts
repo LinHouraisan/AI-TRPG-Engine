@@ -7,6 +7,32 @@ import type {
 
 export type CreationStep = "premise" | "occupation" | "skills" | "history" | "review";
 
+export type OpeningGate = "creation" | "unsupported" | "play";
+
+export function openingGate(hasConfirmedInvestigator: boolean, hasCreationRules: boolean): OpeningGate {
+  if (hasConfirmedInvestigator) return "play";
+  return hasCreationRules ? "creation" : "unsupported";
+}
+
+export type ConfirmationState = { error: string | null };
+export const initialConfirmationState: ConfirmationState = { error: null };
+
+export function confirmationReducer(
+  state: ConfirmationState,
+  action: { type: "attempted" } | { type: "rejected"; error: string },
+): ConfirmationState {
+  if (action.type === "attempted") return initialConfirmationState;
+  return state.error === action.error ? state : { error: action.error };
+}
+
+export function canSubmitConfirmation(params: {
+  ready: boolean;
+  busy: boolean;
+  issueCount: number;
+}): boolean {
+  return params.ready && !params.busy && params.issueCount === 0;
+}
+
 export type CreationState = {
   step: CreationStep;
   rules: InvestigatorCreationRules;

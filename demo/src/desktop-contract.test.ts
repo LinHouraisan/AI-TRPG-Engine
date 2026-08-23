@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import type { DesktopApi } from "./desktop";
 import { withoutLegacyInvestigatorEdit } from "./desktop";
-import { canApplyImportedCardLocally } from "./session";
 
 test("renderer strips the legacy investigator edit method without invoking it", () => {
   let invoked = 0;
@@ -16,6 +15,5 @@ test("renderer strips the legacy investigator edit method without invoking it", 
   const api = withoutLegacyInvestigatorEdit(raw);
 
   expect("applyCharacterCard" in api.campaign).toBe(false);
-  expect(canApplyImportedCardLocally(api)).toBe(false);
   expect(invoked).toBe(0);
 });

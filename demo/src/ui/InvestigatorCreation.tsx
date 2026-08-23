@@ -4,6 +4,7 @@ import type { InvestigatorAllocation, InvestigatorCreationRules } from "@/charac
 import { pack } from "@/engine/pack";
 import {
   creationReducer,
+  canSubmitConfirmation,
   initialCreationState,
   type CreationStep,
 } from "./investigator-creation-state";
@@ -20,11 +21,13 @@ export function InvestigatorCreation({
   rules,
   busy,
   ready,
+  error,
   onConfirm,
 }: {
   rules: InvestigatorCreationRules;
   busy: boolean;
   ready: boolean;
+  error: string | null;
   onConfirm: (allocation: InvestigatorAllocation) => Promise<boolean>;
 }) {
   const [state, dispatch] = useReducer(creationReducer, rules, initialCreationState);
@@ -56,6 +59,12 @@ export function InvestigatorCreation({
             ))}
           </ol>
         </header>
+
+        {error ? (
+          <p role="alert" className="mx-4 mt-4 rounded border border-blood/60 bg-blood/10 px-3 py-2 text-sm text-blood">
+            {error}
+          </p>
+        ) : null}
 
         <div className="space-y-4 p-4 md:p-5">
           {state.step === "premise" ? (
@@ -177,7 +186,7 @@ export function InvestigatorCreation({
                 <button type="button" onClick={() => go("history")} className="rounded border border-line/70 px-3 py-2 text-sm">上一步</button>
                 <button
                   type="button"
-                  disabled={!ready || busy || state.issues.length > 0}
+                  disabled={!canSubmitConfirmation({ ready, busy, issueCount: state.issues.length })}
                   onClick={() => void onConfirm(state.allocation)}
                   className="rounded border border-brass/70 bg-brass/10 px-4 py-2 text-sm text-brass disabled:opacity-40"
                 >

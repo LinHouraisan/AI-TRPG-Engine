@@ -1,6 +1,16 @@
 import { expect, test } from "bun:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { loadPackById } from "@/engine/pack";
-import { creationReducer, initialCreationState } from "./investigator-creation-state";
+import { InvestigatorCreation } from "./InvestigatorCreation";
+import {
+  canSubmitConfirmation,
+  confirmationReducer,
+  creationReducer,
+  initialConfirmationState,
+  initialCreationState,
+  openingGate,
+} from "./investigator-creation-state";
 
 const rules = loadPackById("mist-harbor").manifest.creation;
 if (!rules) throw new Error("Mist Harbor must define investigator creation rules");
@@ -28,4 +38,35 @@ test("valid allocation can advance to life history", () => {
 
   expect(next.step).toBe("history");
   expect(next.issues).toEqual([]);
+});
+
+test("profile gate never mounts play for a pack without creation rules", () => {
+  expect(openingGate(false, false)).toBe("unsupported");
+  expect(openingGate(false, true)).toBe("creation");
+  expect(openingGate(true, false)).toBe("play");
+});
+
+test("rejected confirmation exposes an error and the next attempt clears it for retry", () => {
+  const rejected = confirmationReducer(initialConfirmationState, {
+    type: "rejected",
+    error: "调查员确认失败",
+  });
+  expect(rejected.error).toBe("调查员确认失败");
+
+  const retrying = confirmationReducer(rejected, { type: "attempted" });
+  expect(retrying.error).toBeNull();
+});
+
+test("rejected confirmation renders a visible alert without disabling retry", () => {
+  const html = renderToStaticMarkup(createElement(InvestigatorCreation, {
+    rules,
+    busy: false,
+    ready: true,
+    error: "调查员确认失败：investigator.allocation_invalid",
+    onConfirm: async () => false,
+  }));
+
+  expect(html).toContain('role="alert"');
+  expect(html).toContain("调查员确认失败：investigator.allocation_invalid");
+  expect(canSubmitConfirmation({ ready: true, busy: false, issueCount: 0 })).toBe(true);
 });

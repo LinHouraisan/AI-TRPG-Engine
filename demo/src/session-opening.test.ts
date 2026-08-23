@@ -1,8 +1,14 @@
 import { expect, test } from "bun:test";
 import type { InvestigatorProfile } from "@/character/types";
 import { initialState } from "@/engine/state";
-import { pack } from "@/engine/pack";
-import { createOpening, createRestoredMessages } from "@/session";
+import { loadPackById, pack } from "@/engine/pack";
+import { replay } from "@/engine/runtime";
+import {
+  activeCheckPreviewReducer,
+  createOpening,
+  createRestoredMessages,
+  projectInvestigatorConfirmation,
+} from "@/session";
 
 const base = initialState();
 const confirmedProfile: InvestigatorProfile = {
@@ -23,6 +29,51 @@ const confirmedProfile: InvestigatorProfile = {
 test("formal opening is absent until investigator confirmation", () => {
   expect(createOpening(initialState(), null).map((message) => message.text).join(" "))
     .not.toContain(pack.manifest.opening);
+});
+
+test("check preview resolves and clears on the next unrelated action", () => {
+  const candidate = {
+    title: "书桌抽屉",
+    skill: "开锁",
+    skillValue: 40,
+    difficulty: "hard" as const,
+    threshold: 20,
+  };
+  const pending = activeCheckPreviewReducer(null, { type: "began", check: candidate });
+  expect(pending).toEqual({ kind: "candidate", check: candidate });
+
+  const check = { ...candidate, roll: 18, level: "困难成功" as const, ok: true };
+  const resolved = activeCheckPreviewReducer(pending, { type: "resolved", check });
+  expect(resolved).toEqual({ kind: "resolved", check });
+  expect(activeCheckPreviewReducer(resolved, { type: "began", check: null })).toBeNull();
+});
+
+test("browser confirmation projects replayable profile, grant, and relationship events", () => {
+  const mist = loadPackById("mist-harbor");
+  const rules = mist.manifest.creation;
+  if (!rules) throw new Error("Mist Harbor must define investigator creation rules");
+  const start = initialState();
+  const projected = projectInvestigatorConfirmation({
+    state: start,
+    log: [],
+    rules,
+    itemLocations: Object.fromEntries(mist.items.map((item) => [item.id, item.at])),
+    allocation: {
+      name: "林晚",
+      lifeHistoryId: "history.archive-correspondent",
+      occupationPoints: { 侦查: 55, 聆听: 35, 图书馆使用: 50, 话术: 70, 心理学: 70 },
+      interestPoints: { 侦查: 10, 聆听: 20, 图书馆使用: 20, 话术: 15, 心理学: 10, 开锁: 65 },
+    },
+  });
+  if (!projected) throw new Error("Browser confirmation fixture must be valid");
+
+  expect(projected.committed.map((event) => event.payload.type)).toEqual([
+    "sheet_applied",
+    "fact_known",
+    "relationship_established",
+  ]);
+  expect(projected.state.relationships?.["npc.shen"]).toBe("沈鹭信任你会把她的名字写进档案。");
+  expect(replay(start, projected.committed)).toEqual(projected.state);
 });
 
 test("续场开场消息使用实际恢复版本", () => {

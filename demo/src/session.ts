@@ -1,19 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createFreshDesktopCampaign, ensureDesktopCampaign, loadDesktopBranch, loadDesktopCampaign, loadDesktopEvents, submitDesktopTurn, tryDesktopApi } from "@/desktop-play";
 import { emptyMemory, runAfterCommit, runAfterCommitLive, traceFromJobs, type JobTrace, type MemoryState } from "@/ai";
 import { validateAllocation } from "@/character/creation";
-import type { InvestigatorAllocation, InvestigatorProfile } from "@/character/types";
+import type {
+  InvestigatorAllocation,
+  InvestigatorCreationRules,
+  InvestigatorProfile,
+} from "@/character/types";
 import { recentFromTurn } from "@/engine/recent";
 import { storyMonitor } from "@/engine/story-monitor";
-import { applyCharacterCard, sheetInputFromDraft } from "@/cards/apply";
-import type { CardImportDraft } from "@/cards/types";
 import { emptyContextStore, type ContextStore } from "@/engine/context-store";
 import { narrate, openingLine, suggest } from "@/engine/narrate";
 import { pack, packIndex } from "@/engine/pack";
 import { playTurn } from "@/engine/play-turn";
 import { route } from "@/engine/router";
 import { thresholdFor } from "@/engine/rules";
-import { commit, replay, stateHash } from "@/engine/runtime";
+import { replay, stateHash } from "@/engine/runtime";
 import { initialState } from "@/engine/state";
 import type { CheckResult, EventDraft, GameEvent, GameState, Intent } from "@/engine/types";
 import { loadConfig, saveConfig, type KeeperConfig } from "@/keeper/config";
@@ -27,14 +29,9 @@ import {
   type Store,
   type StoredMessage,
 } from "@/store";
+import { confirmationReducer, initialConfirmationState } from "@/ui/investigator-creation-state";
 
 export type MessageKind = "play" | "notice";
-
-export function canApplyImportedCardLocally(
-  api: ReturnType<typeof tryDesktopApi>,
-): boolean {
-  return api === undefined;
-}
 
 export type Message = {
   id: string;
@@ -110,6 +107,22 @@ export type ActiveCheckPreview =
   | { kind: "candidate"; check: PendingCheck }
   | { kind: "resolved"; check: CheckResult }
   | null;
+
+export type ActiveCheckPreviewAction =
+  | { type: "began"; check: PendingCheck | null }
+  | { type: "resolved"; check: CheckResult }
+  | { type: "cleared" };
+
+export function activeCheckPreviewReducer(
+  _state: ActiveCheckPreview,
+  action: ActiveCheckPreviewAction,
+): ActiveCheckPreview {
+  if (action.type === "began") {
+    return action.check ? { kind: "candidate", check: action.check } : null;
+  }
+  if (action.type === "resolved") return { kind: "resolved", check: action.check };
+  return null;
+}
 
 export type TurnMark = {
   turnId: string;
@@ -216,16 +229,17 @@ function investigatorFromState(state: GameState): InvestigatorProfile | null {
   };
 }
 
-function projectInvestigatorConfirmation(params: {
+export function projectInvestigatorConfirmation(params: {
   state: GameState;
   log: GameEvent[];
   allocation: InvestigatorAllocation;
+  rules: InvestigatorCreationRules;
+  itemLocations: Record<string, string>;
 }): { profile: InvestigatorProfile; state: GameState; log: GameEvent[]; committed: GameEvent[] } | null {
-  const rules = pack.manifest.creation;
-  if (!rules) return null;
-  const validated = validateAllocation(rules, params.allocation);
+  if (params.state.version !== 0 || params.log.length !== 0) return null;
+  const validated = validateAllocation(params.rules, params.allocation);
   if (!validated.ok) return null;
-  const history = rules.lifeHistories.find((candidate) => candidate.id === validated.profile.lifeHistoryId);
+  const history = params.rules.lifeHistories.find((candidate) => candidate.id === validated.profile.lifeHistoryId);
   if (!history) return null;
   const profile = validated.profile;
   const drafts: EventDraft[] = [
@@ -259,7 +273,7 @@ function projectInvestigatorConfirmation(params: {
           payload: {
             type: "item_moved",
             item: history.initialGrant.id,
-            from: pack.items.find((item) => item.id === history.initialGrant.id)?.at ?? "unknown",
+            from: params.itemLocations[history.initialGrant.id] ?? "unknown",
             to: "inv.pc",
           },
           summary: `人生经历带来初始物品「${history.initialGrant.id}」。`,
@@ -275,13 +289,22 @@ function projectInvestigatorConfirmation(params: {
       cause: `history:${history.id}`,
     },
   ];
-  const result = commit({
-    state: params.state,
-    log: params.log,
-    drafts,
-    turnId: `confirm-investigator-${Date.now()}`,
-  });
-  return { profile, ...result };
+  const turnId = "browser-confirm-investigator";
+  const committed: GameEvent[] = drafts.map((draft, index) => ({
+    ...draft,
+    id: `${turnId}-${index}`,
+    seq: index,
+    turnId,
+    versionAfter: 1,
+    clock: 0,
+    visibility: draft.visibility ?? "public",
+  }));
+  return {
+    profile,
+    state: replay(params.state, committed),
+    log: committed,
+    committed,
+  };
 }
 
 async function getDesktopInvestigator(
@@ -304,7 +327,8 @@ export function useSession() {
   });
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [investigatorProfile, setInvestigatorProfile] = useState<InvestigatorProfile | null>(null);
-  const [activeCheckPreview, setActiveCheckPreview] = useState<ActiveCheckPreview>(null);
+  const [confirmation, dispatchConfirmation] = useReducer(confirmationReducer, initialConfirmationState);
+  const [activeCheckPreview, dispatchCheckPreview] = useReducer(activeCheckPreviewReducer, null);
   const [messages, setMessages] = useState<Message[]>(() => createOpening(initialState(), null));
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -510,7 +534,7 @@ export function useSession() {
       setBusy(true);
       setNarrationDraft(null);
       const candidateCheck = pendingCheckFor(intent, state);
-      setActiveCheckPreview(candidateCheck ? { kind: "candidate", check: candidateCheck } : null);
+      dispatchCheckPreview({ type: "began", check: candidateCheck });
       // 路由之后、掷骰之前：只公开意图和门槛，绝不带点数。
       setPending({
         label: spoken,
@@ -594,7 +618,7 @@ export function useSession() {
         const nextState = replay(origin.current, nextLog);
         authoritative.current = { state: nextState, log: nextLog };
         const check = view.check as import("@/engine/types").CheckResult | undefined;
-        setActiveCheckPreview(check ? { kind: "resolved", check } : null);
+        dispatchCheckPreview(check ? { type: "resolved", check } : { type: "cleared" });
         const fallback = view.narration;
         const remoteIntent = (view.intent as Intent | undefined) ?? intent;
         lastTurn.current = {
@@ -672,7 +696,7 @@ export function useSession() {
       }
 
       const { state: nextState, log: nextLog, committed, check, narration: fallback } = outcome;
-      setActiveCheckPreview(check ? { kind: "resolved", check } : null);
+      dispatchCheckPreview(check ? { type: "resolved", check } : { type: "cleared" });
       authoritative.current = { state: nextState, log: nextLog };
 
       const db = store.current;
@@ -943,7 +967,7 @@ export function useSession() {
       if (!db || !campaignId || busy) return;
       setBusy(true);
       setPending({ label: "切换分支", intent: null, check: null });
-      setActiveCheckPreview(null);
+      dispatchCheckPreview({ type: "cleared" });
       try {
         const events = await db.loadEvents(target);
         const stored = await db.loadMessages(target);
@@ -953,6 +977,7 @@ export function useSession() {
         adopt({ state: restored, log: events });
         const profile = investigatorFromState(restored);
         setInvestigatorProfile(profile);
+        dispatchConfirmation({ type: "attempted" });
         const restoredMessages = stored
           .map((message, index) => fromStored(message, index))
           .filter((message): message is Message => message != null);
@@ -980,7 +1005,7 @@ export function useSession() {
       if (!db || !campaignId || !branchId || busy) return;
       setBusy(true);
       setPending({ label: `回到版本 v${mark.version}`, intent: null, check: null });
-      setActiveCheckPreview(null);
+      dispatchCheckPreview({ type: "cleared" });
       try {
         const target = await db.fork({
           campaignId,
@@ -1079,6 +1104,7 @@ export function useSession() {
     setBranchId(loaded.branchId);
     adopt({ state: loaded.state, log: loaded.events });
     setInvestigatorProfile(profile);
+    dispatchConfirmation({ type: "attempted" });
     setMessages(loaded.history ? createRestoredMessages(loaded.state, loaded.history) : createOpening(loaded.state, profile));
     lastTurn.current = null;
     memoryRef.current = emptyMemory();
@@ -1087,7 +1113,7 @@ export function useSession() {
     setLastUsage(null);
     setNarrationDraft(null);
     setPending(null);
-    setActiveCheckPreview(null);
+    dispatchCheckPreview({ type: "cleared" });
     return true;
   }, [adopt]);
 
@@ -1182,6 +1208,7 @@ export function useSession() {
     origin.current = fresh;
     adopt({ state: fresh, log: [] });
     setInvestigatorProfile(null);
+    dispatchConfirmation({ type: "attempted" });
     setMessages(createOpening(fresh, null));
     lastTurn.current = null;
     memoryRef.current = emptyMemory();
@@ -1190,7 +1217,7 @@ export function useSession() {
     setLastUsage(null);
     setNarrationDraft(null);
     setPending(null);
-    setActiveCheckPreview(null);
+    dispatchCheckPreview({ type: "cleared" });
 
     if (!db) return;
     const handle = await db.openCampaign({
@@ -1206,10 +1233,11 @@ export function useSession() {
 
   const confirmInvestigator = useCallback(async (allocation: InvestigatorAllocation) => {
     if (!campaignId || !branchId || busy || inflight.current || investigatorProfile) return false;
+    dispatchConfirmation({ type: "attempted" });
     inflight.current = true;
     setBusy(true);
     setPending({ label: "确认调查员", intent: null, check: null });
-    setActiveCheckPreview(null);
+    dispatchCheckPreview({ type: "cleared" });
     try {
       const remote = tryDesktopApi();
       if (remote) {
@@ -1219,12 +1247,18 @@ export function useSession() {
           allocation,
         });
         if (!confirmed.ok) {
-          pushNotice(`调查员确认失败：${confirmed.error.messageKey}`, authoritative.current.state.version);
+          dispatchConfirmation({
+            type: "rejected",
+            error: `调查员确认失败：${confirmed.error.messageKey}`,
+          });
           return false;
         }
         const loaded = await loadDesktopCampaign(remote, campaignId);
         if (!adoptDesktopCampaign(loaded, confirmed.value.profile) || !loaded) {
-          pushNotice("调查员已经确认，但分支重载失败；请重新启动后重试。", confirmed.value.stateVersion);
+          dispatchConfirmation({
+            type: "rejected",
+            error: "调查员已经确认，但分支重载失败；请重新启动后重试。",
+          });
           return false;
         }
         setMessages(createOpening(loaded.state, confirmed.value.profile));
@@ -1233,16 +1267,23 @@ export function useSession() {
 
       const desk = authoritative.current;
       if (desk.state.version > 0) {
-        pushNotice("这一场已经开始，不能再确认新的调查员。", desk.state.version);
+        dispatchConfirmation({ type: "rejected", error: "这一场已经开始，不能再确认新的调查员。" });
+        return false;
+      }
+      const rules = pack.manifest.creation;
+      if (!rules) {
+        dispatchConfirmation({ type: "rejected", error: "当前资料包没有调查员创建规则。" });
         return false;
       }
       const projected = projectInvestigatorConfirmation({
         state: desk.state,
         log: desk.log,
         allocation,
+        rules,
+        itemLocations: Object.fromEntries(pack.items.map((item) => [item.id, item.at])),
       });
       if (!projected) {
-        pushNotice("调查员点数或人生经历未通过校验。", desk.state.version);
+        dispatchConfirmation({ type: "rejected", error: "调查员点数或人生经历未通过校验。" });
         return false;
       }
 
@@ -1271,49 +1312,18 @@ export function useSession() {
       setInvestigatorProfile(projected.profile);
       setMessages(createOpening(projected.state, projected.profile));
       return true;
+    } catch (error) {
+      dispatchConfirmation({
+        type: "rejected",
+        error: `调查员确认失败：${error instanceof Error ? error.message : String(error)}`,
+      });
+      return false;
     } finally {
       setPending(null);
       setBusy(false);
       inflight.current = false;
     }
   }, [adopt, adoptDesktopCampaign, branchId, busy, campaignId, investigatorProfile, pushNotice, refreshBranches]);
-
-  const confirmCard = useCallback(
-    async (draft: CardImportDraft) => {
-      const input = sheetInputFromDraft(draft);
-      if (!canApplyImportedCardLocally(tryDesktopApi())) {
-        pushNotice(
-          "桌面战役的调查员只能在开局时确认，不能通过人设卡编辑。",
-          authoritative.current.state.version,
-        );
-        return;
-      }
-
-      const desk = authoritative.current;
-      const applied = applyCharacterCard({ state: desk.state, log: desk.log, draft });
-      adopt({ state: applied.state, log: applied.log });
-      const db = store.current;
-      if (db && branchId) {
-        try {
-          await db.appendEvents(branchId, applied.committed);
-          await db.saveCheckpoint({
-            branchId,
-            cursor: applied.log.length - 1,
-            stateVersion: applied.state.version,
-            stateHash: stateHash(applied.state),
-            packRef: pack.ref,
-          });
-        } catch (error) {
-          pushNotice(
-            `人设卡没落盘：${error instanceof Error ? error.message : String(error)}`,
-            applied.state.version,
-          );
-        }
-      }
-      pushNotice(`已确认「${input.name}」写入这场战役（人设卡）。`, applied.state.version);
-    },
-    [adopt, branchId, pushNotice],
-  );
 
   const pushSystem = useCallback(
     (text: string) => {
@@ -1326,6 +1336,7 @@ export function useSession() {
     state: presented.state,
     log: presented.log,
     investigatorProfile,
+    confirmationError: confirmation.error,
     activeCheckPreview,
     pending,
     messages,
@@ -1357,7 +1368,6 @@ export function useSession() {
     deleteCampaign,
     restoreDesktopCheckpoint,
     confirmInvestigator,
-    confirmCard,
     pushSystem,
   };
 }
