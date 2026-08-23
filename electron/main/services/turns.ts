@@ -29,6 +29,7 @@ import {
   findTurnByCommand,
   getOperation,
   listTimeline,
+  loadBranchHistory,
   loadGameEvents,
 } from "../persist/turns";
 import { loadMemory, saveFrontier, saveMemory } from "../persist/derived";
@@ -238,7 +239,7 @@ export class TurnService {
         occurredAt: row.occurred_at,
       };
     });
-    return ok({ items, events, nextCursor: null });
+    return ok({ items, events, ...loadBranchHistory(opened.value, branchId), nextCursor: null });
   }
 
   applyCharacterCard(input: {
@@ -438,7 +439,7 @@ export class TurnService {
     let text = fallback;
     let note: string | undefined;
     let modelTaskId = params.modelTaskId ?? "template";
-    if (view.events.length > 0) {
+    if (view.events.length > 0 || (view.intent as Intent).kind === "free_action") {
       const configured = withKeeperConfig(this.campaigns.settings, this.credentials, async (config) => ({
         result: await keeperNarrate({
           config,

@@ -14,13 +14,13 @@ import { checkNarration } from "./guard";
 
 const NARRATE_SYSTEM = [
   "你是《克苏鲁的呼唤》的守秘人，主持一场简体中文的跑团。",
-  "规矩只有一条，但没有例外：你只能复述【已提交的事实】，不能新增任何事实。",
+  "结构化行动只能复述【已提交的事实】。自由行动可以补充不改变权威状态、可随时修正的感官与互动细节，但不得凭空发放线索、道具、成功结果或永久变化。",
   "具体来说——",
   "1. 不许出现上下文里没有的人、东西、房间、声音来源；想不出细节就写得含糊些，不要编。",
   "2. 不许报出没有掷出来的数字，也不许判断成败：成败已经由程序定好，写在事实里了。",
   "3. 不许替玩家决定他下一步做什么，也不许替他说话或者动。",
   "4. 【作者写好的句子】必须体现出来，可以调整语气，但事实不能改。",
-  "5. 两到四句，第二人称，克制、具体、不抒情。不要用列表，不要加引号包住整段。",
+  "5. 第二人称，具体、有现场感，不要用列表，不要加引号包住整段。简单动作约100至250字；调查、对话和探索约250至600字；关键剧情最多900字。内容应包含环境反馈、行动后果和可继续互动点，不要为了凑字重复信息。",
   "只输出 JSON：{\"text\": \"你的叙述\"}",
 ].join("\n");
 
@@ -28,9 +28,9 @@ const QUERY_TOPICS: readonly QueryTopic[] = ["inventory", "sheet", "clues", "tim
 
 const ROUTE_SYSTEM = [
   "你是跑团程序的一道输入路由。玩家说了一句话，你要判断他想做的是哪一个动作。",
-  "动词只能从这些里选：move（去某处）、observe（观察某物）、unlock（撬锁或开锁）、take（拿走某物）、read（阅读某物）、talk（说话）、query（询问已知信息，不是行动）、unclear（看不出来）。",
+  "动词从这些里选：move（去某处）、observe（观察某物）、unlock（撬锁或开锁）、take（拿走某物）、read（阅读某物）、talk（说话）、query（询问已知信息，不是行动）、free（合理但不属于上述固定动作的自由尝试）、unclear（连玩家想做什么都看不出来）。",
   "query 用在玩家只是在问自己已经知道的事，例如背包、人物卡、线索、团内时间、出口、刚才发生了什么。此时 target 只能是 inventory、sheet、clues、time、exits、recap 之一，query 不掷骰、也不改状态。",
-  "除 query 以外，target 必须原样抄用备选清单里的编号（例如 loc.study、item.ledger、lock.desk）。清单里没有的编号一律不许写。",
+  "move、observe、unlock、take、read 的 target 必须原样抄用备选清单里的编号。free、talk、unclear 的 target 留空。玩家明确表达了剧本外尝试时选 free，不要仅因清单里没有目标而选 unclear。",
   "只要有一点拿不准，就返回 unclear，并在 text 里写一句反问玩家的话——猜错比问一句代价大得多。",
   "talk 不需要 target。unclear 时 target 留空。",
   "只输出 JSON。",
@@ -103,6 +103,7 @@ export async function keeperNarrate(params: {
         user: complaint ? `${base}\n\n【上一次不合格】${complaint}，重写一遍。` : base,
         schema: narrationReplySchema,
         jsonSchema: narrationJsonSchema,
+        maxTokens: 1200,
         signal: params.signal,
         stream: config.stream,
         onContent: config.stream
@@ -210,6 +211,8 @@ function toIntent(
       return bag.includes(target) || here.includes(target) ? { kind: "read", item: target } : undefined;
     case "talk":
       return npcsInRoom(state, state.pcAt).length > 0 ? { kind: "talk", text: spoken } : undefined;
+    case "free":
+      return { kind: "free_action", text: spoken };
     case "query":
       return isQueryTopic(target) ? { kind: "query", topic: target } : undefined;
     default:

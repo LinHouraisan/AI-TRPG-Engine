@@ -122,6 +122,21 @@ export function createOpening(state: GameState): Message[] {
   ];
 }
 
+export function createRestoredMessages(
+  state: GameState,
+  history: { recap: string; recentTurns: Array<{ turnId: string; stateVersion: number; player: string; gm: string }>; restoredFrom: string | null },
+): Message[] {
+  const messages: Message[] = [{ id: "restore-recap", role: "system", text: `前情提要：${history.recap}`, stateVersion: state.version, kind: "notice", transient: true }];
+  for (const turn of history.recentTurns.slice(-3)) {
+    messages.push(
+      { id: `${turn.turnId}-pl`, role: "pl", text: turn.player, stateVersion: turn.stateVersion, kind: "play" },
+      { id: `${turn.turnId}-kp`, role: "kp", text: turn.gm, stateVersion: turn.stateVersion, kind: "play" },
+    );
+  }
+  if (history.restoredFrom) messages.push({ id: "restore-notice", role: "system", text: `已从「${history.restoredFrom}」创建恢复分支。原检查点仍然保留。`, stateVersion: state.version, kind: "notice", transient: true });
+  return messages;
+}
+
 /** 上一回合的素材。重述用的是同一批已提交事件，因此绝不会重掷骰子。 */
 type LastTurn = {
   state: GameState;
@@ -921,7 +936,7 @@ export function useSession() {
     setCampaignId(loaded.campaign.campaignId);
     setBranchId(loaded.branchId);
     adopt({ state: loaded.state, log: loaded.events });
-    setMessages(createOpening(loaded.state));
+    setMessages(loaded.history ? createRestoredMessages(loaded.state, loaded.history) : createOpening(loaded.state));
     lastTurn.current = null;
     memoryRef.current = emptyMemory();
     contextRef.current = emptyContextStore();

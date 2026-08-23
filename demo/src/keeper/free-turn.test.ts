@@ -46,3 +46,19 @@ test("free-turn rejects a hidden model target", async () => {
   expect(result.intent.kind).toBe("unclear");
   expect(result.note).toContain("不在场");
 });
+
+test("free-turn accepts an off-script action instead of forcing clarification", async () => {
+  globalThis.fetch = (async () => new Response(JSON.stringify({
+    choices: [{ message: { content: '{"verb":"free","target":"","text":""}' } }],
+  }), { status: 200 })) as unknown as typeof fetch;
+  const result = await handleFreeTurn({
+    config,
+    state: initialState(),
+    spoken: "我拆下窗帘布，试着做一个临时绳索",
+    modelTaskId: "task-free",
+  });
+  expect(result.intent).toEqual({
+    kind: "free_action",
+    text: "我拆下窗帘布，试着做一个临时绳索",
+  });
+});

@@ -10,7 +10,7 @@ import type { GameEvent } from "@/engine/types";
  */
 export type GuardVerdict = { ok: true } | { ok: false; reason: string };
 
-const MAX_LENGTH = 400;
+const MAX_LENGTH = 900;
 
 export function checkNarration(params: {
   text: string;

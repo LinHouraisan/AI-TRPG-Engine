@@ -188,3 +188,30 @@ export function listTimeline(db: Driver, branchId: string, limit: number) {
     [branchId, limit],
   );
 }
+
+export type BranchHistoryView = {
+  recap: string;
+  recentTurns: Array<{ turnId: string; stateVersion: number; player: string; gm: string }>;
+  restoredFrom: string | null;
+};
+
+export function loadBranchHistory(db: Driver, branchId: string): BranchHistoryView {
+  const summaries = db.all<{ payload_json: string }>(
+    `SELECT payload_json FROM events WHERE branch_id = ? ORDER BY sequence`, [branchId],
+  ).map((row) => (JSON.parse(row.payload_json) as GameEvent).summary);
+  const recentTurns = db.all<{ turn_id: string; committed_state_version: number | null; input_text: string; text: string }>(
+    `SELECT t.turn_id, t.committed_state_version, t.input_text, n.text
+     FROM turns t JOIN narrations n ON n.turn_id = t.turn_id AND n.status = 'final'
+     WHERE t.branch_id = ? ORDER BY t.created_at DESC, t.turn_id DESC LIMIT 3`, [branchId],
+  ).reverse().map((row) => ({ turnId: row.turn_id, stateVersion: row.committed_state_version ?? 0, player: row.input_text, gm: row.text }));
+  const source = db.get<{ label: string }>(
+    `SELECT c.label FROM branches b JOIN checkpoints c
+       ON c.branch_id = b.parent_branch_id AND c.event_sequence = b.fork_sequence
+     WHERE b.branch_id = ? ORDER BY c.created_at DESC LIMIT 1`, [branchId],
+  );
+  return {
+    recap: summaries.length > 0 ? summaries.join(" ") : "此前还没有形成可记录的剧情变化。",
+    recentTurns,
+    restoredFrom: source?.label ?? null,
+  };
+}

@@ -79,6 +79,10 @@ export function narrate(params: {
     if (npc) lines.push(`${npc.title}没有停下手里的活：${npc.line}`);
   }
 
+  if (intent.kind === "free_action") {
+    lines.push("你的尝试已经发生；周围的反应仍取决于眼前可见的环境。你可以继续说明做法。");
+  }
+
   if (lines.length === 0) lines.push(describeRoom(state, state.pcAt));
   return lines.filter(Boolean).join("\n");
 }

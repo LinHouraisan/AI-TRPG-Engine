@@ -17,6 +17,11 @@ test("存档默认分成当前分支和历史分支", () => {
   });
 });
 
+test("恢复后来源检查点仍留在历史分支列表", () => {
+  const source = { checkpointId: "source", branchId: "branch-main" };
+  expect(partitionCheckpoints([source], "branch-restored").history).toEqual([source]);
+});
+
 test("只有恢复到更低版本时要求确认", () => {
   expect(restoreNeedsConfirmation(2, 0)).toBe(true);
   expect(restoreNeedsConfirmation(2, 2)).toBe(false);

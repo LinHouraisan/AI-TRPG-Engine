@@ -23,6 +23,12 @@ export type DesktopTurnView = {
   intent: unknown;
 };
 
+export type DesktopBranchHistory = {
+  recap: string;
+  recentTurns: Array<{ turnId: string; stateVersion: number; player: string; gm: string }>;
+  restoredFrom: string | null;
+};
+
 export type OperationEvent =
   | {
       type: "operation.status";
@@ -118,7 +124,7 @@ export interface DesktopApi {
       campaignId: string;
       branchId: string;
       page: { limit: number };
-    }): Promise<DesktopResult<{ items: unknown[]; events?: unknown[] }>>;
+    }): Promise<DesktopResult<{ items: unknown[]; events?: unknown[] } & Partial<DesktopBranchHistory>>>;
   };
   checkpoint: {
     list(input:{campaignId:string}): Promise<DesktopResult<Array<{checkpointId:string;branchId:string;stateVersion:number;eventSequence:number;label:string;createdAt:string;purpose:string|null;passed:boolean|null;stateHash:string}>>>;

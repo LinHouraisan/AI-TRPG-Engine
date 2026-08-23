@@ -212,6 +212,10 @@ export function resolveIntent(params: {
       return { drafts: [] };
     }
 
+    case "free_action":
+      // Demo 的最小自由行动：由 GM 承接互动，但不擅自改变权威状态。
+      return { drafts: [] };
+
     case "query":
       return { drafts: [] };
 

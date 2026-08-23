@@ -37,7 +37,7 @@ export function classifyIntent(intent: Intent): TurnClassification {
   if (intent.kind === "query") {
     return { route: "query", syncModels: [], background };
   }
-  if (intent.kind === "unclear") {
+  if (intent.kind === "unclear" || intent.kind === "free_action") {
     return { route: "free_action", syncModels: [], background };
   }
   if (intent.kind === "talk") {

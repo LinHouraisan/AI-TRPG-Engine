@@ -5,6 +5,7 @@ import {
   desktopApi,
   type DesktopApi,
   type DesktopCampaign,
+  type DesktopBranchHistory,
   type DesktopTurnView,
 } from "@/desktop";
 
@@ -15,6 +16,7 @@ export type LoadedDesktopCampaign = {
   branchId: string;
   state: ReturnType<typeof initialState>;
   events: GameEvent[];
+  history: DesktopBranchHistory | null;
 };
 
 export async function loadDesktopCampaign(
@@ -38,11 +40,16 @@ export async function loadDesktopBranch(
   });
   if (!page.ok) return null;
   const events = ((page.value as { events?: GameEvent[] }).events ?? []);
+  const value = page.value as Partial<DesktopBranchHistory>;
+  const history = typeof value.recap === "string" && Array.isArray(value.recentTurns)
+    ? { recap: value.recap, recentTurns: value.recentTurns, restoredFrom: value.restoredFrom ?? null }
+    : null;
   return {
     campaign,
     branchId,
     state: replay(initialState(), events),
     events,
+    history,
   };
 }
 

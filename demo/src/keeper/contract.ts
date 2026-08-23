@@ -8,7 +8,7 @@ import { z } from "zod";
  * 结构不合法的回复一律丢弃，且不产生任何副作用。
  */
 
-export const VERBS = ["move", "observe", "unlock", "take", "read", "talk", "query", "unclear"] as const;
+export const VERBS = ["move", "observe", "unlock", "take", "read", "talk", "query", "free", "unclear"] as const;
 
 /**
  * 路由回复故意做成一层平铺结构：动词加目标编号。

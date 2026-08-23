@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { DesktopApi, DesktopCampaign } from "@/desktop";
-import { createFreshDesktopCampaign, loadDesktopCampaign } from "@/desktop-play";
+import { createFreshDesktopCampaign, loadDesktopBranch, loadDesktopCampaign } from "@/desktop-play";
 
 function campaign(overrides: Partial<DesktopCampaign> = {}): DesktopCampaign {
   return {
@@ -36,6 +36,7 @@ test("重开会创建并打开一场全新的桌面战役", async () => {
     branchId: "branch-new",
     state: expect.objectContaining({ version: 0 }),
     events: [],
+    history: null,
   });
   expect(calls).toEqual(["create", "open:campaign-new"]);
 });
@@ -89,4 +90,29 @@ test("读取目标分支失败时不会把旧战役伪装成空白新局", async
   } as unknown as DesktopApi;
 
   await expect(loadDesktopCampaign(api, "campaign-new")).resolves.toBeNull();
+});
+
+test("载入恢复分支时保留主进程返回的前情提要和最近对话", async () => {
+  const restored = campaign({ headBranchId: "branch-copy", headStateVersion: 3 });
+  const api = {
+    timeline: {
+      page: async () => ({
+        ok: true as const,
+        value: {
+          items: [],
+          events: [],
+          recap: "此前发生的事情",
+          recentTurns: [{ turnId: "t3", stateVersion: 3, player: "玩家行动", gm: "GM回应" }],
+          restoredFrom: "检查点 v3",
+        },
+      }),
+    },
+  } as unknown as DesktopApi;
+
+  const loaded = await loadDesktopBranch(api, restored, "branch-copy");
+  expect(loaded?.history).toEqual({
+    recap: "此前发生的事情",
+    recentTurns: [{ turnId: "t3", stateVersion: 3, player: "玩家行动", gm: "GM回应" }],
+    restoredFrom: "检查点 v3",
+  });
 });
