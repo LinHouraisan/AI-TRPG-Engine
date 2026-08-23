@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { allocationBudget, validateAllocation } from "./creation";
-import { loadPackById } from "@/engine/pack";
+import { lintPack, loadPack, loadPackById } from "@/engine/pack";
 
 const rules = loadPackById("mist-harbor").manifest.creation;
 if (!rules) throw new Error("Mist Harbor must define investigator creation rules");
@@ -83,4 +83,45 @@ test("valid allocation returns the complete fixed investigator profile", () => {
       contentVersion: "0.1.0",
     },
   });
+});
+
+test("creation rules reject a configured skill cap other than 90", () => {
+  const invalid = validateAllocation(
+    { ...rules, maxSkill: 99 as unknown as 90 },
+    {
+      name: "林晚",
+      lifeHistoryId: "history.archive-correspondent",
+      occupationPoints: {},
+      interestPoints: {},
+    },
+  );
+
+  expect(invalid.ok).toBe(false);
+  if (!invalid.ok) expect(invalid.issues.map((issue) => issue.code)).toContain("MAX_SKILL_INVALID");
+});
+
+test("pack lint rejects a life history whose investigation is not authored", () => {
+  const mist = loadPackById("mist-harbor");
+  const source = {
+    manifest: {
+      ...mist.manifest,
+      creation: {
+        ...rules,
+        lifeHistories: rules.lifeHistories.map((history, index) =>
+          index === 0 ? { ...history, investigationId: "investigation.missing" } : history,
+        ),
+      },
+    },
+    rooms: mist.rooms,
+    items: mist.items,
+    locks: mist.locks,
+    facts: mist.facts,
+    npcs: mist.npcs,
+    story: mist.story,
+    conditions: mist.conditions,
+    investigations: [],
+  };
+
+  const issues = lintPack(loadPack(source));
+  expect(issues.map((issue) => issue.message)).toContain("调查入口 investigation.missing 不存在");
 });

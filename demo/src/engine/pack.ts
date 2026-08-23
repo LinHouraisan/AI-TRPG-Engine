@@ -3,6 +3,7 @@ import { fileUrlPathnameToFsPath, resolveElectronPacksRoot } from "./pack-root";
 import {
   conditionSchema,
   factSchema,
+  investigationSchema,
   itemSchema,
   lockSchema,
   manifestSchema,
@@ -11,6 +12,7 @@ import {
   storyNodeSchema,
   type ConditionDef,
   type FactDef,
+  type InvestigationDef,
   type ItemDef,
   type LockDef,
   type ManifestDef,
@@ -29,6 +31,7 @@ export type Pack = {
   npcs: NpcDef[];
   story: StoryNodeDef[];
   conditions: ConditionDef[];
+  investigations: InvestigationDef[];
   /** 事件里引用的资料包版本，改了资料就该改它 */
   ref: string;
 };
@@ -42,6 +45,7 @@ export type PackSource = {
   npcs: unknown;
   story: unknown;
   conditions: unknown;
+  investigations?: unknown;
 };
 
 export type PackCounts = {
@@ -202,6 +206,7 @@ function toSource(files: Record<string, unknown>): PackSource | null {
     npcs: files.npcs,
     story: files.story,
     conditions: files.conditions,
+    investigations: files.investigations,
   };
 }
 
@@ -302,6 +307,7 @@ export function loadPack(source: PackSource = packSource): Pack {
     npcs: npcSchema.array().parse(source.npcs),
     story: storyNodeSchema.array().parse(source.story),
     conditions: conditionSchema.array().parse(source.conditions),
+    investigations: investigationSchema.array().parse(source.investigations ?? []),
     ref: `${manifest.id}@${manifest.version}`,
   };
   return pack;
@@ -397,6 +403,7 @@ export function lintPack(pack: Pack): LintIssue[] {
   const lockIds = new Set(pack.locks.map((l) => l.id));
   const factIds = new Set(pack.facts.map((f) => f.id));
   const npcIds = new Set(pack.npcs.map((n) => n.id));
+  const investigationIds = new Set(pack.investigations.map((investigation) => investigation.id));
 
   const refs = { roomIds, itemIds, lockIds, factIds, npcIds };
   const seen = new Set<string>();
@@ -526,6 +533,13 @@ export function lintPack(pack: Pack): LintIssue[] {
         level: "错误",
         where: history.id,
         message: `关系 NPC ${history.relationship.npcId} 不存在`,
+      });
+    }
+    if (!investigationIds.has(history.investigationId)) {
+      issues.push({
+        level: "错误",
+        where: history.id,
+        message: `调查入口 ${history.investigationId} 不存在`,
       });
     }
   }

@@ -170,7 +170,7 @@ const creationSchema: z.ZodType<InvestigatorCreationRules> = z.object({
   }),
   baseSkills: z.record(z.string(), z.number().int()),
   occupationSkills: z.array(z.string()).min(1),
-  maxSkill: z.number().int().positive(),
+  maxSkill: z.literal(90),
   hp: z.number().int().positive(),
   san: z.number().int().positive(),
   sanMax: z.number().int().positive(),
@@ -186,6 +186,11 @@ const creationSchema: z.ZodType<InvestigatorCreationRules> = z.object({
       investigationId: z.string().startsWith("investigation."),
     }),
   ).length(4),
+});
+
+export const investigationSchema = z.object({
+  id: z.string().startsWith("investigation."),
+  title: z.string(),
 });
 
 export const manifestSchema = z.object({
@@ -217,3 +222,4 @@ export type StoryNodeDef = z.infer<typeof storyNodeSchema>;
 export type ConditionDef = z.infer<typeof conditionSchema>;
 export type ManifestDef = z.infer<typeof manifestSchema>;
 export type EffectDef = z.infer<typeof effectSchema>;
+export type InvestigationDef = z.infer<typeof investigationSchema>;

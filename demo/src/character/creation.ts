@@ -5,6 +5,8 @@ import type {
   InvestigatorProfile,
 } from "./types";
 
+const MAX_SKILL = 90;
+
 export function allocationBudget(rules: InvestigatorCreationRules): { occupation: number; interest: number } {
   return {
     occupation: rules.characteristics.EDU * 4,
@@ -21,6 +23,13 @@ export function validateAllocation(
   const skills = new Set(Object.keys(rules.baseSkills));
   const occupationPoints = validPoints(allocation.occupationPoints, "occupation", issues);
   const interestPoints = validPoints(allocation.interestPoints, "interest", issues);
+
+  if (rules.maxSkill !== MAX_SKILL) {
+    issues.push({
+      code: "MAX_SKILL_INVALID",
+      message: `调查员技能上限必须是 ${MAX_SKILL}`,
+    });
+  }
 
   for (const skill of Object.keys(occupationPoints)) {
     if (!occupationSkills.has(skill)) {
@@ -56,10 +65,10 @@ export function validateAllocation(
     if (value < 1) {
       issues.push({ code: "SKILL_UNDER_MIN", message: `技能「${skill}」不能低于 1`, skill });
     }
-    if (value > rules.maxSkill) {
+    if (value > MAX_SKILL) {
       issues.push({
         code: "SKILL_OVER_CAP",
-        message: `技能「${skill}」不能高于 ${rules.maxSkill}`,
+        message: `技能「${skill}」不能高于 ${MAX_SKILL}`,
         skill,
       });
     }

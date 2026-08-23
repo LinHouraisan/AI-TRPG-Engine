@@ -15,7 +15,7 @@ export type InvestigatorCreationRules = {
   characteristics: Record<Characteristic, number>;
   baseSkills: Record<string, number>;
   occupationSkills: string[];
-  maxSkill: number;
+  maxSkill: 90;
   hp: number;
   san: number;
   sanMax: number;
@@ -52,6 +52,7 @@ export type AllocationIssue = {
     | "SKILL_UNKNOWN"
     | "LIFE_HISTORY_UNKNOWN"
     | "POINTS_REMAINING"
+    | "MAX_SKILL_INVALID"
     | "SKILL_UNDER_MIN"
     | "SKILL_OVER_CAP";
   message: string;

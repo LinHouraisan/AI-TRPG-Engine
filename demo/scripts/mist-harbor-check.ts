@@ -18,7 +18,10 @@ for (const history of creation.lifeHistories) {
     : pack.items.some((item) => item.id === history.initialGrant.id);
   assert(grantExists, `${history.id} 的初始赠与存在`);
   assert(pack.npcs.some((npc) => npc.id === history.relationship.npcId), `${history.id} 的关系 NPC 存在`);
-  assert(history.investigationId.length > "investigation.".length, `${history.id} 命名调查入口`);
+  assert(
+    pack.investigations.some((investigation) => investigation.id === history.investigationId),
+    `${history.id} 的调查入口存在`,
+  );
   assert(
     !endings.some((ending) => JSON.stringify(ending.doneWhen).includes(history.initialGrant.id)),
     `${history.id} 不直接赠送结局条件`,
