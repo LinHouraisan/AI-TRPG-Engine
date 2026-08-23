@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { InvestigatorCreationRules } from "../character/types";
 
 /**
  * 资料包的模式。模组作者写 JSON，这里负责校验。
@@ -155,6 +156,38 @@ export const conditionSchema = z.object({
   effects: z.array(effectSchema).min(1),
 });
 
+const creationSchema: z.ZodType<InvestigatorCreationRules> = z.object({
+  occupation: z.string(),
+  characteristics: z.object({
+    STR: z.number().int().positive(),
+    CON: z.number().int().positive(),
+    SIZ: z.number().int().positive(),
+    DEX: z.number().int().positive(),
+    APP: z.number().int().positive(),
+    INT: z.number().int().positive(),
+    POW: z.number().int().positive(),
+    EDU: z.number().int().positive(),
+  }),
+  baseSkills: z.record(z.string(), z.number().int()),
+  occupationSkills: z.array(z.string()).min(1),
+  maxSkill: z.number().int().positive(),
+  hp: z.number().int().positive(),
+  san: z.number().int().positive(),
+  sanMax: z.number().int().positive(),
+  contentVersion: z.string(),
+  lifeHistories: z.array(
+    z.object({
+      id: z.string().startsWith("history."),
+      title: z.string(),
+      background: z.string(),
+      roleplayPrompt: z.string(),
+      initialGrant: z.object({ kind: z.enum(["fact", "item"]), id: z.string() }),
+      relationship: z.object({ npcId: z.string(), text: z.string() }),
+      investigationId: z.string().startsWith("investigation."),
+    }),
+  ).length(4),
+});
+
 export const manifestSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -172,6 +205,7 @@ export const manifestSchema = z.object({
     startAt: z.string(),
     skills: z.record(z.string(), z.number().int().nonnegative()),
   }),
+  creation: creationSchema.optional(),
 });
 
 export type RoomDef = z.infer<typeof roomSchema>;

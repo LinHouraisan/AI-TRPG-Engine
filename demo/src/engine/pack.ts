@@ -510,6 +510,26 @@ export function lintPack(pack: Pack): LintIssue[] {
     }
   }
 
+  for (const history of pack.manifest.creation?.lifeHistories ?? []) {
+    const grantExists = history.initialGrant.kind === "fact"
+      ? factIds.has(history.initialGrant.id)
+      : itemIds.has(history.initialGrant.id);
+    if (!grantExists) {
+      issues.push({
+        level: "错误",
+        where: history.id,
+        message: `初始赠与 ${history.initialGrant.id} 不存在`,
+      });
+    }
+    if (!npcIds.has(history.relationship.npcId)) {
+      issues.push({
+        level: "错误",
+        where: history.id,
+        message: `关系 NPC ${history.relationship.npcId} 不存在`,
+      });
+    }
+  }
+
   if (!roomIds.has(pack.manifest.investigator.startAt)) {
     issues.push({
       level: "错误",
