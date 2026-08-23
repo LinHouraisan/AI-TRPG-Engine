@@ -34,7 +34,8 @@ export async function askKeeper<T>(params: {
 }): Promise<{ value: T; ms: number }> {
   const { config, schema, jsonSchema } = params;
   const started = Date.now();
-  const streaming = params.stream === true;
+  const protocol = config.protocol ?? "ollama";
+  const streaming = protocol === "ollama" && params.stream === true;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);
@@ -42,26 +43,48 @@ export async function askKeeper<T>(params: {
 
   let response: Response;
   try {
-    response = await fetch(`${config.baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: config.model,
-        stream: streaming,
-        // 思考链对叙述没有帮助，只会把首字延迟拖到几十秒。
-        think: false,
-        format: jsonSchema,
-        options: {
-          temperature: config.temperature,
-          num_predict: params.maxTokens ?? 320,
-        },
-        messages: [
-          { role: "system", content: params.system },
-          { role: "user", content: params.user },
-        ],
-      }),
-    });
+    response =
+      protocol === "openai_compatible"
+        ? await fetch(`${config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              authorization: `Bearer ${config.apiKey ?? ""}`,
+            },
+            signal: controller.signal,
+            body: JSON.stringify({
+              model: config.model,
+              stream: false,
+              response_format: { type: "json_object" },
+              ...(config.disableThinking ? { thinking: { type: "disabled" } } : {}),
+              temperature: config.temperature,
+              max_tokens: params.maxTokens ?? 320,
+              messages: [
+                { role: "system", content: params.system },
+                { role: "user", content: params.user },
+              ],
+            }),
+          })
+        : await fetch(`${config.baseUrl}/api/chat`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            signal: controller.signal,
+            body: JSON.stringify({
+              model: config.model,
+              stream: streaming,
+              // 思考链对叙述没有帮助，只会把首字延迟拖到几十秒。
+              think: false,
+              format: jsonSchema,
+              options: {
+                temperature: config.temperature,
+                num_predict: params.maxTokens ?? 320,
+              },
+              messages: [
+                { role: "system", content: params.system },
+                { role: "user", content: params.user },
+              ],
+            }),
+          });
   } catch (error) {
     clearTimeout(timer);
     throw toConnectError(error, config.timeoutMs);
@@ -74,9 +97,12 @@ export async function askKeeper<T>(params: {
 
   let content: string;
   try {
-    content = streaming
-      ? await readOllamaChatStream(response, params.onContent)
-      : await readOllamaChatOnce(response);
+    content =
+      protocol === "openai_compatible"
+        ? await readOpenAiChatOnce(response)
+        : streaming
+          ? await readOllamaChatStream(response, params.onContent)
+          : await readOllamaChatOnce(response);
   } catch (error) {
     clearTimeout(timer);
     if (error instanceof KeeperError) throw error;
@@ -85,6 +111,13 @@ export async function askKeeper<T>(params: {
   clearTimeout(timer);
 
   return { value: parseKeeperReply(content, schema), ms: Date.now() - started };
+}
+
+async function readOpenAiChatOnce(response: Response): Promise<string> {
+  const body = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  return body.choices?.[0]?.message?.content ?? "";
 }
 
 function toConnectError(error: unknown, timeoutMs: number, streaming = false): KeeperError {
@@ -259,6 +292,15 @@ function decodeJsonStringPrefix(source: string, start: number): string {
 
 /** 连通性自检：顺带确认配置里那个模型真的在这台机器上。 */
 export async function pingKeeper(config: KeeperConfig): Promise<string[]> {
+  if (config.protocol === "openai_compatible") {
+    const response = await fetch(`${config.baseUrl.replace(/\/$/, "")}/models`, {
+      headers: { authorization: `Bearer ${config.apiKey ?? ""}` },
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) throw new KeeperError(`主持人返回 ${response.status}`, "network");
+    const body = (await response.json()) as { data?: Array<{ id?: string }> };
+    return (body.data ?? []).flatMap((item) => (item.id ? [item.id] : []));
+  }
   const response = await fetch(`${config.baseUrl}/api/tags`, {
     signal: AbortSignal.timeout(5_000),
   });

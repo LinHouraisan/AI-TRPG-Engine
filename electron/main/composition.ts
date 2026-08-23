@@ -55,12 +55,12 @@ export function createComposition(input: {
     campaignSql,
     [{ id: "0002_memory", sql: memorySql }],
   );
-  const turns = new TurnService(campaigns, input.clock);
   const credentials = new CredentialStore(
     join(input.paths.root, "credentials.json"),
     input.clock,
     platformSafeStorage(),
   );
+  const turns = new TurnService(campaigns, credentials, input.clock);
   return {
     settings,
     campaigns,

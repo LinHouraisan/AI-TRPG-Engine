@@ -1,5 +1,11 @@
 import { expect, test } from "bun:test";
-import { resolveElectronPacksRoot } from "./pack-root";
+import { fileUrlPathnameToFsPath, resolveElectronPacksRoot } from "./pack-root";
+
+test("Windows file URL pathname becomes a Bun Glob filesystem path", () => {
+  expect(fileUrlPathnameToFsPath("/C:/Users/test/demo/src/data/packs/", "win32")).toBe(
+    "C:/Users/test/demo/src/data/packs/",
+  );
+});
 
 test("packaged Electron falls back to the resources packs directory", () => {
   expect(

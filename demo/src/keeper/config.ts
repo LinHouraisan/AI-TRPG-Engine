@@ -1,7 +1,12 @@
 export type KeeperConfig = {
   enabled: boolean;
+  protocol?: "ollama" | "openai_compatible";
   /** 浏览器里走 Vite 代理（/ollama），脚本里直接连主机 */
   baseUrl: string;
+  /** 只由 Electron Main 临时解密后提供，不写进浏览器 localStorage。 */
+  apiKey?: string;
+  /** DeepSeek V4 默认思考；GM 叙述显式关闭以降低延迟和费用。 */
+  disableThinking?: boolean;
   model: string;
   timeoutMs: number;
   temperature: number;
@@ -30,6 +35,7 @@ const inBrowser = typeof window !== "undefined";
 
 export const defaultConfig: KeeperConfig = {
   enabled: true,
+  protocol: "ollama",
   baseUrl: inBrowser ? "/ollama" : (process.env.OLLAMA_URL ?? "http://127.0.0.1:11434"),
   model: (inBrowser ? import.meta.env?.VITE_KEEPER_MODEL : process.env.KEEPER_MODEL) || "qwen3.8:latest",
   // 本地大模型第一次加载权重要几十秒，超时给宽一点，超了就退回模板。

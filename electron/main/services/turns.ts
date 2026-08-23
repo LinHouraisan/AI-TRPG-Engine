@@ -1,4 +1,3 @@
-import { DEFAULT_CONTEXT_BUDGET_CHARS, type KeeperConfig } from "../../../demo/src/keeper/config";
 import { keeperNarrate } from "../../../demo/src/keeper/keeper";
 import { playTurn } from "../../../demo/src/engine/play-turn";
 import { recentFromTurn } from "../../../demo/src/engine/recent";
@@ -7,7 +6,6 @@ import { initialState } from "../../../demo/src/engine/state";
 import { storyMonitor } from "../../../demo/src/engine/story-monitor";
 import type { GameEvent, GameState, Intent } from "../../../demo/src/engine/types";
 import { runAfterCommit } from "../../../demo/src/ai/jobs";
-import { runAfterCommitLive } from "../../../demo/src/ai/live";
 import { emptyContextStore } from "../../../demo/src/engine/context-store";
 import { sheetDraft, type SheetApplyInput } from "../../../demo/src/cards/apply";
 import type {
@@ -20,7 +18,9 @@ import type {
 import { asOperationId, asTurnId, uuidv7, type CampaignId } from "../../shared/ids";
 import { fail, ok, type Result } from "../../shared/result";
 import type { Clock } from "../clock";
-import { getCatalog, getSetting } from "../persist/catalog";
+import type { CredentialStore } from "../credentials";
+import { withKeeperConfig } from "../model-config";
+import { getCatalog } from "../persist/catalog";
 import type { Driver } from "../persist/driver";
 import {
   appendCommitted,
@@ -44,6 +44,7 @@ export class TurnService {
 
   constructor(
     private readonly campaigns: CampaignService,
+    private readonly credentials: CredentialStore,
     private readonly clock: Clock,
   ) {}
 
@@ -349,29 +350,6 @@ export class TurnService {
     for (const listener of set.values()) listener(event);
   }
 
-  private keeperConfig(): KeeperConfig {
-    const settings = this.campaigns.settings;
-    const enabled = getSetting(settings, "keeper.enabled");
-    const model = getSetting(settings, "keeper.model");
-    const baseUrl = getSetting(settings, "keeper.baseUrl");
-    return {
-      enabled: enabled === true,
-      baseUrl:
-        typeof baseUrl === "string" && baseUrl.length > 0
-          ? baseUrl
-          : (process.env.OLLAMA_URL ?? "http://127.0.0.1:11434"),
-      model:
-        typeof model === "string" && model.length > 0
-          ? model
-          : (process.env.KEEPER_MODEL ?? "qwen3.8:latest"),
-      timeoutMs: 60_000,
-      temperature: 0.7,
-      contextBudgetChars: DEFAULT_CONTEXT_BUDGET_CHARS,
-      stream: true,
-      debugTrace: false,
-    };
-  }
-
   private operationView(
     operationId: string,
     status: OperationView["status"],
@@ -421,7 +399,6 @@ export class TurnService {
     }
 
     const fallback = view.narration;
-    const config = this.keeperConfig();
     const batcher = new DeltaBatcher((sequence, text) => {
       this.emit(operationId, {
         type: "narration.delta",
@@ -435,9 +412,10 @@ export class TurnService {
     let narrationKind: NarrationKind = "模板";
     let text = fallback;
     let note: string | undefined;
+    let modelTaskId = "template";
     if (view.events.length > 0) {
-      try {
-        const result = await keeperNarrate({
+      const configured = withKeeperConfig(this.campaigns.settings, this.credentials, async (config) => ({
+        result: await keeperNarrate({
           config,
           state: params.stateAfter,
           events: view.events,
@@ -447,14 +425,21 @@ export class TurnService {
           onStream: (event) => {
             if (event.kind === "draft") batcher.accept(event.draft);
           },
-        });
-        text = result.text;
-        narrationKind = result.source;
-        note = result.note;
-      } catch (error) {
-        text = fallback;
-        narrationKind = "模板";
-        note = error instanceof Error ? error.message : String(error);
+        }),
+        model: config.model,
+      }));
+      if (!configured.ok) {
+        note = configured.error.messageKey;
+      } else {
+        try {
+          const completed = await configured.value;
+          text = completed.result.text;
+          narrationKind = completed.result.source;
+          note = completed.result.note;
+          modelTaskId = narrationKind === "模型" ? completed.model : "template";
+        } catch (error) {
+          note = error instanceof Error ? error.message : String(error);
+        }
       }
     }
 
@@ -473,45 +458,13 @@ export class TurnService {
       branchId: params.branchId,
       turnId,
       stateVersion: view.stateVersion,
-      modelTaskId: narrationKind === "模型" ? config.model : "template",
+      modelTaskId,
       promptVersion: narrationKind === "模型" ? "keeper-w0" : "template-w0",
       text,
       now,
       operationId,
       result: finalView,
     });
-    if (config.enabled) {
-      const log = loadGameEvents(db, params.branchId);
-      const before = replay(initialState(), log.slice(0, Math.max(0, log.length - view.events.length)));
-      const story = storyMonitor({
-        before,
-        after: params.stateAfter,
-        committed: view.events,
-        log,
-      });
-      void runAfterCommitLive({
-        taskId: turnId,
-        branchId: params.branchId,
-        state: params.stateAfter,
-        committed: view.events,
-        recent: recentFromTurn({
-          player: params.spoken,
-          gm: text,
-          committed: view.events,
-          stateVersion: view.stateVersion,
-        }),
-        story,
-        memory: loadMemory(db, params.branchId),
-        context: emptyContextStore(),
-        config,
-      })
-        .then((jobs) => {
-          const stamped = this.clock.nowIso();
-          saveMemory(db, params.branchId, jobs.memory, stamped);
-          saveFrontier(db, params.branchId, jobs.director.frontier, stamped);
-        })
-        .catch(() => undefined);
-    }
     this.emit(operationId, {
       type: "narration.completed",
       operationId: asOperationId(operationId),

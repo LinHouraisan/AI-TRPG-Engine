@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { resolveElectronPacksRoot } from "./pack-root";
+import { fileUrlPathnameToFsPath, resolveElectronPacksRoot } from "./pack-root";
 import {
   conditionSchema,
   factSchema,
@@ -105,7 +105,7 @@ export function rememberActivePack(id: string): void {
  */
 function scanPacksWithBun(): Record<string, unknown> {
   const packsDir = new URL(/* @vite-ignore */ "../data/packs/", import.meta.url);
-  const cwd = decodeURIComponent(packsDir.pathname);
+  const cwd = fileUrlPathnameToFsPath(packsDir.pathname, process.platform);
   const result: Record<string, unknown> = {};
   for (const relative of new Bun.Glob("*/*.json").scanSync({ cwd, onlyFiles: true })) {
     const absolute = cwd.endsWith("/") ? `${cwd}${relative}` : `${cwd}/${relative}`;

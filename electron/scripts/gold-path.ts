@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { replay, stateHash } from "../../demo/src/engine/runtime";
 import { initialState, visibleItemsInRoom } from "../../demo/src/engine/state";
 import { fixedClock } from "../main/clock";
+import { CredentialStore } from "../main/credentials";
 import { resolvePaths } from "../main/paths";
 import { openBun } from "../main/persist/bun-driver";
 import { applyInit } from "../main/persist/migrate";
@@ -39,13 +40,19 @@ try {
   const campaigns = new CampaignService(settings, paths, clock, openBun, campaignSql, [
     { id: "0002_memory", sql: memorySql },
   ]);
-  const turns = new TurnService(campaigns, clock);
+  const credentials = new CredentialStore(join(root, "credentials.json"), clock, {
+    isEncryptionAvailable: () => true,
+    encryptString: (plain) => Buffer.from(plain),
+    decryptString: (cipher) => cipher.toString(),
+  });
+  const turns = new TurnService(campaigns, credentials, clock);
   const created = campaigns.create("金样");
   if (!created.ok) throw new Error("create failed");
   const campaignId = created.value.campaignId;
   const branchId = created.value.headBranchId;
   let version = 0;
   let command = 0;
+  const operationIds: string[] = [];
 
   function say(text: string) {
     command += 1;
@@ -59,6 +66,7 @@ try {
       text,
     });
     if (!result.ok) throw new Error(`${text}: ${result.error.code}`);
+    operationIds.push(result.value.operationId);
     const view = turns.get(result.value.operationId, campaignId);
     if (!view.ok) throw new Error("operation.get failed");
     version = view.value.stateVersion;
@@ -111,6 +119,8 @@ try {
   const restored = replay(initialState(), log);
   assert(live === stateHash(restored), `主进程重放哈希一致（${live}）`);
   assert(live === "b6506aeb", `与 Demo 金样哈希相同（${live}）`);
+
+  await Promise.all(operationIds.map((operationId) => turns.waitForNarration(operationId)));
 
   campaigns.dispose();
   settings.close();

@@ -15,6 +15,7 @@ import { composeWait } from "@/ui/pending";
 import { RoomMap } from "@/ui/RoomMap";
 import { Clues, EventLog, Inventory, StoryFlags } from "@/ui/SidePanels";
 import { Timeline, type TurnMark } from "@/ui/Timeline";
+import { desktopApi } from "@/desktop";
 
 type MobilePane = "narration" | "sheet" | "scene" | "record";
 
@@ -27,6 +28,7 @@ const PANES: { id: MobilePane; label: string }[] = [
 
 export default function App() {
   const session = useSession();
+  const desktop = Boolean(desktopApi());
   const filePicker = useRef<HTMLInputElement>(null);
   const [mobilePane, setMobilePane] = useState<MobilePane>("narration");
 
@@ -75,7 +77,7 @@ export default function App() {
         <div className="flex shrink-0 items-center gap-1.5 text-[13px] md:gap-2">
           <CardImport onConfirm={(draft) => void session.confirmCard(draft)} />
           <ModelSettings />
-          <KeeperSettings config={session.config} onChange={session.setConfig} />
+          {!desktop ? <KeeperSettings config={session.config} onChange={session.setConfig} /> : null}
           <button
             type="button"
             onClick={() => void session.exportCampaign()}

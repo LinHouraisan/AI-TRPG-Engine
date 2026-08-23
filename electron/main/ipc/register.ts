@@ -18,6 +18,8 @@ import {
   type ProviderType,
 } from "../persist/providers";
 import type { LifecycleState } from "../lifecycle";
+import { withKeeperConfig } from "../model-config";
+import { pingKeeper } from "../../../demo/src/keeper/client";
 
 const MAX_BYTES = 1024 * 1024;
 
@@ -213,6 +215,22 @@ export function registerIpc(
       });
     }
     return composition.credentials.delete(parsed.data.credentialId);
+  });
+
+  handle("settings:testProvider", async () => {
+    const configured = withKeeperConfig(composition.settings, composition.credentials, (config) =>
+      pingKeeper(config),
+    );
+    if (!configured.ok) return configured;
+    try {
+      return ok({ models: await configured.value });
+    } catch (error) {
+      return fail({
+        code: "PROVIDER_UNAVAILABLE",
+        messageKey: error instanceof Error ? error.message : "provider.unavailable",
+        retryable: true,
+      });
+    }
   });
 
   const providerTypes = [

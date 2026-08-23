@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { desktopApi } from "@/desktop";
+import { deepSeekPreset, providerPatchForType, secretStateAfterSave } from "./model-settings-state";
 
 type Provider = {
   providerInstanceId: string;
   providerType: string;
   displayName: string;
   baseUrl: string | null;
+  credentialId: string | null;
   enabled: boolean;
 };
 
@@ -23,16 +25,7 @@ type Route = {
   fallbackModelProfileId: string | null;
 };
 
-const TASKS = [
-  "gm.handle_free_turn",
-  "gm.narrate_result",
-  "information.plan",
-  "information.propose",
-  "director.analyze_progress",
-  "memory.extract",
-  "memory.consolidate",
-  "context.rank_relevance",
-];
+const TASKS = ["gm.narrate_result"];
 
 /** V1 settings tables: provider_instances / model_profiles / task_routes. Desktop only. */
 export function ModelSettings() {
@@ -42,6 +35,8 @@ export function ModelSettings() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [routes, setRoutes] = useState<Route[]>([]);
   const [note, setNote] = useState<string | null>(null);
+  const [secret, setSecret] = useState("");
+  const [secretPresent, setSecretPresent] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,6 +58,13 @@ export function ModelSettings() {
     if (p.ok) setProviders(p.value);
     if (m.ok) setProfiles(m.value);
     if (r.ok) setRoutes(r.value);
+    const first = p.ok ? p.value[0] : undefined;
+    if (first?.credentialId) {
+      const present = await api.settings.hasSecret({ credentialId: first.credentialId });
+      setSecretPresent(present.ok && present.value.present);
+    } else {
+      setSecretPresent(false);
+    }
   }
 
   useEffect(() => {
@@ -82,6 +84,7 @@ export function ModelSettings() {
       providerType: patch.providerType ?? provider.providerType,
       displayName: patch.displayName ?? provider.displayName,
       baseUrl: patch.baseUrl === undefined ? provider.baseUrl : patch.baseUrl,
+      credentialId: patch.credentialId === undefined ? provider.credentialId : patch.credentialId,
       enabled: patch.enabled ?? provider.enabled,
     });
     if (!next.ok) {
@@ -108,6 +111,51 @@ export function ModelSettings() {
     await reload();
   }
 
+  async function useDeepSeek() {
+    const preset = deepSeekPreset();
+    await saveProvider({ ...preset, enabled: true });
+    setNote("已选择 DeepSeek；请保存 API Key 后测试连接");
+  }
+
+  async function saveSecret() {
+    if (!api || !provider || !secret) return;
+    const saved = await api.settings.setSecret({
+      credentialId: provider.credentialId ?? undefined,
+      value: secret,
+    });
+    if (!saved.ok) {
+      setNote(saved.error.code);
+      return;
+    }
+    setSecret(secretStateAfterSave(secret));
+    await saveProvider({ credentialId: saved.value.credentialId });
+    setSecretPresent(true);
+    setNote("API Key 已由系统加密保存");
+  }
+
+  async function deleteSecret() {
+    if (!api || !provider?.credentialId) return;
+    const deleted = await api.settings.deleteSecret({ credentialId: provider.credentialId });
+    if (!deleted.ok) {
+      setNote(deleted.error.code);
+      return;
+    }
+    await saveProvider({ credentialId: null });
+    setSecretPresent(false);
+    setNote("API Key 已删除");
+  }
+
+  async function testProvider() {
+    if (!api) return;
+    setNote("正在测试连接…");
+    const tested = await api.settings.testProvider();
+    setNote(
+      tested.ok
+        ? `连接成功，可用模型 ${tested.value.models.length} 个`
+        : `连接失败：${tested.error.messageKey}`,
+    );
+  }
+
   async function setRoute(taskType: string, primaryModelProfileId: string) {
     if (!api) return;
     await api.settings.setTaskRoute({ taskType, primaryModelProfileId });
@@ -130,6 +178,13 @@ export function ModelSettings() {
           </p>
           {provider ? (
             <>
+              <button
+                type="button"
+                onClick={() => void useDeepSeek()}
+                className="min-h-11 w-full rounded border border-brass/60 px-3 text-brass md:min-h-0 md:py-1"
+              >
+                使用 DeepSeek 云端
+              </button>
               <label className="flex min-h-11 items-center justify-between">
                 <span>启用</span>
                 <input
@@ -142,7 +197,7 @@ export function ModelSettings() {
                 <span className="text-[11px] text-muted">供应商</span>
                 <select
                   value={provider.providerType}
-                  onChange={(event) => void saveProvider({ providerType: event.target.value })}
+                  onChange={(event) => void saveProvider(providerPatchForType(event.target.value))}
                   className="mt-1 w-full rounded border border-line/70 bg-ink-3/50 px-2 py-1"
                 >
                   <option value="ollama">ollama</option>
@@ -152,6 +207,49 @@ export function ModelSettings() {
                   <option value="qwen">qwen</option>
                 </select>
               </label>
+              {provider.providerType === "deepseek" || provider.providerType === "openai_compatible" ? (
+                <div className="space-y-2 border-t border-line/40 pt-2">
+                  <label className="block">
+                    <span className="text-[11px] text-muted">
+                      API Key（{secretPresent ? "已加密保存" : "尚未保存"}）
+                    </span>
+                    <input
+                      type="password"
+                      value={secret}
+                      autoComplete="off"
+                      placeholder={secretPresent ? "输入新密钥可替换" : "sk-…"}
+                      onChange={(event) => setSecret(event.target.value)}
+                      className="mt-1 w-full rounded border border-line/70 bg-ink-3/50 px-2 py-1"
+                    />
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={!secret}
+                      onClick={() => void saveSecret()}
+                      className="min-h-11 rounded border border-line/70 px-3 disabled:opacity-40 md:min-h-0 md:py-1"
+                    >
+                      保存密钥
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!secretPresent}
+                      onClick={() => void testProvider()}
+                      className="min-h-11 rounded border border-line/70 px-3 disabled:opacity-40 md:min-h-0 md:py-1"
+                    >
+                      测试连接
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!secretPresent}
+                      onClick={() => void deleteSecret()}
+                      className="min-h-11 rounded border border-line/70 px-3 text-muted disabled:opacity-40 md:min-h-0 md:py-1"
+                    >
+                      删除密钥
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <label className="block">
                 <span className="text-[11px] text-muted">Base URL</span>
                 <input
@@ -169,7 +267,7 @@ export function ModelSettings() {
                 />
               </label>
               <div className="border-t border-line/40 pt-2">
-                <p className="text-[11px] text-muted">任务路由</p>
+                <p className="text-[11px] text-muted">当前仅云端生成 GM 叙述；后台任务保持本地确定性。</p>
                 {TASKS.map((task) => {
                   const route = routes.find((item) => item.taskType === task);
                   return (

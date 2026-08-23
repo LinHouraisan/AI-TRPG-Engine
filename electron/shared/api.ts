@@ -147,6 +147,7 @@ export interface SettingsApi {
   setSecret(input: { credentialId?: string; value: string }): Promise<Result<{ credentialId: string }>>;
   hasSecret(input: { credentialId: string }): Promise<Result<{ present: boolean }>>;
   deleteSecret(input: { credentialId: string }): Promise<Result<void>>;
+  testProvider(): Promise<Result<{ models: string[] }>>;
   listProviders(): Promise<Result<ProviderInstanceView[]>>;
   upsertProvider(input: UpsertProviderInput): Promise<Result<ProviderInstanceView>>;
   deleteProvider(input: { providerInstanceId: string }): Promise<Result<void>>;
@@ -257,6 +258,7 @@ export const CHANNELS = {
   "settings:setSecret": true,
   "settings:hasSecret": true,
   "settings:deleteSecret": true,
+  "settings:testProvider": true,
   "settings:listProviders": true,
   "settings:upsertProvider": true,
   "settings:deleteProvider": true,

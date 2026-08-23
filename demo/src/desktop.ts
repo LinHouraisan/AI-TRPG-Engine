@@ -56,11 +56,16 @@ export interface DesktopApi {
   settings: {
     get(input: { key: string }): Promise<DesktopResult<unknown>>;
     set(input: { key: string; value: unknown }): Promise<DesktopResult<void>>;
+    setSecret(input: { credentialId?: string; value: string }): Promise<DesktopResult<{ credentialId: string }>>;
+    hasSecret(input: { credentialId: string }): Promise<DesktopResult<{ present: boolean }>>;
+    deleteSecret(input: { credentialId: string }): Promise<DesktopResult<void>>;
+    testProvider(): Promise<DesktopResult<{ models: string[] }>>;
     listProviders(): Promise<DesktopResult<Array<{
       providerInstanceId: string;
       providerType: string;
       displayName: string;
       baseUrl: string | null;
+      credentialId: string | null;
       enabled: boolean;
     }>>>;
     upsertProvider(input: {
@@ -68,6 +73,7 @@ export interface DesktopApi {
       providerType: string;
       displayName: string;
       baseUrl?: string | null;
+      credentialId?: string | null;
       enabled: boolean;
     }): Promise<DesktopResult<{ providerInstanceId: string }>>;
     listProfiles(): Promise<DesktopResult<Array<{

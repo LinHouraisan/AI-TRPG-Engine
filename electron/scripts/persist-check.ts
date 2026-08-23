@@ -176,7 +176,12 @@ try {
   const afterRestore = campaigns.list({ limit: 20 });
   assert(afterRestore.ok && afterRestore.value.items.length === 1, "恢复之后重新出现");
 
-  const turns = new TurnService(campaigns, clock);
+  const turnCredentials = new CredentialStore(
+    join(root, "turn-credentials.json"),
+    clock,
+    xorSafeStorage(true),
+  );
+  const turns = new TurnService(campaigns, turnCredentials, clock);
   const fresh = campaigns.create("回合探测");
   assert(fresh.ok, "另开一场做回合探测");
   const live = fresh.ok ? fresh.value : undefined;
@@ -333,7 +338,17 @@ try {
   campaigns.dispose();
   settings.close();
 } finally {
-  rmSync(root, { recursive: true, force: true });
+  try {
+    rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  } catch (error) {
+    const busyUntilBunExits =
+      process.platform === "win32" &&
+      error instanceof Error &&
+      "code" in error &&
+      error.code === "EBUSY";
+    if (!busyUntilBunExits) throw error;
+    console.warn(`Windows 上 bun:sqlite 会持锁到进程退出，临时目录留给系统清理：${root}`);
+  }
 }
 
 if (failed) {
