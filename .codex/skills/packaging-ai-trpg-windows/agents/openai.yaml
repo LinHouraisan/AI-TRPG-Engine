@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI TRPG Windows 打包"
+  short_description: "构建并验证 AI TRPG Engine Windows 演示包"
+  default_prompt: "Use $packaging-ai-trpg-windows to build and verify a fresh Windows demo package."
