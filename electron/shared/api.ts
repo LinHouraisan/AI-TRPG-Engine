@@ -1,5 +1,10 @@
 import type { BranchId, CampaignId, EntityId, OperationId, StateVersion, TurnId } from "./ids";
 import type { Result } from "./result";
+import type {
+  InvestigatorAllocation,
+  InvestigatorProfile,
+} from "../../demo/src/character/types";
+import type { CheckCandidate, Intent } from "../../demo/src/engine/types";
 
 export interface ApiVersion {
   major: 1;
@@ -36,6 +41,37 @@ export interface CampaignView extends CampaignSummary {
 export interface CreateCampaignInput {
   name: string;
 }
+
+export type CampaignBackupBody = {
+  sourceCampaignId: string;
+  name: string;
+  headBranchId: string;
+  headStateVersion: number;
+  databaseSchemaVersion: number;
+  domainSchemaVersion: number;
+  migrations: Array<{ migrationId: string; checksum: string }>;
+  tables: Record<string, Array<Record<string, unknown>>>;
+};
+
+export type CampaignBackup = {
+  format: "ai-trpg-campaign-backup";
+  formatVersion: 1;
+  checksum: string;
+  body: CampaignBackupBody;
+};
+
+export type ConfirmInvestigatorInput = {
+  campaignId: CampaignId;
+  branchId: BranchId;
+  allocation: InvestigatorAllocation;
+};
+
+export type ConfirmInvestigatorView = {
+  profile: InvestigatorProfile;
+  branchId: string;
+  stateVersion: number;
+  checkpointId: string;
+};
 
 export interface SubmitActionInput {
   campaignId: CampaignId;
@@ -76,6 +112,7 @@ export interface OperationView {
 
 export type OperationEvent =
   | { type: "operation.status"; operation: OperationView }
+  | { type: "check.candidate"; commandId: string; intent: Intent; check: CheckCandidate }
   | {
       type: "narration.delta";
       operationId: OperationId | string;
@@ -100,6 +137,7 @@ export const OPERATION_EVENT_CHANNEL = "operation:event";
 
 const OPERATION_EVENT_TYPES = new Set([
   "operation.status",
+  "check.candidate",
   "narration.delta",
   "narration.completed",
   "campaign.changed",
@@ -136,9 +174,8 @@ export interface CampaignApi {
   close(input: { campaignId: CampaignId }): Promise<Result<void>>;
   moveToTrash(input: { campaignId: CampaignId }): Promise<Result<void>>;
   restoreFromTrash(input: { campaignId: CampaignId }): Promise<Result<void>>;
-  applyCharacterCard(input: ApplyCharacterCardInput): Promise<
-    Result<{ operationId: string; turnId: string; stateVersion: number }>
-  >;
+  confirmInvestigator(input: ConfirmInvestigatorInput): Promise<Result<ConfirmInvestigatorView>>;
+  getInvestigator(input: { campaignId: CampaignId }): Promise<Result<InvestigatorProfile | null>>;
 }
 
 export interface SettingsApi {
@@ -204,21 +241,6 @@ export interface SetTaskRouteInput {
   fallbackModelProfileId?: string | null;
 }
 
-export interface ApplyCharacterCardInput {
-  campaignId: CampaignId;
-  branchId: BranchId;
-  expectedStateVersion: StateVersion;
-  commandId: string;
-  name: string;
-  occupation: string;
-  hp: number;
-  hpMax: number;
-  san: number;
-  sanMax: number;
-  skills: Record<string, number>;
-  cardHash: string;
-}
-
 export interface DesktopApi {
   version: ApiVersion;
   app: AppApi;
@@ -234,11 +256,15 @@ export interface DesktopApi {
   };
   content: { list(): Promise<Result<never>> };
   model: { list(): Promise<Result<never>> };
-  backup: { exportCampaign(): Promise<Result<never>> };
+  backup: {
+    exportCampaign(input: { campaignId: CampaignId }): Promise<Result<CampaignBackup>>;
+    importCampaign(input: { backup: CampaignBackup }): Promise<Result<CampaignSummary>>;
+  };
   checkpoint: {
-    list(input:{campaignId:CampaignId}): Promise<Result<Array<{checkpointId:string;branchId:string;stateVersion:number;eventSequence:number;label:string;createdAt:string;purpose:string|null;passed:boolean|null;stateHash:string}>>>;
+    list(input:{campaignId:CampaignId}): Promise<Result<Array<{checkpointId:string;branchId:string;stateVersion:number;eventSequence:number;label:string;createdAt:string;purpose:string|null;passed:boolean|null;stateHash:string;recap:string}>>>;
     create(input:{campaignId:CampaignId;branchId:BranchId;label:string;purpose?:string;steps?:string[];expected?:unknown;actual?:unknown;passed?:boolean}): Promise<Result<unknown>>;
     restoreCopy(input:{campaignId:CampaignId;checkpointId:string;label:string}): Promise<Result<{branchId:string;stateVersion:number}>>;
+    recreateInvestigator(input:{campaignId:CampaignId;checkpointId:string;label:string}): Promise<Result<{branchId:string;stateVersion:number}>>;
   };
   operation: {
     get(input: { operationId: OperationId; campaignId: CampaignId }): Promise<Result<TurnView>>;
@@ -248,7 +274,7 @@ export interface DesktopApi {
   };
 }
 
-export const API_VERSION: ApiVersion = { major: 1, minor: 0 };
+export const API_VERSION: ApiVersion = { major: 1, minor: 1 };
 
 export const CHANNELS = {
   "app:getVersion": true,
@@ -278,10 +304,14 @@ export const CHANNELS = {
   "operation:get": true,
   "operation:subscribe": true,
   "operation:unsubscribe": true,
-  "campaign:applyCharacterCard": true,
+  "campaign:confirmInvestigator": true,
+  "campaign:getInvestigator": true,
   "checkpoint:list": true,
   "checkpoint:create": true,
   "checkpoint:restoreCopy": true,
+  "checkpoint:recreateInvestigator": true,
+  "backup:export": true,
+  "backup:import": true,
 } as const;
 
 export type Channel = keyof typeof CHANNELS;

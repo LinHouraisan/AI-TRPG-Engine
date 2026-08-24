@@ -1,4 +1,7 @@
 import { keeperNarrate } from "../../../demo/src/keeper/keeper";
+import type { DialogueTurn } from "../../../demo/src/keeper/dialogue-context";
+import type { InvestigatorProfile } from "../../../demo/src/character/types";
+import { checkCandidateForIntent, publishCheckCandidate } from "../../../demo/src/engine/check-preview";
 import { handleFreeTurn, newFreeTurnTaskId } from "../../../demo/src/keeper/free-turn";
 import { playTurn } from "../../../demo/src/engine/play-turn";
 import { recentFromTurn } from "../../../demo/src/engine/recent";
@@ -6,7 +9,7 @@ import { commit, replay } from "../../../demo/src/engine/runtime";
 import { initialState } from "../../../demo/src/engine/state";
 import { route } from "../../../demo/src/engine/router";
 import { storyMonitor } from "../../../demo/src/engine/story-monitor";
-import type { GameEvent, GameState, Intent } from "../../../demo/src/engine/types";
+import type { CheckCandidate, GameEvent, GameState, Intent } from "../../../demo/src/engine/types";
 import { runAfterCommit } from "../../../demo/src/ai/jobs";
 import { emptyContextStore } from "../../../demo/src/engine/context-store";
 import { sheetDraft, type SheetApplyInput } from "../../../demo/src/cards/apply";
@@ -31,9 +34,15 @@ import {
   listTimeline,
   loadBranchHistory,
   loadGameEvents,
+  loadRecentDialogueTurns,
 } from "../persist/turns";
 import { loadMemory, saveFrontier, saveMemory } from "../persist/derived";
 import type { CampaignService } from "./campaigns";
+import {
+  hasInvestigatorPersistence,
+  isReplayConsistentInvestigator,
+  loadInvestigator,
+} from "../persist/investigator";
 
 export type TurnView = SharedTurnView & { events: GameEvent[] };
 
@@ -78,7 +87,10 @@ export class TurnService {
     return this.finishing.get(operationId) ?? Promise.resolve();
   }
 
-  async submit(input: SubmitActionInput): Promise<Result<{ operationId: string; turnId: string }>> {
+  async submit(
+    input: SubmitActionInput,
+    hooks: { onCandidate?: (candidate: { commandId: string; intent: Intent; check: CheckCandidate }) => void } = {},
+  ): Promise<Result<{ operationId: string; turnId: string }>> {
     const text = input.text.trim();
     if (text.length < 1 || text.length > 20_000) {
       return fail({
@@ -99,16 +111,37 @@ export class TurnService {
         retryable: false,
       });
     }
-    const existing = findTurnByCommand(db, input.branchId, input.commandId);
-    if (existing) {
-      return ok({ operationId: existing.operationId, turnId: existing.turnId });
-    }
     if (catalog.head_branch_id !== input.branchId) {
       return fail({
         code: "TURN_VERSION_CONFLICT",
         messageKey: "turn.branch_mismatch",
         retryable: true,
       });
+    }
+    const log = loadGameEvents(db, input.branchId);
+    const state = replay(initialState(), log);
+    let profile: InvestigatorProfile | null = null;
+    if (hasInvestigatorPersistence(db)) {
+      const bound = loadInvestigator(db, input.branchId);
+      if (!bound) {
+        return fail({
+          code: "INVESTIGATOR_REQUIRED",
+          messageKey: "investigator.required_before_play",
+          retryable: false,
+        });
+      }
+      if (!isReplayConsistentInvestigator(bound, state)) {
+        return fail({
+          code: "INVESTIGATOR_REPLAY_MISMATCH",
+          messageKey: "investigator.replay_mismatch",
+          retryable: false,
+        });
+      }
+      profile = bound.profile;
+    }
+    const existing = findTurnByCommand(db, input.branchId, input.commandId);
+    if (existing) {
+      return ok({ operationId: existing.operationId, turnId: existing.turnId });
     }
     if (catalog.head_state_version !== Number(input.expectedStateVersion)) {
       return fail({
@@ -119,14 +152,21 @@ export class TurnService {
       });
     }
 
-    const log = loadGameEvents(db, input.branchId);
-    const state = replay(initialState(), log);
+    const recentTurns = loadRecentDialogueTurns(db, input.branchId);
     let intent = route(text, state);
     let freeTurnTaskId: string | undefined;
     if (intent.kind === "unclear") {
       freeTurnTaskId = newFreeTurnTaskId();
       const configured = withKeeperConfig(this.campaigns.settings, this.credentials, (config) =>
-        handleFreeTurn({ config, state, spoken: text, modelTaskId: freeTurnTaskId! }),
+        handleFreeTurn({
+          config,
+          state,
+          profile,
+          spoken: text,
+          recentTurns,
+          modelTaskId: freeTurnTaskId!,
+          currentStateVersion: () => getCatalog(this.campaigns.settings, input.campaignId)?.head_state_version ?? -1,
+        }),
       );
       if (configured.ok) {
         try {
@@ -136,12 +176,50 @@ export class TurnService {
         }
       }
     }
+    const candidate = checkCandidateForIntent({ intent, state, profile });
+    if (candidate && hooks.onCandidate) {
+      await publishCheckCandidate({
+        candidate,
+        onCandidate: (check) => hooks.onCandidate?.({ commandId: input.commandId, intent, check }),
+      });
+    }
+    const authoritativeCatalog = getCatalog(this.campaigns.settings, input.campaignId);
+    const authoritativeBranch = db.get<{ head_state_version: number }>(
+      "SELECT head_state_version FROM branches WHERE branch_id = ?",
+      [input.branchId],
+    );
+    const authoritativeLog = loadGameEvents(db, input.branchId);
+    const authoritativeState = replay(initialState(), authoritativeLog);
+    const expectedStateVersion = Number(input.expectedStateVersion);
+    const intentStateVersion = intent.kind === "investigation" ? intent.stateVersion : expectedStateVersion;
+    if (
+      !authoritativeCatalog ||
+      authoritativeCatalog.head_branch_id !== input.branchId ||
+      authoritativeCatalog.head_state_version !== expectedStateVersion ||
+      authoritativeBranch?.head_state_version !== expectedStateVersion ||
+      authoritativeState.version !== expectedStateVersion ||
+      intentStateVersion !== expectedStateVersion
+    ) {
+      return fail({
+        code: "TURN_VERSION_CONFLICT",
+        messageKey: "turn.version_conflict",
+        retryable: true,
+        details: {
+          expected: expectedStateVersion,
+          catalog: authoritativeCatalog?.head_state_version,
+          branch: authoritativeBranch?.head_state_version,
+          replayed: authoritativeState.version,
+          intent: intentStateVersion,
+        },
+      });
+    }
     const outcome = playTurn({
       text,
-      state,
-      log,
+      state: authoritativeState,
+      log: authoritativeLog,
       intent,
-      turnId: `${input.branchId}:turn-${state.turn + 1}`,
+      profile,
+      turnId: `${input.branchId}:turn-${authoritativeState.turn + 1}`,
     });
     const now = this.clock.nowIso();
     const operationId = uuidv7();
@@ -155,7 +233,7 @@ export class TurnService {
       narration: outcome.kind === "committed" ? outcome.narration : outcome.text,
       narrationKind: outcome.kind === "committed" ? "模板" : "程序",
       events: outcome.kind === "committed" ? outcome.committed : [],
-      stateVersion: outcome.kind === "committed" ? outcome.state.version : state.version,
+      stateVersion: outcome.kind === "committed" ? outcome.state.version : authoritativeState.version,
       check: outcome.kind === "committed" ? outcome.check : undefined,
       intent: outcome.intent,
     };
@@ -179,8 +257,8 @@ export class TurnService {
       text,
       now,
       status,
-      baseVersion: state.version,
-      committedVersion: outcome.kind === "committed" ? outcome.state.version : state.version,
+      baseVersion: authoritativeState.version,
+      committedVersion: outcome.kind === "committed" ? outcome.state.version : authoritativeState.version,
       events: view.events,
       check: outcome.kind === "committed" ? outcome.check : undefined,
       result: view,
@@ -206,6 +284,8 @@ export class TurnService {
       view,
       stateAfter: outcome.kind === "committed" ? outcome.state : state,
       modelTaskId: freeTurnTaskId,
+      recentTurns,
+      profile,
     }).catch(() => undefined);
     this.finishing.set(operationId, task);
     return ok({ operationId, turnId });
@@ -228,8 +308,15 @@ export class TurnService {
   timeline(campaignId: CampaignId, branchId: string, limit: number) {
     const opened = this.campaigns.ensureOpen(campaignId);
     if (!opened.ok) return opened;
-    const events = loadGameEvents(opened.value, branchId);
-    const items = listTimeline(opened.value, branchId, limit).map((row) => {
+    const branch = opened.value.get<{ head_state_version: number; head_sequence: number }>(
+      "SELECT head_state_version, head_sequence FROM branches WHERE branch_id = ?",
+      [branchId],
+    );
+    const upperBound = branch
+      ? { stateVersion: branch.head_state_version, eventSequence: branch.head_sequence }
+      : undefined;
+    const events = loadGameEvents(opened.value, branchId, upperBound?.eventSequence);
+    const items = listTimeline(opened.value, branchId, limit, upperBound?.eventSequence).map((row) => {
       const event = JSON.parse(row.payload_json) as GameEvent;
       return {
         kind: "state_change" as const,
@@ -401,6 +488,8 @@ export class TurnService {
     view: TurnView;
     stateAfter: GameState;
     modelTaskId?: string;
+    recentTurns: DialogueTurn[];
+    profile: InvestigatorProfile | null;
   }): Promise<void> {
     const { db, operationId, turnId, view } = params;
     this.emit(operationId, {
@@ -417,6 +506,26 @@ export class TurnService {
     }
 
     if (view.kind !== "committed") {
+      const narrationId = uuidv7();
+      persistFinalNarration({
+        db,
+        narrationId,
+        branchId: params.branchId,
+        turnId,
+        stateVersion: view.stateVersion,
+        modelTaskId: "program",
+        promptVersion: "program-w0",
+        text: view.narration,
+        now: this.clock.nowIso(),
+        operationId,
+        result: view,
+      });
+      this.emit(operationId, {
+        type: "narration.completed",
+        operationId: asOperationId(operationId),
+        turnId: asTurnId(turnId),
+        narrationId,
+      });
       this.emit(operationId, {
         type: "operation.status",
         operation: this.operationView(operationId, "succeeded", view.kind),
@@ -439,7 +548,11 @@ export class TurnService {
     let text = fallback;
     let note: string | undefined;
     let modelTaskId = params.modelTaskId ?? "template";
-    if (view.events.length > 0 || (view.intent as Intent).kind === "free_action") {
+    if (
+      view.events.length > 0 ||
+      (view.intent as Intent).kind === "free_action" ||
+      (view.intent as Intent).kind === "talk"
+    ) {
       const configured = withKeeperConfig(this.campaigns.settings, this.credentials, async (config) => ({
         result: await keeperNarrate({
           config,
@@ -447,10 +560,9 @@ export class TurnService {
           events: view.events,
           intent: view.intent as Intent,
           spoken: params.spoken,
+          recentTurns: params.recentTurns,
+          profile: params.profile,
           fallback,
-          onStream: (event) => {
-            if (event.kind === "draft") batcher.accept(event.draft);
-          },
         }),
         model: config.model,
       }));

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { InvestigatorCreationRules } from "../character/types";
 
 /**
  * 资料包的模式。模组作者写 JSON，这里负责校验。
@@ -106,6 +107,7 @@ export const factSchema = z.object({
   id: z.string().startsWith("fact."),
   title: z.string(),
   visibility: z.enum(["public", "secret"]),
+  guardPhrases: z.array(z.string().min(2)).default([]),
 });
 
 export const npcSchema = z.object({
@@ -113,6 +115,11 @@ export const npcSchema = z.object({
   title: z.string(),
   startAt: z.string(),
   line: z.string(),
+  knownFacts: z.array(z.string().startsWith("fact.")).default([]),
+  disclosures: z.array(z.object({
+    fact: z.string().startsWith("fact."),
+    when: predicateSchema,
+  })).default([]),
   keeperNote: z.string().optional(),
 });
 
@@ -155,6 +162,56 @@ export const conditionSchema = z.object({
   effects: z.array(effectSchema).min(1),
 });
 
+const creationSchema: z.ZodType<InvestigatorCreationRules> = z.object({
+  occupation: z.string(),
+  characteristics: z.object({
+    STR: z.number().int().positive(),
+    CON: z.number().int().positive(),
+    SIZ: z.number().int().positive(),
+    DEX: z.number().int().positive(),
+    APP: z.number().int().positive(),
+    INT: z.number().int().positive(),
+    POW: z.number().int().positive(),
+    EDU: z.number().int().positive(),
+  }),
+  baseSkills: z.record(z.string(), z.number().int()),
+  occupationSkills: z.array(z.string()).min(1),
+  maxSkill: z.literal(90),
+  hp: z.number().int().positive(),
+  san: z.number().int().positive(),
+  sanMax: z.number().int().positive(),
+  contentVersion: z.string(),
+  lifeHistories: z.array(
+    z.object({
+      id: z.string().startsWith("history."),
+      title: z.string(),
+      background: z.string(),
+      roleplayPrompt: z.string(),
+      initialGrant: z.object({ kind: z.enum(["fact", "item"]), id: z.string() }),
+      relationship: z.object({ npcId: z.string(), text: z.string() }),
+      investigationId: z.string().startsWith("investigation."),
+    }),
+  ).length(4),
+});
+
+export const investigationSchema = z.object({
+  id: z.string().startsWith("investigation."),
+  title: z.string(),
+  room: z.string().startsWith("loc."),
+  visibleWhen: predicateSchema,
+  description: z.string(),
+  phrases: z.array(z.string()).min(1),
+  defaultSkill: z.string(),
+  alternateSkills: z.array(z.string()).default([]),
+  difficulty: z.enum(["regular", "hard", "extreme"]),
+  minutes: z.object({ success: z.number().int().nonnegative(), failure: z.number().int().nonnegative() }),
+  lifeHistoryId: z.string().startsWith("history.").optional(),
+  outcomes: z.object({
+    success: z.array(effectSchema).min(1),
+    failure: z.array(effectSchema).min(1),
+  }),
+});
+
 export const manifestSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -172,6 +229,7 @@ export const manifestSchema = z.object({
     startAt: z.string(),
     skills: z.record(z.string(), z.number().int().nonnegative()),
   }),
+  creation: creationSchema.optional(),
 });
 
 export type RoomDef = z.infer<typeof roomSchema>;
@@ -183,3 +241,4 @@ export type StoryNodeDef = z.infer<typeof storyNodeSchema>;
 export type ConditionDef = z.infer<typeof conditionSchema>;
 export type ManifestDef = z.infer<typeof manifestSchema>;
 export type EffectDef = z.infer<typeof effectSchema>;
+export type InvestigationDef = z.infer<typeof investigationSchema>;

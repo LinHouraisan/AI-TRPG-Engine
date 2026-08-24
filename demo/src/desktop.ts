@@ -1,4 +1,7 @@
 /** Electron preload 挂上的桥。浏览器里没有，Demo 继续走自己的 wasm 库。 */
+import type { InvestigatorAllocation, InvestigatorProfile } from "./character/types";
+import type { CheckCandidate, Intent } from "./engine/types";
+
 export type DesktopResult<T> =
   | { ok: true; value: T }
   | { ok: false; error: { code: string; messageKey: string; retryable?: boolean } };
@@ -29,11 +32,28 @@ export type DesktopBranchHistory = {
   restoredFrom: string | null;
 };
 
+export type DesktopCampaignBackup = {
+  format: "ai-trpg-campaign-backup";
+  formatVersion: 1;
+  checksum: string;
+  body: {
+    sourceCampaignId: string;
+    name: string;
+    headBranchId: string;
+    headStateVersion: number;
+    databaseSchemaVersion: number;
+    domainSchemaVersion: number;
+    migrations: Array<{ migrationId: string; checksum: string }>;
+    tables: Record<string, Array<Record<string, unknown>>>;
+  };
+};
+
 export type OperationEvent =
   | {
       type: "operation.status";
       operation: { operationId: string; status: string; progress: { phase: string } };
     }
+  | { type: "check.candidate"; commandId: string; intent: Intent; check: CheckCandidate }
   | { type: "narration.delta"; operationId: string; turnId: string; sequence: number; text: string }
   | { type: "narration.completed"; operationId: string; turnId: string; narrationId: string }
   | { type: "campaign.changed"; campaignId: string; branchId: string; stateVersion: number };
@@ -45,20 +65,19 @@ export interface DesktopApi {
     list(input: { limit: number }): Promise<DesktopResult<{ items: DesktopCampaign[]; nextCursor?: string | null }>>;
     open(input: { campaignId: string }): Promise<DesktopResult<DesktopCampaign>>;
     moveToTrash(input: { campaignId: string }): Promise<DesktopResult<void>>;
-    applyCharacterCard?(input: {
+    confirmInvestigator(input: {
       campaignId: string;
       branchId: string;
-      expectedStateVersion: number;
-      commandId: string;
-      name: string;
-      occupation: string;
-      hp: number;
-      hpMax: number;
-      san: number;
-      sanMax: number;
-      skills: Record<string, number>;
-      cardHash: string;
-    }): Promise<DesktopResult<{ operationId: string; turnId: string; stateVersion: number }>>;
+      allocation: InvestigatorAllocation;
+    }): Promise<DesktopResult<{
+      profile: InvestigatorProfile;
+      branchId: string;
+      stateVersion: number;
+      checkpointId: string;
+    }>>;
+    getInvestigator(input: {
+      campaignId: string;
+    }): Promise<DesktopResult<InvestigatorProfile | null>>;
   };
   settings: {
     get(input: { key: string }): Promise<DesktopResult<unknown>>;
@@ -127,9 +146,14 @@ export interface DesktopApi {
     }): Promise<DesktopResult<{ items: unknown[]; events?: unknown[] } & Partial<DesktopBranchHistory>>>;
   };
   checkpoint: {
-    list(input:{campaignId:string}): Promise<DesktopResult<Array<{checkpointId:string;branchId:string;stateVersion:number;eventSequence:number;label:string;createdAt:string;purpose:string|null;passed:boolean|null;stateHash:string}>>>;
+    list(input:{campaignId:string}): Promise<DesktopResult<Array<{checkpointId:string;branchId:string;stateVersion:number;eventSequence:number;label:string;createdAt:string;purpose:string|null;passed:boolean|null;stateHash:string;recap:string}>>>;
     create(input:{campaignId:string;branchId:string;label:string;purpose?:string;steps?:string[];expected?:unknown;actual?:unknown;passed?:boolean}): Promise<DesktopResult<unknown>>;
     restoreCopy(input:{campaignId:string;checkpointId:string;label:string}): Promise<DesktopResult<{branchId:string;stateVersion:number}>>;
+    recreateInvestigator(input:{campaignId:string;checkpointId:string;label:string}): Promise<DesktopResult<{branchId:string;stateVersion:number}>>;
+  };
+  backup: {
+    exportCampaign(input:{campaignId:string}): Promise<DesktopResult<DesktopCampaignBackup>>;
+    importCampaign(input:{backup:DesktopCampaignBackup}): Promise<DesktopResult<DesktopCampaign>>;
   };
   operation: {
     get(input: {
@@ -144,5 +168,11 @@ export interface DesktopApi {
 
 export function desktopApi(): DesktopApi | undefined {
   const api = (window as Window & { desktopApi?: DesktopApi }).desktopApi;
-  return api;
+  return api ? withoutLegacyInvestigatorEdit(api) : undefined;
+}
+
+export function withoutLegacyInvestigatorEdit(api: DesktopApi): DesktopApi {
+  const campaign = { ...api.campaign } as Record<string, unknown>;
+  delete campaign.applyCharacterCard;
+  return { ...api, campaign: campaign as unknown as DesktopApi["campaign"] };
 }

@@ -15,7 +15,7 @@ export const VERBS = ["move", "observe", "unlock", "take", "read", "talk", "quer
  * 嵌套的联合类型对小模型太难，摊平之后它几乎不会写错，
  * 而「这个编号在不在场」照样由程序自己查。
  */
-export const routeReplySchema = z.object({
+const standardRouteReplySchema = z.object({
   verb: z.enum(VERBS),
   /** 资料包里的编号，例如 loc.study、item.ledger、lock.desk；说不准就留空 */
   target: z.string().default(""),
@@ -23,8 +23,20 @@ export const routeReplySchema = z.object({
   text: z.string().default(""),
 });
 
+const investigationRouteReplySchema = z.object({
+  kind: z.literal("investigation"),
+  investigationId: z.string().startsWith("investigation."),
+  skill: z.string().min(1),
+  approach: z.string().min(1),
+});
+
+export const routeReplySchema = z.union([standardRouteReplySchema, investigationRouteReplySchema]);
+
 export const narrationReplySchema = z.object({
   text: z.string().min(1),
+  feedback: z.string(),
+  reaction: z.string(),
+  interactionPoints: z.array(z.string()),
 });
 
 export type RouteReply = z.infer<typeof routeReplySchema>;

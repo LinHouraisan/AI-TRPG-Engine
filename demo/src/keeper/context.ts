@@ -1,7 +1,15 @@
-import { pack, packIndex } from "@/engine/pack";
+import { indexPack, pack, packIndex, type Pack } from "@/engine/pack";
+import { allowedInvestigationSkills, visibleInvestigations, type InvestigationProfile } from "@/engine/investigation";
 import { itemsInRoom, npcsInRoom, visibleItemsInRoom } from "@/engine/state";
 import type { GameEvent, GameState } from "@/engine/types";
 import { DEFAULT_CONTEXT_BUDGET_CHARS } from "./config";
+import {
+  buildNpcDialogueContext,
+  buildRecentDialogueContext,
+  disclosableNpcFactIds,
+  resolveDialogueNpcId,
+  type DialogueTurn,
+} from "./dialogue-context";
 
 /**
  * 喂给主持人的上下文。
@@ -36,6 +44,7 @@ export const CONTEXT_COLUMN_NAMES = [
   "经过",
   "本回合已提交的事实",
   "作者写好的句子",
+  "NPC 对话",
 ] as const;
 
 export type ContextColumnName = (typeof CONTEXT_COLUMN_NAMES)[number];
@@ -62,6 +71,8 @@ export type KeeperContext = {
   text: string;
   /** 叙述里允许出现的专有名词。用来事后查它有没有编人编物 */
   allowedNames: string[];
+  /** 叙述可以明说的作者事实编号；guard 据此拦截其他 NPC 的知识。 */
+  allowedFactIds: string[];
   /** 分栏用量。界面只读这份，不要自己再数一遍。 */
   usage?: ContextUsage;
 };
@@ -75,6 +86,10 @@ export const CONTEXT_OMISSION = {
 export function buildContext(params: {
   state: GameState;
   events: GameEvent[];
+  recentTurns?: DialogueTurn[];
+  profile?: InvestigationProfile | null;
+  spoken?: string;
+  scenarioPack?: Pack;
   budgetChars?: number;
 }): KeeperContext {
   const { state } = params;
@@ -115,10 +130,41 @@ export function buildContext(params: {
   });
   const bagNames = bag.map((id) => packIndex.item(id)?.title ?? id);
   const peopleNames = people.map((id) => packIndex.npc(id)?.title ?? id);
-  const clueItems = state.known.map((id) => packIndex.fact(id)?.title ?? id);
-  const historyItems = perceivedSummaries(prior);
-  const thisTurnFacts = perceivedSummaries(current);
-  const authored = current.map((event) => event.narration).filter(Boolean);
+  const recentTurns = params.recentTurns ?? [];
+  const npcId = resolveDialogueNpcId({
+    state,
+    recentTurns,
+    spoken: params.spoken,
+    scenarioPack: params.scenarioPack,
+  });
+  const npcDialogue = npcId
+    ? buildNpcDialogueContext({
+        npcId,
+        state,
+        recentTurns,
+        profile: params.profile ?? null,
+        scenarioPack: params.scenarioPack,
+    })
+    : buildRecentDialogueContext(recentTurns);
+  const scenarioPack = params.scenarioPack ?? pack;
+  const scenarioIndex = indexPack(scenarioPack);
+  const publicKnown = state.known.filter((id) => scenarioIndex.fact(id)?.visibility === "public");
+  const clueIds = npcId ? publicKnown : state.known;
+  const clueItems = clueIds.map((id) => scenarioIndex.fact(id)?.title ?? id);
+  const visiblePrior = npcId ? prior.filter((event) => event.visibility === "public") : prior;
+  const visibleCurrent = npcId ? current.filter((event) => event.visibility === "public") : current;
+  const historyItems = perceivedSummaries(visiblePrior);
+  const thisTurnFacts = perceivedSummaries(visibleCurrent);
+  const authored = visibleCurrent.map((event) => event.narration).filter(Boolean);
+  const allowedFactIds = new Set(npcId ? publicKnown : state.known);
+  if (npcId) {
+    for (const id of disclosableNpcFactIds({ npcId, state, scenarioPack })) {
+      allowedFactIds.add(id);
+    }
+  }
+  for (const event of current) {
+    if (event.payload.type === "fact_known") allowedFactIds.add(event.payload.fact);
+  }
 
   const historyHad = historyItems.length > 0;
   let historyDropped = 0;
@@ -182,6 +228,7 @@ export function buildContext(params: {
         : "",
       0,
     );
+    weigh("NPC 对话", npcDialogue, 0);
 
     const text = parts.join("\n");
     return {
@@ -211,6 +258,7 @@ export function buildContext(params: {
   return {
     text: assembled.text,
     allowedNames: [...allowedNames],
+    allowedFactIds: [...allowedFactIds],
     usage: assembled.usage,
   };
 }
@@ -260,9 +308,11 @@ function namesIn(event: GameEvent): string[] {
     case "observed":
       return [packIndex.item(payload.item)?.title].filter(isName);
     case "check_resolved":
-      return [packIndex.lock(payload.target)?.title, packIndex.item(payload.target)?.title].filter(
-        isName,
-      );
+      return [
+        packIndex.lock(payload.target)?.title,
+        packIndex.item(payload.target)?.title,
+        packIndex.investigation(payload.target)?.title,
+      ].filter(isName);
     case "lock_opened":
       return [packIndex.lock(payload.lock)?.title].filter(isName);
     case "item_moved":
@@ -292,7 +342,13 @@ function roomName(id: string, state: GameState): string {
 }
 
 /** 路由用的备选清单：模型只能从这些编号里挑，挑不出就追问。 */
-export function buildRouteContext(state: GameState): string {
+export function buildRouteContext(
+  state: GameState,
+  profile?: InvestigationProfile | null,
+  scenarioPack: Pack = pack,
+  recentTurns: DialogueTurn[] = [],
+  spoken = "",
+): string {
   const room = packIndex.room(state.pcAt);
   const here = visibleItemsInRoom(state, state.pcAt);
   const bag = itemsInRoom(state, "inv.pc");
@@ -327,5 +383,20 @@ export function buildRouteContext(state: GameState): string {
         .join("；") || "无"
     }`,
   );
+  const investigationProfile = profile ?? null;
+  const investigationLines = investigationProfile
+    ? visibleInvestigations(state, investigationProfile, scenarioPack)
+        .map((entry) => `${entry.id}（${entry.description}；技能：${allowedInvestigationSkills(entry, investigationProfile).join("、")}；措辞：${entry.phrases.join("、")}）`)
+    : [];
+  lines.push(
+    `【可用调查入口】${
+      investigationLines.join("；") || "无"
+    }`,
+  );
+  const npcId = resolveDialogueNpcId({ state, recentTurns, spoken, scenarioPack });
+  const dialogue = npcId
+    ? buildNpcDialogueContext({ npcId, state, recentTurns, profile: profile ?? null, scenarioPack })
+    : buildRecentDialogueContext(recentTurns);
+  if (dialogue) lines.push(dialogue);
   return lines.join("\n");
 }

@@ -22,8 +22,13 @@ import { withKeeperConfig } from "../model-config";
 import { probeKeeper } from "../../../demo/src/keeper/client";
 import { summarizeModelUsage } from "../model-usage";
 import { createCheckpoint, listCheckpoints, restoreCheckpointCopy } from "../persist/checkpoints";
+import {
+  confirmInvestigatorInputSchema,
+  importCampaignBackupInputSchema,
+} from "../../shared/input-validation";
 
 const MAX_BYTES = 1024 * 1024;
+const MAX_BACKUP_BYTES = 64 * 1024 * 1024;
 
 const nameSchema = z.object({ name: z.string() }).strict();
 const pageSchema = z
@@ -43,16 +48,13 @@ const setSecretSchema = z
   .strict();
 const secretIdSchema = z.object({ credentialId: z.string().min(1) }).strict();
 
-function tooBig(payload: unknown): boolean {
-  return Buffer.byteLength(JSON.stringify(payload ?? null), "utf8") > MAX_BYTES;
-}
-
 function wrap(
   fn: (payload: unknown, event: IpcMainInvokeEvent) => Result<unknown> | Promise<Result<unknown>>,
+  maxBytes = MAX_BYTES,
 ) {
   return async (event: IpcMainInvokeEvent, payload: unknown): Promise<Result<unknown>> => {
     try {
-      if (tooBig(payload)) {
+      if (Buffer.byteLength(JSON.stringify(payload ?? null), "utf8") > maxBytes) {
         return fail({
           code: "IPC_PAYLOAD_TOO_LARGE",
           messageKey: "ipc.payload_too_large",
@@ -80,8 +82,9 @@ export function registerIpc(
   const handle = (
     channel: string,
     fn: (payload: unknown, event: IpcMainInvokeEvent) => Result<unknown> | Promise<Result<unknown>>,
+    maxBytes = MAX_BYTES,
   ) => {
-    ipcMain.handle(channel, wrap(fn));
+    ipcMain.handle(channel, wrap(fn, maxBytes));
   };
 
   handle("app:getVersion", () => ok(API_VERSION));
@@ -121,6 +124,34 @@ export function registerIpc(
       });
     }
     return composition.campaigns.open(asCampaignId(parsed.data.campaignId));
+  });
+
+  handle("campaign:confirmInvestigator", (payload) => {
+    const parsed = confirmInvestigatorInputSchema.safeParse(payload);
+    if (!parsed.success) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "ipc.invalid_request",
+        retryable: false,
+      });
+    }
+    return composition.campaigns.confirmInvestigator({
+      ...parsed.data,
+      campaignId: asCampaignId(parsed.data.campaignId),
+      branchId: asBranchId(parsed.data.branchId),
+    });
+  });
+
+  handle("campaign:getInvestigator", (payload) => {
+    const parsed = idSchema.safeParse(payload);
+    if (!parsed.success) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "ipc.invalid_request",
+        retryable: false,
+      });
+    }
+    return composition.campaigns.getInvestigator(asCampaignId(parsed.data.campaignId));
   });
 
   handle("campaign:close", (payload) => {
@@ -324,45 +355,6 @@ export function registerIpc(
     return ok(setTaskRoute(composition.settings, parsed.data, clock.nowIso()));
   });
 
-  handle("campaign:applyCharacterCard", (payload) => {
-    const parsed = z
-      .object({
-        campaignId: z.string().min(1),
-        branchId: z.string().min(1),
-        expectedStateVersion: z.number().int().nonnegative(),
-        commandId: z.string().min(1),
-        name: z.string().min(1).max(80),
-        occupation: z.string().min(1).max(80),
-        hp: z.number().int().positive(),
-        hpMax: z.number().int().positive(),
-        san: z.number().int().nonnegative(),
-        sanMax: z.number().int().positive(),
-        skills: z.record(z.string(), z.number().int().nonnegative()),
-        cardHash: z.string().min(1),
-      })
-      .strict()
-      .safeParse(payload);
-    if (!parsed.success) {
-      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
-    }
-    return composition.turns.applyCharacterCard({
-      campaignId: asCampaignId(parsed.data.campaignId),
-      branchId: parsed.data.branchId,
-      expectedStateVersion: parsed.data.expectedStateVersion,
-      commandId: parsed.data.commandId,
-      draft: {
-        name: parsed.data.name,
-        occupation: parsed.data.occupation,
-        hp: parsed.data.hp,
-        hpMax: parsed.data.hpMax,
-        san: parsed.data.san,
-        sanMax: parsed.data.sanMax,
-        skills: parsed.data.skills,
-        cardHash: parsed.data.cardHash,
-      },
-    });
-  });
-
   const submitSchema = z
     .object({
       campaignId: z.string().min(1),
@@ -375,7 +367,7 @@ export function registerIpc(
     })
     .strict();
 
-  handle("turn:submitAction", (payload) => {
+  handle("turn:submitAction", (payload, event) => {
     const parsed = submitSchema.safeParse(payload);
     if (!parsed.success) {
       return fail({
@@ -384,13 +376,22 @@ export function registerIpc(
         retryable: false,
       });
     }
-    return composition.turns.submit({
-      ...parsed.data,
-      campaignId: asCampaignId(parsed.data.campaignId),
-      branchId: asBranchId(parsed.data.branchId),
-      actorId: parsed.data.actorId as SubmitActionInput["actorId"],
-      expectedStateVersion: parsed.data.expectedStateVersion as SubmitActionInput["expectedStateVersion"],
-    });
+    return composition.turns.submit(
+      {
+        ...parsed.data,
+        campaignId: asCampaignId(parsed.data.campaignId),
+        branchId: asBranchId(parsed.data.branchId),
+        actorId: parsed.data.actorId as SubmitActionInput["actorId"],
+        expectedStateVersion: parsed.data.expectedStateVersion as SubmitActionInput["expectedStateVersion"],
+      },
+      {
+        onCandidate: (candidate) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send(OPERATION_EVENT_CHANNEL, { type: "check.candidate", ...candidate });
+          }
+        },
+      },
+    );
   });
 
   handle("timeline:page", (payload) => {
@@ -481,7 +482,35 @@ export function registerIpc(
     return ok(restored);
   });
 
+  handle("checkpoint:recreateInvestigator", (payload) => {
+    const parsed = z.object({
+      campaignId: z.string().min(1),
+      checkpointId: z.string().min(1),
+      label: z.string().trim().min(1).max(80),
+    }).strict().safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return composition.campaigns.createInvestigatorRecreation({
+      ...parsed.data,
+      campaignId: asCampaignId(parsed.data.campaignId),
+    });
+  });
+
   handle("content:list", () => unavailable());
   handle("model:list", () => unavailable());
-  handle("backup:export", () => unavailable());
+  handle("backup:export", (payload) => {
+    const parsed = idSchema.safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return composition.campaigns.exportCampaign(asCampaignId(parsed.data.campaignId));
+  });
+  handle("backup:import", (payload) => {
+    const parsed = importCampaignBackupInputSchema.safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return composition.campaigns.importCampaign(parsed.data.backup);
+  }, MAX_BACKUP_BYTES);
 }

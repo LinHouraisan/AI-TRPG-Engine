@@ -15,7 +15,7 @@ import { applyInit } from "../main/persist/migrate";
 import { loadGameEvents } from "../main/persist/turns";
 import { CampaignService } from "../main/services/campaigns";
 import { TurnService } from "../main/services/turns";
-import { asStateVersion, type EntityId } from "../shared/ids";
+import { asBranchId, asStateVersion, type EntityId } from "../shared/ids";
 
 const root = mkdtempSync(join(tmpdir(), "ai-trpg-gold-"));
 const clock = fixedClock("2026-08-19T00:00:00.000Z");
@@ -37,6 +37,8 @@ function assert(ok: boolean, label: string): void {
 try {
   const settings = openBun(paths.settingsDb);
   applyInit(settings, clock, settingsSql, "0001_init");
+  // 寄宿公寓金样刻意只装载通用内核迁移，不启用雾港调查员持久化契约。
+  // 雾港产品路径由 mist-harbor-e2e 覆盖，并且必须先绑定可重放的调查员。
   const campaigns = new CampaignService(settings, paths, clock, openBun, campaignSql, [
     { id: "0002_memory", sql: memorySql },
   ]);
@@ -49,7 +51,12 @@ try {
   const created = campaigns.create("金样");
   if (!created.ok) throw new Error("create failed");
   const campaignId = created.value.campaignId;
-  const branchId = created.value.headBranchId;
+  const opened = campaigns.ensureOpen(campaignId);
+  if (!opened.ok) throw new Error("open failed");
+  // 金样必须固定检定 seed；只改仍为空白的临时分支身份，不替换生产 RNG。
+  opened.value.run("UPDATE branches SET branch_id = 'main' WHERE branch_id = ?", [created.value.headBranchId]);
+  settings.run("UPDATE campaign_catalog SET head_branch_id = 'main' WHERE campaign_id = ?", [campaignId]);
+  const branchId = asBranchId("main");
   let version = 0;
   let command = 0;
   const operationIds: string[] = [];
@@ -125,7 +132,7 @@ try {
   campaigns.dispose();
   settings.close();
 } finally {
-  rmSync(root, { recursive: true, force: true });
+  try { rmSync(root, { recursive: true, force: true }); } catch { /* Windows 上 Bun SQLite 可能延迟释放文件句柄。 */ }
 }
 
 if (failed) {

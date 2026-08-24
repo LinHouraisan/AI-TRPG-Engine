@@ -42,6 +42,8 @@ function entityIdsFromPayload(payload: EventPayload): string[] {
     case "action_rejected":
     case "sheet_applied":
       return [];
+    case "relationship_established":
+      return [payload.npc];
     case "npc_moved":
       return [payload.npc, payload.to];
     case "node_done":

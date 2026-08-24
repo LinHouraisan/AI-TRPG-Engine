@@ -43,7 +43,7 @@ export function classifyIntent(intent: Intent): TurnClassification {
   if (intent.kind === "talk") {
     return { route: "roleplay_only", syncModels: [], background };
   }
-  if (intent.kind === "unlock") {
+  if (intent.kind === "unlock" || intent.kind === "investigation") {
     return { route: "mechanical_action", syncModels: [], background };
   }
   return { route: "structured_action", syncModels: [], background };

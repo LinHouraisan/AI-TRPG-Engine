@@ -1,4 +1,4 @@
-import type { GameEvent } from "@/engine/types";
+import type { CheckCandidate, GameEvent, Intent } from "@/engine/types";
 import { replay } from "@/engine/runtime";
 import { initialState } from "@/engine/state";
 import {
@@ -42,7 +42,7 @@ export async function loadDesktopBranch(
   const events = ((page.value as { events?: GameEvent[] }).events ?? []);
   const value = page.value as Partial<DesktopBranchHistory>;
   const history = typeof value.recap === "string" && Array.isArray(value.recentTurns)
-    ? { recap: value.recap, recentTurns: value.recentTurns, restoredFrom: value.restoredFrom ?? null }
+    ? { recap: value.recap, recentTurns: value.recentTurns.slice(-3), restoredFrom: value.restoredFrom ?? null }
     : null;
   return {
     campaign,
@@ -104,6 +104,7 @@ export async function submitDesktopTurn(params: {
   expectedStateVersion: number;
   text: string;
   onDraft?: (draft: string) => void;
+  onCandidate?: (check: CheckCandidate, intent: Intent) => void;
 }): Promise<RemoteTurnView | { error: string; errorCode: string }> {
   const commandId = crypto.randomUUID();
   let acc = "";
@@ -116,6 +117,10 @@ export async function submitDesktopTurn(params: {
   });
 
   const stop = params.api.operation.onEvent((event) => {
+    if (event.type === "check.candidate") {
+      if (event.commandId === commandId) params.onCandidate?.(event.check, event.intent);
+      return;
+    }
     if (operationId) {
       if (event.type === "narration.delta" && event.operationId !== operationId) return;
       if (event.type === "narration.completed" && event.operationId !== operationId) return;

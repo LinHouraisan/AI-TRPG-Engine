@@ -1,0 +1,86 @@
+[
+  {
+    "id": "investigation.conductor-leverage",
+    "title": "寻找让列车员开口的破绽",
+    "room": "loc.platform",
+    "visibleWhen": { "all": [{ "npcAt": { "npc": "npc.conductor", "room": "loc.platform" } }, { "not": { "known": "fact.conductor_oath" } }] },
+    "description": "观察列车员的检票动作，寻找能迫使他回答问题的细节。",
+    "phrases": ["查看四周", "观察列车员", "寻找让列车员开口的办法", "检查票夹"],
+    "defaultSkill": "侦查",
+    "alternateSkills": ["心理学"],
+    "difficulty": "regular",
+    "minutes": { "success": 3, "failure": 5 },
+    "outcomes": {
+      "success": [{ "event": { "type": "fact_known", "fact": "fact.conductor_oath" }, "summary": "发现许澄受四十八名乘客誓约约束。", "visibility": "secret", "narration": "你注意到许澄每次核对车票时都会避开第四十八格；指出这个空位后，他终于承认自己受誓约约束。" }],
+      "failure": [{ "event": { "type": "flag_set", "flag": "investigation.conductor-leverage.failed", "value": true }, "summary": "暂时没能找到让许澄开口的破绽。", "narration": "你只看到许澄一遍遍整理票夹；他察觉你的注视，把话题重新推回上车检票。" }]
+    }
+  },
+  {
+    "id": "investigation.archive-correspondent",
+    "title": "核对沈鹭的档案通信",
+    "room": "loc.baggage-car",
+    "visibleWhen": { "not": { "known": "fact.memory_fuel" } },
+    "description": "用熟悉的誊抄格式核对档案箱里被改写的段落。",
+    "phrases": ["核对档案", "检查沈鹭的通信", "辨认誊抄格式"],
+    "defaultSkill": "图书馆使用",
+    "alternateSkills": ["侦查"],
+    "difficulty": "regular",
+    "minutes": { "success": 10, "failure": 15 },
+    "lifeHistoryId": "history.archive-correspondent",
+    "outcomes": {
+      "success": [{ "event": { "type": "fact_known", "fact": "fact.memory_fuel" }, "summary": "从沈鹭的通信中确认列车以遗忘的记忆为燃料。", "visibility": "secret", "narration": "你认出沈鹭惯用的校记符号，顺着被抹去的旁注还原出一句话：列车烧掉的不是煤，而是没人再记得的那部分人生。" }],
+      "failure": [{ "event": { "type": "flag_set", "flag": "investigation.archive-correspondent.failed", "value": true }, "summary": "潮湿档案暂时无法核清。", "narration": "水渍把关键校记洇成一片，你只能确认有人故意改动过沈鹭的原稿。" }]
+    }
+  },
+  {
+    "id": "investigation.old-line-reporter",
+    "title": "追查旧线事故报道",
+    "room": "loc.dining",
+    "visibleWhen": { "not": { "known": "fact.old_line" } },
+    "description": "以旧线事故记者的身份向顾弦追问报道中被删除的线路。",
+    "phrases": ["追问旧线事故", "和顾弦核对报道", "寻找被删除的线路"],
+    "defaultSkill": "话术",
+    "alternateSkills": ["心理学"],
+    "difficulty": "regular",
+    "minutes": { "success": 5, "failure": 8 },
+    "lifeHistoryId": "history.old-line-reporter",
+    "outcomes": {
+      "success": [{ "event": { "type": "fact_known", "fact": "fact.old_line" }, "summary": "顾弦确认列车驶入三十年前封闭的潮汐支线。", "narration": "你复述出当年报道被删掉的日期，顾弦终于摊开剪报背面的线路笔记：这班车正驶向三十年前封闭的潮汐支线。" }],
+      "failure": [{ "event": { "type": "flag_set", "flag": "investigation.old-line-reporter.failed", "value": true }, "summary": "顾弦暂时拒绝补充旧线报道。", "narration": "顾弦把剪报折回口袋，只说你还没有证明自己记得那场事故里被删掉的人。" }]
+    }
+  },
+  {
+    "id": "investigation.station-ledger",
+    "title": "核对雾港站票务账簿",
+    "room": "loc.ticket",
+    "visibleWhen": { "not": { "known": "fact.loop_method" } },
+    "description": "按熟悉的站务编号核对名单与值班钟记录。",
+    "phrases": ["核对账簿", "检查票务编号", "询问罗姨名单空位"],
+    "defaultSkill": "图书馆使用",
+    "alternateSkills": ["侦查"],
+    "difficulty": "regular",
+    "minutes": { "success": 8, "failure": 12 },
+    "lifeHistoryId": "history.station-ledger",
+    "outcomes": {
+      "success": [{ "event": { "type": "fact_known", "fact": "fact.loop_method" }, "summary": "从账簿编号中确认补全名单并敲铃可完成循环。", "visibility": "secret", "narration": "你按旧站务编号补回被刮去的一行，罗姨认出你的笔迹，低声告诉你：名单补全后敲响铜铃，列车才能走完这一圈。" }],
+      "failure": [{ "event": { "type": "flag_set", "flag": "investigation.station-ledger.failed", "value": true }, "summary": "账簿编号暂时没有核对成功。", "narration": "账页的日期彼此矛盾，罗姨收回账簿，叫你先弄清那张不存在的车票去了哪里。" }]
+    }
+  },
+  {
+    "id": "investigation.tide-photographer",
+    "title": "辨认潮汐合影中的缺席者",
+    "room": "loc.carriage",
+    "visibleWhen": { "not": { "known": "fact.child_name" } },
+    "description": "用摄影时记住的构图辨认合影边缘被遗漏的孩子。",
+    "phrases": ["辨认合影里的孩子", "观察女孩", "回忆拍照构图"],
+    "defaultSkill": "侦查",
+    "alternateSkills": ["心理学"],
+    "difficulty": "regular",
+    "minutes": { "success": 4, "failure": 6 },
+    "lifeHistoryId": "history.tide-photographer",
+    "outcomes": {
+      "success": [{ "event": { "type": "fact_known", "fact": "fact.child_name" }, "summary": "从合影构图中认出无名女孩是许遥。", "visibility": "secret", "narration": "你把眼前的座位和当年的取景框重叠起来，终于想起站在画面边缘的孩子叫许遥。女孩听见名字，第一次抬头看你。" }],
+      "failure": [{ "event": { "type": "flag_set", "flag": "investigation.tide-photographer.failed", "value": true }, "summary": "合影中的缺席者仍无法辨认。", "narration": "每当你试图对准那张脸，记忆里的画面就像受潮底片一样褪色；女孩仍安静等着。" }]
+    }
+  }
+]

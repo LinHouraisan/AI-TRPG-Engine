@@ -1,5 +1,6 @@
-import { pack } from "@/engine/pack";
+import { pack, type Pack } from "@/engine/pack";
 import type { GameEvent } from "@/engine/types";
+import type { NarrationReply } from "./contract";
 
 /**
  * 叙述体检。
@@ -9,13 +10,98 @@ import type { GameEvent } from "@/engine/types";
  * 因为骰子早在提交那一刻就定死了。
  */
 export type GuardVerdict = { ok: true } | { ok: false; reason: string };
+export type NarrationQualityMode = "simple" | "investigation" | "dialogue" | "exploration";
 
 const MAX_LENGTH = 900;
+
+export function checkNarrationQuality(
+  reply: NarrationReply,
+  mode: NarrationQualityMode,
+): GuardVerdict {
+  const text = reply.text.trim();
+  if (!text) return { ok: false, reason: "empty_text" };
+  if (text.length > MAX_LENGTH) return { ok: false, reason: "unsafe_length" };
+  if (hasRepeatedPadding(text)) return { ok: false, reason: "repeated_padding" };
+  if (mode === "simple") return { ok: true };
+
+  const feedback = normalizeReflection(reply.feedback);
+  const reaction = normalizeReflection(reply.reaction);
+  if (!feedback) return { ok: false, reason: "missing_feedback" };
+  if (!reaction) return { ok: false, reason: "missing_reaction" };
+  const interactionPoints = reply.interactionPoints
+    .map((point) => point.trim())
+    .filter((point) => normalizeReflection(point));
+  if (interactionPoints.length === 0) {
+    return { ok: false, reason: "missing_interaction_points" };
+  }
+  const cohesive = normalizeReflection(text);
+  if (!cohesive.includes(feedback)) return { ok: false, reason: "feedback_not_reflected" };
+  if (!cohesive.includes(reaction)) return { ok: false, reason: "reaction_not_reflected" };
+  if (hasMenuInteraction(text, interactionPoints)) {
+    return { ok: false, reason: "menu_interaction" };
+  }
+  if (interactionPoints.some((point) => !cohesive.includes(normalizeReflection(point)))) {
+    return { ok: false, reason: "interaction_not_reflected" };
+  }
+  return { ok: true };
+}
+
+function normalizeReflection(text: string): string {
+  return text.replace(/[\s，。！？、；：“”‘’（）《》…—,.!?;:'"()[\]{}-]/gu, "");
+}
+
+function hasMenuInteraction(text: string, interactionPoints: string[]): boolean {
+  const narrativeText = withoutNpcSpeech(text);
+  if (/(?:^|\n)\s*(?:\d+[.、)]|[-*•])\s*|你可以选择|选项[：:]/u.test(narrativeText)) {
+    return true;
+  }
+  return interactionPoints.some((point) => {
+    const narrativePoint = withoutNpcSpeech(point).trim();
+    if (/^(?:\d+[.、)]|[-*•]|你可以|请选择|选项[：:]?|继续(?:追问|询问|调查|查看|尝试)|(?:追问|询问|调查|查看|尝试|选择|决定))/u.test(narrativePoint)) {
+      return true;
+    }
+    if (/接下来(?!的)|下一步|然后\s*请|请你|你可以|你能|不妨|(?:^|[，,；;。！？\n])\s*请/u.test(narrativePoint)) {
+      return true;
+    }
+    return /[，,；;]\s*(?:请|你可以|你能|不妨)?\s*(?:先|再|继续)?\s*(?:调查|查看|询问|追问|选择|前往|行动)[^。！？\n]{0,16}[。！？]?\s*$/u.test(narrativePoint);
+  });
+}
+
+function withoutNpcSpeech(text: string): string {
+  return text
+    .replace(/“[^”]*”/gu, "")
+    .replace(/‘[^’]*’/gu, "")
+    .replace(/"[^"]*"/gu, "")
+    .replace(/'[^']*'/gu, "")
+    .replace(/(?:低声说|低声道|喊道|回答|提醒|说|问)[：，,][^。！？\n]*/gu, "");
+}
+
+function hasRepeatedPadding(text: string): boolean {
+  const normalized = normalizeReflection(text);
+  if (normalized.length < 40) return false;
+
+  const width = 4;
+  const total = normalized.length - width + 1;
+  const counts = new Map<string, number>();
+  let mostFrequent = 0;
+  for (let index = 0; index < total; index += 1) {
+    const gram = normalized.slice(index, index + width);
+    const count = (counts.get(gram) ?? 0) + 1;
+    counts.set(gram, count);
+    mostFrequent = Math.max(mostFrequent, count);
+  }
+  return (
+    (mostFrequent >= 4 && mostFrequent / total >= 0.08) ||
+    counts.size / total < 0.55
+  );
+}
 
 export function checkNarration(params: {
   text: string;
   allowedNames: string[];
   events: GameEvent[];
+  scenarioPack?: Pack;
+  allowedFactIds?: string[];
 }): GuardVerdict {
   const text = params.text.trim();
 
@@ -24,15 +110,28 @@ export function checkNarration(params: {
 
   // 资料包里存在、但这一刻玩家感知不到的专有名词，一个都不许出现。
   const allowed = new Set(params.allowedNames);
+  const scenarioPack = params.scenarioPack ?? pack;
   const known = [
-    ...pack.rooms.map((r) => r.title),
-    ...pack.items.map((i) => i.title),
-    ...pack.npcs.map((n) => n.title),
+    ...scenarioPack.rooms.map((r) => r.title),
+    ...scenarioPack.items.map((i) => i.title),
+    ...scenarioPack.npcs.map((n) => n.title),
   ];
   for (const name of known) {
     if (allowed.has(name)) continue;
     if (text.includes(name)) {
       return { ok: false, reason: `叙述提到了这一刻不该出现的「${name}」` };
+    }
+  }
+
+  if (params.allowedFactIds) {
+    const allowedFacts = new Set(params.allowedFactIds);
+    const npcFacts = new Set(scenarioPack.npcs.flatMap((npc) => npc.knownFacts));
+    for (const fact of scenarioPack.facts) {
+      if (allowedFacts.has(fact.id)) continue;
+      if (fact.visibility !== "secret" && !npcFacts.has(fact.id)) continue;
+      if (factPhrases(fact, scenarioPack).some((phrase) => text.includes(phrase))) {
+        return { ok: false, reason: "叙述声称了上下文未授权的事实" };
+      }
     }
   }
 
@@ -69,6 +168,18 @@ export function checkNarration(params: {
   if (claim) return { ok: false, reason: claim };
 
   return { ok: true };
+}
+
+function factPhrases(fact: Pack["facts"][number], scenarioPack: Pack): string[] {
+  let withoutEntity = fact.title;
+  for (const entity of [...scenarioPack.npcs, ...scenarioPack.rooms, ...scenarioPack.items]) {
+    withoutEntity = withoutEntity.replaceAll(entity.title, "");
+  }
+  const stripped = withoutEntity.trim();
+  const phrases = stripped.length >= 4 && stripped !== fact.title
+    ? [fact.title, stripped, ...fact.guardPhrases]
+    : [fact.title, ...fact.guardPhrases];
+  return [...new Set(phrases)];
 }
 
 /**

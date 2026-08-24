@@ -21,6 +21,11 @@ export type SheetApplyInput = {
   sanMax: number;
   skills: Record<string, number>;
   cardHash: string;
+  characteristics?: Record<"STR" | "CON" | "SIZ" | "DEX" | "APP" | "INT" | "POW" | "EDU", number>;
+  baseSkills?: Record<string, number>;
+  occupationPoints?: Record<string, number>;
+  interestPoints?: Record<string, number>;
+  lifeHistoryId?: string;
 };
 
 export function sheetInputFromDraft(draft: CardImportDraft): SheetApplyInput {

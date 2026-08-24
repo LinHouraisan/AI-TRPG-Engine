@@ -5,5 +5,54 @@
   "kind": "one-shot",
   "rules": "percentile",
   "opening": "海雾漫过钟楼时，雾港站只剩最后一班列车。档案员沈鹭失踪前寄来的车票躺在你掌心，背面只有一句话：不要让他们忘记我。",
-  "investigator": { "id": "pc.linwan", "name": "林晚", "occupation": "记者", "hp": 11, "san": 65, "sanMax": 99, "startAt": "loc.concourse", "skills": { "侦查": 65, "聆听": 55, "图书馆使用": 60, "话术": 55, "心理学": 50, "开锁": 40 } }
+  "investigator": { "id": "pc.linwan", "name": "林晚", "occupation": "记者", "hp": 11, "san": 65, "sanMax": 99, "startAt": "loc.concourse", "skills": { "侦查": 65, "聆听": 55, "图书馆使用": 60, "话术": 55, "心理学": 50, "开锁": 40 } },
+  "creation": {
+    "occupation": "记者",
+    "characteristics": { "STR": 50, "CON": 50, "SIZ": 60, "DEX": 60, "APP": 50, "INT": 70, "POW": 65, "EDU": 70 },
+    "baseSkills": { "侦查": 25, "聆听": 20, "图书馆使用": 20, "话术": 5, "心理学": 10, "开锁": 1 },
+    "occupationSkills": ["侦查", "聆听", "图书馆使用", "话术", "心理学"],
+    "maxSkill": 90,
+    "hp": 11,
+    "san": 65,
+    "sanMax": 99,
+    "contentVersion": "0.1.0",
+    "lifeHistories": [
+      {
+        "id": "history.archive-correspondent",
+        "title": "档案通信员",
+        "background": "你曾替沈鹭誊抄潮汐支线的旧档案，最后一封信由你亲手寄出。",
+        "roleplayPrompt": "面对被抹去的记录时，坚持先核对原件。",
+        "initialGrant": { "kind": "fact", "id": "fact.ticket_48" },
+        "relationship": { "npcId": "npc.shen", "text": "沈鹭信任你会把她的名字写进档案。" },
+        "investigationId": "investigation.archive-correspondent"
+      },
+      {
+        "id": "history.old-line-reporter",
+        "title": "旧线事故记者",
+        "background": "你曾报道潮汐支线事故，也认识不肯放下姐姐的顾弦。",
+        "roleplayPrompt": "先问当事人愿意说什么，再追问被省略的名字。",
+        "initialGrant": { "kind": "fact", "id": "fact.reporter_note" },
+        "relationship": { "npcId": "npc.reporter", "text": "顾弦愿意先听你复述旧线事故的报道。" },
+        "investigationId": "investigation.old-line-reporter"
+      },
+      {
+        "id": "history.station-ledger",
+        "title": "站务账簿抄写员",
+        "background": "你曾替雾港站整理账簿，知道罗姨最在意每一张票的去处。",
+        "roleplayPrompt": "用准确的日期和编号赢得对方信任。",
+        "initialGrant": { "kind": "fact", "id": "fact.roster_gap" },
+        "relationship": { "npcId": "npc.clerk", "text": "罗姨认得你的笔迹，愿意让你核对名单。" },
+        "investigationId": "investigation.station-ledger"
+      },
+      {
+        "id": "history.tide-photographer",
+        "title": "潮汐合影摄影师",
+        "background": "你拍过那张站员合影，始终记得镜头边缘少算进去的一个孩子。",
+        "roleplayPrompt": "留意画面边缘和别人避而不谈的人。",
+        "initialGrant": { "kind": "fact", "id": "fact.photo_six" },
+        "relationship": { "npcId": "npc.girl", "text": "女孩觉得你或许真的记得她曾经站在那里。" },
+        "investigationId": "investigation.tide-photographer"
+      }
+    ]
+  }
 }

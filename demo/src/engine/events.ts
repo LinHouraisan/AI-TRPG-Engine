@@ -35,6 +35,11 @@ export function applyEvent(state: GameState, payload: EventPayload): GameState {
       return { ...state, flags: { ...state.flags, [payload.flag]: payload.value } };
     case "npc_moved":
       return { ...state, npcAt: { ...state.npcAt, [payload.npc]: payload.to } };
+    case "relationship_established":
+      return {
+        ...state,
+        relationships: { ...state.relationships, [payload.npc]: payload.text },
+      };
     case "node_done":
       // 节点编号本身就带 node. 前缀，这里只补一个 .done。
       return {
@@ -55,6 +60,17 @@ export function applyEvent(state: GameState, payload: EventPayload): GameState {
         pcName: payload.name,
         pcOccupation: payload.occupation,
         pcCardHash: payload.cardHash,
+        ...(payload.characteristics
+          ? { characteristics: { ...payload.characteristics } }
+          : {}),
+        ...(payload.baseSkills ? { baseSkills: { ...payload.baseSkills } } : {}),
+        ...(payload.occupationPoints
+          ? { occupationPoints: { ...payload.occupationPoints } }
+          : {}),
+        ...(payload.interestPoints
+          ? { interestPoints: { ...payload.interestPoints } }
+          : {}),
+        ...(payload.lifeHistoryId ? { lifeHistoryId: payload.lifeHistoryId } : {}),
       };
   }
 }

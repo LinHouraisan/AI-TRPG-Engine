@@ -1,5 +1,8 @@
 import type { GameEvent, GameState, Intent } from "@/engine/types";
+import type { InvestigationProfile } from "@/engine/investigation";
+import type { Pack } from "@/engine/pack";
 import type { KeeperConfig } from "./config";
+import type { DialogueTurn } from "./dialogue-context";
 import { narrationReplySchema, routeReplySchema } from "./contract";
 import {
   keeperNarrate,
@@ -42,14 +45,22 @@ export function newFreeTurnTaskId(): string {
 export async function handleFreeTurn(params: {
   config: KeeperConfig;
   state: GameState;
+  profile?: InvestigationProfile | null;
+  scenarioPack?: Pack;
+  currentStateVersion?: () => number;
   spoken: string;
+  recentTurns?: DialogueTurn[];
   modelTaskId: string;
   signal?: AbortSignal;
 }): Promise<FreeTurnIntentResult> {
   const routed = await keeperRoute({
     config: params.config,
     state: params.state,
+    profile: params.profile,
+    scenarioPack: params.scenarioPack,
+    currentStateVersion: params.currentStateVersion,
     spoken: params.spoken,
+    recentTurns: params.recentTurns,
     signal: params.signal,
   });
   return { modelTaskId: params.modelTaskId, ...routed };
@@ -66,6 +77,9 @@ export async function narrateFreeTurn(params: {
   events: GameEvent[];
   intent: Intent;
   spoken: string;
+  recentTurns?: DialogueTurn[];
+  profile?: InvestigationProfile | null;
+  scenarioPack?: Pack;
   fallback: string;
   signal?: AbortSignal;
   onStream?: (event: NarrationStreamEvent) => void;
@@ -76,6 +90,9 @@ export async function narrateFreeTurn(params: {
     events: params.events,
     intent: params.intent,
     spoken: params.spoken,
+    recentTurns: params.recentTurns,
+    profile: params.profile,
+    scenarioPack: params.scenarioPack,
     fallback: params.fallback,
     signal: params.signal,
     onStream: params.onStream,

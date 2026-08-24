@@ -22,6 +22,12 @@ export type GameState = {
   pcName?: string;
   pcOccupation?: string;
   pcCardHash?: string;
+  characteristics?: Record<"STR" | "CON" | "SIZ" | "DEX" | "APP" | "INT" | "POW" | "EDU", number>;
+  baseSkills?: Record<string, number>;
+  occupationPoints?: Record<string, number>;
+  interestPoints?: Record<string, number>;
+  lifeHistoryId?: string;
+  relationships?: Record<string, string>;
 };
 
 export type CheckResult = {
@@ -32,6 +38,14 @@ export type CheckResult = {
   roll: number;
   level: "大成功" | "极难成功" | "困难成功" | "成功" | "失败" | "大失败";
   ok: boolean;
+};
+
+export type CheckCandidate = {
+  title: string;
+  skill: string;
+  skillValue: number;
+  difficulty: CheckResult["difficulty"];
+  threshold: number;
 };
 
 /**
@@ -48,6 +62,7 @@ export type EventPayload =
   | { type: "resource_changed"; resource: "hp" | "san"; delta: number }
   | { type: "flag_set"; flag: string; value: boolean }
   | { type: "npc_moved"; npc: string; to: string }
+  | { type: "relationship_established"; npc: string; text: string }
   | { type: "node_done"; node: string }
   | { type: "action_rejected"; reason: string }
   | {
@@ -60,6 +75,11 @@ export type EventPayload =
       sanMax: number;
       skills: Record<string, number>;
       cardHash: string;
+      characteristics?: Record<"STR" | "CON" | "SIZ" | "DEX" | "APP" | "INT" | "POW" | "EDU", number>;
+      baseSkills?: Record<string, number>;
+      occupationPoints?: Record<string, number>;
+      interestPoints?: Record<string, number>;
+      lifeHistoryId?: string;
     };
 
 export type EventType = EventPayload["type"];
@@ -96,6 +116,7 @@ export type Intent =
   | { kind: "take"; item: string }
   | { kind: "read"; item: string }
   | { kind: "talk"; text: string }
+  | { kind: "investigation"; investigationId: string; skill: string; approach: string; stateVersion: number }
   | { kind: "free_action"; text: string }
   | { kind: "query"; topic: QueryTopic }
   | { kind: "unclear"; text: string };

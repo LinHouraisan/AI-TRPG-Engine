@@ -66,6 +66,7 @@ export function narrate(params: {
       case "resource_changed":
       case "flag_set":
       case "node_done":
+      case "relationship_established":
         break;
       case "sheet_applied":
         lines.push(`你现在用的是「${payload.name}」这张人设卡。`);

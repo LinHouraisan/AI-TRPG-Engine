@@ -40,6 +40,10 @@ export function createComposition(input: {
   const campaignSql = readFileSync(join(input.sqlDir, "campaign.sql"), "utf8");
   const memorySql = readFileSync(join(input.sqlDir, "campaign-0002-memory.sql"), "utf8");
   const checkpointSql = readFileSync(join(input.sqlDir, "campaign-0003-checkpoint-tests.sql"), "utf8");
+  const investigatorSql = readFileSync(join(input.sqlDir, "campaign-0004-investigator.sql"), "utf8");
+  const checkpointRecapSql = readFileSync(join(input.sqlDir, "campaign-0005-checkpoint-recaps.sql"), "utf8");
+  const checkpointDialogueSql = readFileSync(join(input.sqlDir, "campaign-0006-checkpoint-dialogue-members.sql"), "utf8");
+  const investigatorRecreationSql = readFileSync(join(input.sqlDir, "campaign-0007-investigator-recreation.sql"), "utf8");
   const settings = input.openDriver(input.paths.settingsDb);
   applyInit(settings, input.clock, settingsSql, "0001_init");
   ensureDefaultProvider(
@@ -54,7 +58,14 @@ export function createComposition(input: {
     input.clock,
     input.openDriver,
     campaignSql,
-    [{ id: "0002_memory", sql: memorySql }, { id: "0003_checkpoint_tests", sql: checkpointSql }],
+    [
+      { id: "0002_memory", sql: memorySql },
+      { id: "0003_checkpoint_tests", sql: checkpointSql },
+      { id: "0004_investigator", sql: investigatorSql },
+      { id: "0005_checkpoint_recaps", sql: checkpointRecapSql },
+      { id: "0006_checkpoint_dialogue_members", sql: checkpointDialogueSql },
+      { id: "0007_investigator_recreation", sql: investigatorRecreationSql },
+    ],
   );
   const credentials = new CredentialStore(
     join(input.paths.root, "credentials.json"),

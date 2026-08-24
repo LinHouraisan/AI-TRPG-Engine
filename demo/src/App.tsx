@@ -1,12 +1,14 @@
 import { useRef, useState } from "react";
 import type { GameEvent, GameState, Suggestion } from "@/engine/types";
+import { pack } from "@/engine/pack";
 import { useSession } from "@/session";
 import { CampaignDock } from "@/ui/CampaignDock";
-import { CardImport } from "@/ui/CardImport";
 import { Composer } from "@/ui/Composer";
 import { ContextUsagePanel } from "@/ui/ContextUsage";
 import { JobTracePanel } from "@/ui/JobTrace";
 import { InvestigatorSheet } from "@/ui/InvestigatorSheet";
+import { InvestigatorCreation } from "@/ui/InvestigatorCreation";
+import { openingGate } from "@/ui/investigator-creation-state";
 import { KeeperSettings } from "@/ui/KeeperSettings";
 import { ModelSettings } from "@/ui/ModelSettings";
 import { FirstRunFlow } from "@/ui/FirstRunFlow";
@@ -34,6 +36,7 @@ export default function App() {
   const desktop = Boolean(desktopApi());
   const filePicker = useRef<HTMLInputElement>(null);
   const [mobilePane, setMobilePane] = useState<MobilePane>("narration");
+  const gate = openingGate(session.investigatorProfile != null, pack.manifest.creation != null);
 
   const wait = composeWait({
     busy: session.busy,
@@ -83,7 +86,6 @@ export default function App() {
         />
 
         <div className="flex shrink-0 items-center gap-1.5 text-[13px] md:gap-2">
-          <CardImport onConfirm={(draft) => void session.confirmCard(draft)} />
           <ModelSettings />
           <CheckpointTests
             key={session.campaignId ?? "no-campaign"}
@@ -92,19 +94,22 @@ export default function App() {
             currentVersion={session.state.version}
             busy={session.busy}
             onRestore={(checkpointId) => session.restoreDesktopCheckpoint(checkpointId)}
+            onRecreate={(checkpointId) => session.recreateDesktopInvestigator(checkpointId)}
           />
           {!desktop ? <KeeperSettings config={session.config} onChange={session.setConfig} /> : null}
           <button
             type="button"
+            disabled={session.busy}
             onClick={() => void session.exportCampaign()}
-            className="min-h-11 shrink-0 rounded border border-line/70 px-2.5 transition hover:border-brass/60 hover:text-brass md:min-h-0 md:px-2.5 md:py-1"
+            className="min-h-11 shrink-0 rounded border border-line/70 px-2.5 transition hover:border-brass/60 hover:text-brass disabled:opacity-40 md:min-h-0 md:px-2.5 md:py-1"
           >
             导出
           </button>
           <button
             type="button"
+            disabled={session.busy}
             onClick={() => filePicker.current?.click()}
-            className="min-h-11 shrink-0 rounded border border-line/70 px-2.5 transition hover:border-brass/60 hover:text-brass md:min-h-0 md:px-2.5 md:py-1"
+            className="min-h-11 shrink-0 rounded border border-line/70 px-2.5 transition hover:border-brass/60 hover:text-brass disabled:opacity-40 md:min-h-0 md:px-2.5 md:py-1"
           >
             导入
           </button>
@@ -131,13 +136,36 @@ export default function App() {
       </header>
 
       <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-3 overflow-x-hidden p-3 md:grid-cols-[minmax(0,260px)_minmax(0,1fr)_minmax(0,300px)]">
+        {gate === "creation" && pack.manifest.creation ? (
+          <main className="flex min-h-0 min-w-0 flex-col rounded-lg border border-line/60 bg-ink-2/40 md:col-span-3">
+            <InvestigatorCreation
+              rules={pack.manifest.creation}
+              busy={session.busy}
+              ready={session.ready}
+              error={session.confirmationError}
+              onConfirm={session.confirmInvestigator}
+            />
+          </main>
+        ) : gate === "unsupported" ? (
+          <main className="flex min-h-0 min-w-0 flex-col items-center justify-center rounded-lg border border-line/60 bg-ink-2/40 p-6 text-center md:col-span-3">
+            <h1 className="font-serif text-xl text-brass">此资料包尚未提供调查员创建规则</h1>
+            <p className="mt-2 max-w-lg text-sm leading-6 text-muted">
+              正式游戏保持锁定。请选择支持开局创建的资料包后再开始。
+            </p>
+          </main>
+        ) : (
+          <>
         <aside className="hidden min-h-0 min-w-0 flex-col gap-3 overflow-y-auto md:flex">
-          <InvestigatorSheet state={session.state} />
+          <InvestigatorSheet
+            state={session.state}
+            profile={session.investigatorProfile}
+            activeCheckPreview={session.activeCheckPreview}
+          />
           <RoomMap state={session.state} />
         </aside>
 
         <main className="flex min-h-0 min-w-0 flex-col rounded-lg border border-line/60 bg-ink-2/40">
-          <FirstRunFlow version={session.state.version} />
+          <FirstRunFlow version={session.state.version} confirmed={session.investigatorProfile != null} />
           <EndingSummary state={session.state} />
           <div
             className={`min-h-0 flex-1 flex-col overflow-hidden ${
@@ -155,7 +183,11 @@ export default function App() {
               mobilePane === "sheet" ? "block" : "hidden"
             }`}
           >
-            <InvestigatorSheet state={session.state} />
+            <InvestigatorSheet
+              state={session.state}
+              profile={session.investigatorProfile}
+              activeCheckPreview={session.activeCheckPreview}
+            />
           </div>
           <div
             className={`min-h-0 flex-1 overflow-y-auto p-3 md:hidden ${
@@ -208,9 +240,11 @@ export default function App() {
             onSwitch={switchTo}
           />
         </aside>
+          </>
+        )}
       </div>
 
-      <nav aria-label="桌面栏目" className="flex shrink-0 border-t border-line/60 md:hidden">
+      {gate === "play" ? <nav aria-label="桌面栏目" className="flex shrink-0 border-t border-line/60 md:hidden">
         {PANES.map((pane) => (
           <button
             key={pane.id}
@@ -224,7 +258,7 @@ export default function App() {
             {pane.label}
           </button>
         ))}
-      </nav>
+      </nav> : null}
     </div>
   );
 }

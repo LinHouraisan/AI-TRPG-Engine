@@ -13,7 +13,6 @@ import { resolveIntent } from "@/engine/resolve";
 import { commit, stateHash } from "@/engine/runtime";
 import { initialState, isHidden } from "@/engine/state";
 import type { EventPayload, GameEvent, GameState } from "@/engine/types";
-import { extractNarrationDraft } from "@/keeper/client";
 import {
   DEFAULT_CONTEXT_BUDGET_CHARS,
   defaultConfig,
@@ -55,6 +54,15 @@ function fakeModel(content: string | null) {
       headers: { "content-type": "application/json" },
     });
   }) as unknown as typeof fetch;
+}
+
+function structuredNarration(text: string): string {
+  return JSON.stringify({
+    text,
+    feedback: text,
+    reaction: text,
+    interactionPoints: [text],
+  });
 }
 
 /**
@@ -267,7 +275,7 @@ assert(out.source === "模板", "回复不是 JSON 时退回模板");
 
 console.log("\n— 假模型：编造这一刻不存在的人 —");
 // 这一回合只是走进书房，女房东还在楼梯平台，事实里没有她，叙述里也就不许有她。
-fakeModel(JSON.stringify({ text: "女房东就站在你身后，看着你推开书房的门。" }));
+fakeModel(structuredNarration("女房东就站在你身后，看着你推开书房的门。"));
 out = await keeperNarrate({
   config,
   state,
@@ -280,7 +288,7 @@ assert(out.source === "模板", "编造不在场的人时被体检拦下");
 assert(Boolean(out.note?.includes("女房东")), `拦下的理由说得出是谁：${out.note}`);
 
 console.log("\n— 假模型：报出没掷过的点数 —");
-fakeModel(JSON.stringify({ text: "你掷出了 97，锁纹丝不动。" }));
+fakeModel(structuredNarration("你掷出了 97，锁纹丝不动。"));
 out = await keeperNarrate({
   config,
   state,
@@ -298,7 +306,7 @@ assert(routed.intent.kind === "unclear", "不在场的编号一律作废，转�
 
 console.log("\n— 假模型：替玩家把动作做完 —");
 // 这一回合只是撬了一下锁，没有任何东西进背包，「拿起」就不能出口。
-fakeModel(JSON.stringify({ text: "你拿起那本硬壳账本，随手翻开。" }));
+fakeModel(structuredNarration("你拿起那本硬壳账本，随手翻开。"));
 out = await keeperNarrate({
   config,
   state,
@@ -310,7 +318,7 @@ out = await keeperNarrate({
 assert(out.source === "模板", "叙述替玩家做了没发生过的动作，被体检拦下");
 
 console.log("\n— 假模型：一次合格的叙述 —");
-fakeModel(JSON.stringify({ text: "你贴着锁孔听了一会儿，屋子里静得能听见自己的呼吸。" }));
+fakeModel(structuredNarration("你贴着锁孔听了一会儿，屋子里静得能听见自己的呼吸。"));
 out = await keeperNarrate({
   config,
   state,
@@ -331,20 +339,7 @@ const moveFallback = narrate({
   intent: { kind: "move", to: "loc.study" },
 });
 const acceptedText = "你贴着锁孔听了一会儿，屋子里静得能听见自己的呼吸。";
-const acceptedJson = JSON.stringify({ text: acceptedText });
-
-console.log("\n— 流式：结构化输出的碎片只抽出叙述，不把 JSON 甩出去 —");
-assert(extractNarrationDraft('{"tex') === undefined, "还没读到 text 键时不给草稿");
-assert(extractNarrationDraft('{"text": ') === undefined, "还没读到字符串时不给草稿");
-assert(extractNarrationDraft('{"text": "女') === "女", "读到字符串内容才开始给草稿");
-assert(
-  extractNarrationDraft('{"text": "女房东就站在你身后"}') === "女房东就站在你身后",
-  "收全之后草稿就是 text 字段",
-);
-assert(
-  extractNarrationDraft('{"text": "他说\\"你好') === '他说"你好',
-  "转义写到一半时，不完整的反斜杠不进草稿",
-);
+const acceptedJson = structuredNarration(acceptedText);
 
 console.log("\n— 流式：中途断线 —");
 {
@@ -366,10 +361,7 @@ console.log("\n— 流式：中途断线 —");
   assert(out.source === "模板" && out.text === fallback, "流式说到一半断开时退回模板");
   assert(out.text !== "你贴着锁孔听了", "定稿里没有半截叙述");
   assert(Boolean(out.note), `断线的理由写在 note 里：${out.note}`);
-  assert(
-    hung.drafts().some((draft) => draft.includes("你贴着锁孔")),
-    "断线前吐出的字只出现在草稿里",
-  );
+  assert(hung.drafts().length === 0, "断线前的未验证文字从未交给界面");
   assert(last?.kind === "final", "断线之后仍会给出一条定稿事件");
   assert(last?.kind === "final" && last.text === fallback, "定稿事件的 text 是模板，不是草稿");
   assert(
@@ -382,7 +374,7 @@ console.log("\n— 流式：中途断线 —");
 
 console.log("\n— 流式：体检不过 —");
 {
-  const invented = JSON.stringify({ text: "女房东就站在你身后，看着你推开书房的门。" });
+  const invented = structuredNarration("女房东就站在你身后，看着你推开书房的门。");
   const blocked = collectStream();
   fakeModelStream({ pieces: chunkString(invented, 4) });
   out = await keeperNarrate({
@@ -396,10 +388,7 @@ console.log("\n— 流式：体检不过 —");
   });
   assert(out.source === "模板" && out.text === moveFallback, "流式编造不在场的人时整段作废");
   assert(Boolean(out.note?.includes("女房东")), `拦下的理由说得出是谁：${out.note}`);
-  assert(
-    blocked.drafts().some((draft) => draft.includes("女房东")),
-    "作废前的字只作为草稿出现过",
-  );
+  assert(blocked.drafts().length === 0, "作废的编造文字从未交给界面");
   const finals = blocked.events.filter((event) => event.kind === "final");
   assert(finals.length === 1, "体检失败只留下一条定稿");
   assert(
@@ -436,11 +425,7 @@ console.log("\n— 流式：终稿与非流式一致 —");
   );
   assert(nonStream.text === acceptedText, "非流式终稿就是模型给的句子");
   assert(streamedOut.text === nonStream.text, "同样输入下，流式终稿与非流式一致");
-  assert(streamed.drafts().length > 0, "流式路径确实边写边给出过草稿");
-  assert(
-    streamed.drafts()[streamed.drafts().length - 1] === acceptedText,
-    "最后一条草稿在收全之后与定稿相同",
-  );
+  assert(streamed.drafts().length === 0, "合格内容也只在全部体检通过后作为定稿交给界面");
   const streamedFinal = streamed.events.filter((event) => event.kind === "final");
   assert(
     streamedFinal.length === 1 &&

@@ -1,23 +1,29 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createFreshDesktopCampaign, ensureDesktopCampaign, loadDesktopBranch, loadDesktopCampaign, loadDesktopEvents, submitDesktopTurn, tryDesktopApi } from "@/desktop-play";
 import { emptyMemory, runAfterCommit, runAfterCommitLive, traceFromJobs, type JobTrace, type MemoryState } from "@/ai";
+import { validateAllocation } from "@/character/creation";
+import type {
+  InvestigatorAllocation,
+  InvestigatorCreationRules,
+  InvestigatorProfile,
+} from "@/character/types";
 import { recentFromTurn } from "@/engine/recent";
 import { storyMonitor } from "@/engine/story-monitor";
-import { applyCharacterCard, sheetInputFromDraft } from "@/cards/apply";
-import type { CardImportDraft } from "@/cards/types";
 import { emptyContextStore, type ContextStore } from "@/engine/context-store";
 import { narrate, openingLine, suggest } from "@/engine/narrate";
-import { pack, packIndex } from "@/engine/pack";
+import { pack } from "@/engine/pack";
+import { checkCandidateForIntent, publishCheckCandidate } from "@/engine/check-preview";
 import { playTurn } from "@/engine/play-turn";
 import { route } from "@/engine/router";
-import { thresholdFor } from "@/engine/rules";
 import { replay, stateHash } from "@/engine/runtime";
 import { initialState } from "@/engine/state";
-import type { CheckResult, GameEvent, GameState, Intent } from "@/engine/types";
+import type { CheckCandidate, CheckResult, EventDraft, GameEvent, GameState, Intent } from "@/engine/types";
 import { loadConfig, saveConfig, type KeeperConfig } from "@/keeper/config";
 import type { ContextUsage } from "@/keeper/context";
+import type { DialogueTurn } from "@/keeper/dialogue-context";
 import { handleFreeTurn, narrateFreeTurn, newFreeTurnTaskId } from "@/keeper/free-turn";
 import { keeperNarrate, type NarrationStreamEvent } from "@/keeper/keeper";
+import { PersistedDialogueSource } from "@/keeper/persisted-dialogue";
 import {
   openStore,
   type BranchInfo,
@@ -25,6 +31,8 @@ import {
   type Store,
   type StoredMessage,
 } from "@/store";
+import { confirmationReducer, initialConfirmationState } from "@/ui/investigator-creation-state";
+import type { DesktopCampaignBackup } from "@/desktop";
 
 export type MessageKind = "play" | "notice";
 
@@ -83,13 +91,7 @@ function fromStored(message: StoredMessage, index: number): Message | null {
 }
 
 /** 门槛可以公开；点数和成败在掷出之前绝不能出现。 */
-export type PendingCheck = {
-  title: string;
-  skill: string;
-  skillValue: number;
-  difficulty: "regular" | "hard" | "extreme";
-  threshold: number;
-};
+export type PendingCheck = CheckCandidate;
 
 export type PendingAction = {
   label: string;
@@ -97,6 +99,27 @@ export type PendingAction = {
   intent: Intent | null;
   check: PendingCheck | null;
 };
+
+export type ActiveCheckPreview =
+  | { kind: "candidate"; check: PendingCheck }
+  | { kind: "resolved"; check: CheckResult }
+  | null;
+
+export type ActiveCheckPreviewAction =
+  | { type: "began"; check: PendingCheck | null }
+  | { type: "resolved"; check: CheckResult }
+  | { type: "cleared" };
+
+export function activeCheckPreviewReducer(
+  _state: ActiveCheckPreview,
+  action: ActiveCheckPreviewAction,
+): ActiveCheckPreview {
+  if (action.type === "began") {
+    return action.check ? { kind: "candidate", check: action.check } : null;
+  }
+  if (action.type === "resolved") return { kind: "resolved", check: action.check };
+  return null;
+}
 
 export type TurnMark = {
   turnId: string;
@@ -109,7 +132,8 @@ export type TurnMark = {
   forked: boolean;
 };
 
-export function createOpening(state: GameState): Message[] {
+export function createOpening(state: GameState, profile: InvestigatorProfile | null): Message[] {
+  if (!profile) return [];
   return [
     { id: "m0", role: "kp", text: openingLine(), stateVersion: state.version, source: "模板" },
     {
@@ -152,23 +176,138 @@ type Desk = {
   log: GameEvent[];
 };
 
-/**
- * 门槛只问 rules，不走裁定。裁定会立刻带出点数；
- * 界面如果等它，等待条就会变成剧透。
- */
-function pendingCheckFor(intent: Intent, state: GameState): PendingCheck | null {
-  if (intent.kind !== "unlock") return null;
-  const lock = packIndex.lock(intent.lock);
-  if (!lock || lock.at !== state.pcAt || state.unlocked[lock.id]) return null;
-  const skillValue = state.skills[lock.skill];
-  if (skillValue == null) return null;
+function investigatorFromState(state: GameState): InvestigatorProfile | null {
+  const creation = pack.manifest.creation;
+  if (
+    !creation ||
+    !state.pcCardHash ||
+    !state.pcName ||
+    !state.pcOccupation ||
+    !state.characteristics ||
+    !state.baseSkills ||
+    !state.occupationPoints ||
+    !state.interestPoints ||
+    !state.lifeHistoryId
+  ) {
+    return null;
+  }
   return {
-    title: lock.title,
-    skill: lock.skill,
-    skillValue,
-    difficulty: lock.difficulty,
-    threshold: thresholdFor(skillValue, lock.difficulty),
+    name: state.pcName,
+    occupation: state.pcOccupation,
+    characteristics: { ...state.characteristics },
+    baseSkills: { ...state.baseSkills },
+    occupationPoints: { ...state.occupationPoints },
+    interestPoints: { ...state.interestPoints },
+    skills: { ...state.skills },
+    hp: state.hpMax,
+    san: state.san,
+    sanMax: state.sanMax,
+    lifeHistoryId: state.lifeHistoryId,
+    contentVersion: creation.contentVersion,
   };
+}
+
+export function recentDialogueTurns(messages: Message[]): DialogueTurn[] {
+  const turns: DialogueTurn[] = [];
+  let player: string | undefined;
+  for (const message of messages) {
+    if (isTransient(message) || message.role === "system") continue;
+    if (message.role === "pl") {
+      player = message.text;
+      continue;
+    }
+    if (message.role === "kp" && player !== undefined) {
+      turns.push({ player, gm: message.text });
+      player = undefined;
+    }
+  }
+  return turns.slice(-3);
+}
+
+export function projectInvestigatorConfirmation(params: {
+  state: GameState;
+  log: GameEvent[];
+  allocation: InvestigatorAllocation;
+  rules: InvestigatorCreationRules;
+  itemLocations: Record<string, string>;
+}): { profile: InvestigatorProfile; state: GameState; log: GameEvent[]; committed: GameEvent[] } | null {
+  if (params.state.version !== 0 || params.log.length !== 0) return null;
+  const validated = validateAllocation(params.rules, params.allocation);
+  if (!validated.ok) return null;
+  const history = params.rules.lifeHistories.find((candidate) => candidate.id === validated.profile.lifeHistoryId);
+  if (!history) return null;
+  const profile = validated.profile;
+  const drafts: EventDraft[] = [
+    {
+      payload: {
+        type: "sheet_applied",
+        name: profile.name,
+        occupation: profile.occupation,
+        hp: profile.hp,
+        hpMax: profile.hp,
+        san: profile.san,
+        sanMax: profile.sanMax,
+        skills: profile.skills,
+        cardHash: `browser:${profile.contentVersion}:${profile.name}`,
+        characteristics: profile.characteristics,
+        baseSkills: profile.baseSkills,
+        occupationPoints: profile.occupationPoints,
+        interestPoints: profile.interestPoints,
+        lifeHistoryId: profile.lifeHistoryId,
+      },
+      summary: `确认调查员「${profile.name}」。`,
+      cause: `history:${history.id}`,
+    },
+    history.initialGrant.kind === "fact"
+      ? {
+          payload: { type: "fact_known", fact: history.initialGrant.id },
+          summary: `人生经历带来已知线索「${history.initialGrant.id}」。`,
+          cause: `history:${history.id}`,
+        }
+      : {
+          payload: {
+            type: "item_moved",
+            item: history.initialGrant.id,
+            from: params.itemLocations[history.initialGrant.id] ?? "unknown",
+            to: "inv.pc",
+          },
+          summary: `人生经历带来初始物品「${history.initialGrant.id}」。`,
+          cause: `history:${history.id}`,
+        },
+    {
+      payload: {
+        type: "relationship_established",
+        npc: history.relationship.npcId,
+        text: history.relationship.text,
+      },
+      summary: history.relationship.text,
+      cause: `history:${history.id}`,
+    },
+  ];
+  const turnId = "browser-confirm-investigator";
+  const committed: GameEvent[] = drafts.map((draft, index) => ({
+    ...draft,
+    id: `${turnId}-${index}`,
+    seq: index,
+    turnId,
+    versionAfter: 1,
+    clock: 0,
+    visibility: draft.visibility ?? "public",
+  }));
+  return {
+    profile,
+    state: replay(params.state, committed),
+    log: committed,
+    committed,
+  };
+}
+
+async function getDesktopInvestigator(
+  api: NonNullable<ReturnType<typeof tryDesktopApi>>,
+  campaignId: string,
+): Promise<InvestigatorProfile | null> {
+  const loaded = await api.campaign.getInvestigator({ campaignId });
+  return loaded.ok ? loaded.value : null;
 }
 
 export function useSession() {
@@ -182,7 +321,10 @@ export function useSession() {
     log: presented.log,
   });
   const [pending, setPending] = useState<PendingAction | null>(null);
-  const [messages, setMessages] = useState<Message[]>(() => createOpening(initialState()));
+  const [investigatorProfile, setInvestigatorProfile] = useState<InvestigatorProfile | null>(null);
+  const [confirmation, dispatchConfirmation] = useReducer(confirmationReducer, initialConfirmationState);
+  const [activeCheckPreview, dispatchCheckPreview] = useReducer(activeCheckPreviewReducer, null);
+  const [messages, setMessages] = useState<Message[]>(() => createOpening(initialState(), null));
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [config, setConfigState] = useState<KeeperConfig>(() => loadConfig());
@@ -196,6 +338,7 @@ export function useSession() {
   const memoryRef = useRef<MemoryState>(emptyMemory());
   const contextRef = useRef<ContextStore>(emptyContextStore());
   const liveInflight = useRef(false);
+  const persistedDialogue = useRef(new PersistedDialogueSource());
 
   const reveal = useCallback(() => {
     const desk = authoritative.current;
@@ -268,6 +411,9 @@ export function useSession() {
         if (desk) {
           setCampaignId(desk.campaign.campaignId);
           setBranchId(desk.branchId);
+          const profile = await getDesktopInvestigator(remote, desk.campaign.campaignId);
+          if (cancelled) return;
+          setInvestigatorProfile(profile);
           const storedEnabled = await remote.settings.get({ key: "keeper.enabled" });
           const storedModel = await remote.settings.get({ key: "keeper.model" });
           const storedUrl = await remote.settings.get({ key: "keeper.baseUrl" });
@@ -294,12 +440,13 @@ export function useSession() {
           if (events.length > 0) {
             const restored = replay(origin.current, events);
             adopt({ state: restored, log: events });
-            setMessages(createOpening(restored));
+            setMessages(createOpening(restored, profile));
             pushNotice(
               `已续上主进程里的上一场：重放 ${events.length} 条事件，回到版本 v${restored.version}。`,
               restored.version,
             );
           } else {
+            setInvestigatorProfile(null);
             pushNotice("主进程新开一场。事件会写进 campaign.sqlite。", 0);
           }
         }
@@ -338,12 +485,13 @@ export function useSession() {
           );
         } else {
           adopt({ state: restored, log: events });
+          const profile = investigatorFromState(restored);
+          setInvestigatorProfile(profile);
           const restoredMessages = stored
             .map((message, index) => fromStored(message, index))
             .filter((message): message is Message => message != null);
-          if (restoredMessages.length > 0) {
-            setMessages(restoredMessages);
-          }
+          persistedDialogue.current.hydrate(handle.branchId, recentDialogueTurns(restoredMessages));
+          setMessages(restoredMessages.length > 0 ? restoredMessages : createOpening(restored, profile));
           memoryRef.current = await opened.store.loadMemory(handle.branchId);
           pushNotice(
             `已续上上一场：重放 ${events.length} 条事件，回到版本 v${restored.version}，哈希 ${hash}。`,
@@ -351,6 +499,7 @@ export function useSession() {
           );
         }
       }
+      if (events.length === 0) setInvestigatorProfile(null);
 
       if (cancelled) return;
       await refreshBranches(handle.campaignId);
@@ -366,10 +515,14 @@ export function useSession() {
   useEffect(() => {
     const db = store.current;
     if (!ready || !branchId || !db) return;
-    void db.saveMessages(
+    const stored = messages
+      .map(toStored)
+      .filter((message): message is StoredMessage => message != null);
+    void persistedDialogue.current.persist(
       branchId,
-      messages.map(toStored).filter((message): message is StoredMessage => message != null),
-    );
+      recentDialogueTurns(messages),
+      () => db.saveMessages(branchId, stored),
+    ).catch(() => undefined);
   }, [branchId, messages, ready]);
 
   const act = useCallback(
@@ -379,13 +532,21 @@ export function useSession() {
         inflight.current = true;
       }
       const { state, log } = authoritative.current;
+      const recentTurns = branchId ? await persistedDialogue.current.snapshot(branchId) : [];
       setBusy(true);
       setNarrationDraft(null);
-      // 路由之后、掷骰之前：只公开意图和门槛，绝不带点数。
-      setPending({
-        label: spoken,
-        intent,
-        check: pendingCheckFor(intent, state),
+      const candidateCheck = checkCandidateForIntent({ intent, state, profile: investigatorProfile });
+      if (!candidateCheck) {
+        dispatchCheckPreview({ type: "began", check: null });
+        setPending({ label: spoken, intent, check: null });
+      }
+      // 路由之后、掷骰之前：先公开意图和门槛，并跨一个任务让 React 落笔。
+      await publishCheckCandidate({
+        candidate: candidateCheck,
+        onCandidate: (check) => {
+          dispatchCheckPreview({ type: "began", check });
+          setPending({ label: spoken, intent, check });
+        },
       });
       const remote = tryDesktopApi();
       if (remote && campaignId && branchId) {
@@ -394,6 +555,10 @@ export function useSession() {
         let baseLog = log;
         let activeBranch = branchId;
         let view: Awaited<ReturnType<typeof submitDesktopTurn>>;
+        const onCandidate = (check: CheckCandidate, candidateIntent: Intent) => {
+          dispatchCheckPreview({ type: "began", check });
+          setPending({ label: spoken, intent: candidateIntent, check });
+        };
         try {
           view = await submitDesktopTurn({
             api: remote,
@@ -402,6 +567,7 @@ export function useSession() {
             expectedStateVersion: baseState.version,
             text: spoken,
             onDraft: (draft) => setNarrationDraft(draft),
+            onCandidate,
           });
           if ("error" in view && view.errorCode === "TURN_VERSION_CONFLICT") {
             const synced = await loadDesktopCampaign(remote, campaignId);
@@ -411,7 +577,9 @@ export function useSession() {
               activeBranch = synced.branchId;
               setBranchId(activeBranch);
               adopt({ state: baseState, log: baseLog });
-              setMessages(createOpening(baseState));
+              const syncedProfile = await getDesktopInvestigator(remote, campaignId);
+              setInvestigatorProfile(syncedProfile);
+              setMessages(createOpening(baseState, syncedProfile));
               lastTurn.current = null;
               memoryRef.current = emptyMemory();
               contextRef.current = emptyContextStore();
@@ -424,6 +592,7 @@ export function useSession() {
                 expectedStateVersion: baseState.version,
                 text: spoken,
                 onDraft: (draft) => setNarrationDraft(draft),
+                onCandidate,
               });
             }
           }
@@ -462,6 +631,7 @@ export function useSession() {
         const nextState = replay(origin.current, nextLog);
         authoritative.current = { state: nextState, log: nextLog };
         const check = view.check as import("@/engine/types").CheckResult | undefined;
+        dispatchCheckPreview(check ? { type: "resolved", check } : { type: "cleared" });
         const fallback = view.narration;
         const remoteIntent = (view.intent as Intent | undefined) ?? intent;
         lastTurn.current = {
@@ -523,7 +693,7 @@ export function useSession() {
 
       push({ role: "pl", text: spoken, stateVersion: state.version });
 
-      const outcome = playTurn({ text: spoken, state, log, intent });
+      const outcome = playTurn({ text: spoken, state, log, intent, profile: investigatorProfile });
       if (outcome.kind === "query" || outcome.kind === "clarification") {
         push({
           role: "kp",
@@ -539,6 +709,7 @@ export function useSession() {
       }
 
       const { state: nextState, log: nextLog, committed, check, narration: fallback } = outcome;
+      dispatchCheckPreview(check ? { type: "resolved", check } : { type: "cleared" });
       authoritative.current = { state: nextState, log: nextLog };
 
       const db = store.current;
@@ -656,6 +827,9 @@ export function useSession() {
               events: result.committed,
               intent,
               spoken,
+              recentTurns,
+              profile: investigatorProfile,
+              scenarioPack: pack,
               fallback,
               onStream: onNarrationStream,
             })
@@ -665,6 +839,9 @@ export function useSession() {
               events: result.committed,
               intent,
               spoken,
+              recentTurns,
+              profile: investigatorProfile,
+              scenarioPack: pack,
               fallback,
               onStream: onNarrationStream,
             });
@@ -712,6 +889,7 @@ export function useSession() {
       refreshBranches,
       rememberUsage,
       reveal,
+      investigatorProfile,
     ],
   );
 
@@ -730,10 +908,14 @@ export function useSession() {
       setStatus("主持人正在听懂你这句话…");
       try {
         const modelTaskId = newFreeTurnTaskId();
+        const recentTurns = branchId ? await persistedDialogue.current.snapshot(branchId) : [];
         const routed = await handleFreeTurn({
           config,
           state: desk.state,
+          profile: investigatorProfile,
+          currentStateVersion: () => authoritative.current.state.version,
           spoken: text,
+          recentTurns,
           modelTaskId,
         });
         setStatus(null);
@@ -752,7 +934,7 @@ export function useSession() {
       }
       return false;
     },
-    [act, config, pushNotice, reveal],
+    [act, branchId, config, investigatorProfile, pushNotice, reveal],
   );
 
   /** 换一种说法：同一批已提交事件重讲一遍，状态版本和骰子都不动。 */
@@ -765,12 +947,16 @@ export function useSession() {
     setNarrationDraft(null);
     setStatus("主持人正在换一种说法…");
     try {
+      const recentTurns = branchId ? await persistedDialogue.current.snapshot(branchId) : [];
       const narration = await keeperNarrate({
         config,
         state: turn.state,
         events: turn.events,
         intent: turn.intent,
         spoken: turn.spoken,
+        recentTurns,
+        profile: investigatorProfile,
+        scenarioPack: pack,
         fallback: turn.fallback,
         onStream: onNarrationStream,
       });
@@ -800,7 +986,7 @@ export function useSession() {
       setBusy(false);
       inflight.current = false;
     }
-  }, [config, onNarrationStream, pushNotice, rememberUsage]);
+  }, [branchId, config, investigatorProfile, onNarrationStream, pushNotice, rememberUsage]);
 
   /** 切到某条分支：状态一律由那条分支的事件重放得来，不从别处抄。 */
   const switchBranch = useCallback(
@@ -809,17 +995,23 @@ export function useSession() {
       if (!db || !campaignId || busy) return;
       setBusy(true);
       setPending({ label: "切换分支", intent: null, check: null });
+      dispatchCheckPreview({ type: "cleared" });
       try {
+        await persistedDialogue.current.settle(target);
         const events = await db.loadEvents(target);
         const stored = await db.loadMessages(target);
         const restored = replay(origin.current, events);
 
         setBranchId(target);
         adopt({ state: restored, log: events });
+        const profile = investigatorFromState(restored);
+        setInvestigatorProfile(profile);
+        dispatchConfirmation({ type: "attempted" });
         const restoredMessages = stored
           .map((message, index) => fromStored(message, index))
           .filter((message): message is Message => message != null);
-        setMessages(restoredMessages.length > 0 ? restoredMessages : createOpening(restored));
+        persistedDialogue.current.hydrate(target, recentDialogueTurns(restoredMessages));
+        setMessages(restoredMessages.length > 0 ? restoredMessages : createOpening(restored, profile));
         lastTurn.current = null;
         setLastUsage(null);
         setNarrationDraft(null);
@@ -843,6 +1035,7 @@ export function useSession() {
       if (!db || !campaignId || !branchId || busy) return;
       setBusy(true);
       setPending({ label: `回到版本 v${mark.version}`, intent: null, check: null });
+      dispatchCheckPreview({ type: "cleared" });
       try {
         const target = await db.fork({
           campaignId,
@@ -860,9 +1053,11 @@ export function useSession() {
           target,
           kept.map(toStored).filter((message): message is StoredMessage => message != null),
         );
+        persistedDialogue.current.hydrate(target, recentDialogueTurns(kept));
 
         setBranchId(target);
         adopt({ state: restored, log: events });
+        setInvestigatorProfile(investigatorFromState(restored));
         setMessages([
           ...kept,
           {
@@ -887,11 +1082,49 @@ export function useSession() {
     [adopt, branchId, busy, campaignId, messages, refreshBranches],
   );
 
-  /** 导出的是事件记录，不是聊天记录：换一台机器重放，能得到一模一样的状态。 */
+  const adoptDesktopCampaign = useCallback((
+    loaded: Awaited<ReturnType<typeof loadDesktopCampaign>>,
+    profile: InvestigatorProfile | null,
+  ) => {
+    if (!loaded) return false;
+    origin.current = initialState();
+    setCampaignId(loaded.campaign.campaignId);
+    setBranchId(loaded.branchId);
+    adopt({ state: loaded.state, log: loaded.events });
+    setInvestigatorProfile(profile);
+    dispatchConfirmation({ type: "attempted" });
+    setMessages(loaded.history ? createRestoredMessages(loaded.state, loaded.history) : createOpening(loaded.state, profile));
+    lastTurn.current = null;
+    memoryRef.current = emptyMemory();
+    contextRef.current = emptyContextStore();
+    setLastTrace(null);
+    setLastUsage(null);
+    setNarrationDraft(null);
+    setPending(null);
+    dispatchCheckPreview({ type: "cleared" });
+    return true;
+  }, [adopt]);
+
+  /** 导出只包含战役权威数据；桌面设置、模型配置和 API Key 不在战役库中。 */
   const exportCampaign = useCallback(async () => {
+    if (!campaignId) return;
+    const remote = tryDesktopApi();
     const db = store.current;
-    if (!db || !campaignId) return;
-    const payload = await db.exportCampaign(campaignId);
+    let payload: ExportPayload | DesktopCampaignBackup;
+    let branchCount: number;
+    if (remote) {
+      const exported = await remote.backup.exportCampaign({ campaignId });
+      if (!exported.ok) {
+        pushNotice(`导出失败：${exported.error.messageKey}`, presented.state.version);
+        return;
+      }
+      payload = exported.value;
+      branchCount = exported.value.body.tables.branches?.length ?? 0;
+    } else {
+      if (!db) return;
+      payload = await db.exportCampaign(campaignId);
+      branchCount = payload.branches.length;
+    }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -899,15 +1132,34 @@ export function useSession() {
     anchor.download = `${pack.manifest.id}-${new Date().toISOString().slice(0, 10)}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-    pushNotice(`已导出这一场：${payload.branches.length} 条分支。`, presented.state.version);
+    pushNotice(`已导出这一场：${branchCount} 条分支。`, presented.state.version);
   }, [campaignId, presented.state.version, pushNotice]);
 
   const importCampaign = useCallback(
     async (file: File) => {
+      const remote = tryDesktopApi();
       const db = store.current;
-      if (!db) return;
       try {
-        const payload = JSON.parse(await file.text()) as ExportPayload;
+        const parsed = JSON.parse(await file.text()) as ExportPayload | DesktopCampaignBackup;
+        if (remote) {
+          const imported = await remote.backup.importCampaign({
+            backup: parsed as DesktopCampaignBackup,
+          });
+          if (!imported.ok) {
+            pushNotice(`导入失败：${imported.error.messageKey}`, presented.state.version);
+            return;
+          }
+          const loaded = await loadDesktopCampaign(remote, imported.value.campaignId);
+          const profile = await getDesktopInvestigator(remote, imported.value.campaignId);
+          if (!adoptDesktopCampaign(loaded, profile)) {
+            pushNotice("备份已导入，但载入失败；请重新启动后重试。", presented.state.version);
+            return;
+          }
+          pushNotice("战役备份已校验并导入。", loaded?.state.version ?? 0);
+          return;
+        }
+        if (!db) return;
+        const payload = parsed as ExportPayload;
         if (payload.campaign.packRef !== pack.ref) {
           pushNotice(
             `这份存档用的是资料包 ${payload.campaign.packRef}，当前是 ${pack.ref}，拒绝导入。`,
@@ -927,32 +1179,17 @@ export function useSession() {
         );
       }
     },
-    [presented.state.version, pushNotice, refreshBranches, switchBranch],
+    [adoptDesktopCampaign, presented.state.version, pushNotice, refreshBranches, switchBranch],
   );
-
-  const adoptDesktopCampaign = useCallback((loaded: Awaited<ReturnType<typeof loadDesktopCampaign>>) => {
-    if (!loaded) return false;
-    origin.current = initialState();
-    setCampaignId(loaded.campaign.campaignId);
-    setBranchId(loaded.branchId);
-    adopt({ state: loaded.state, log: loaded.events });
-    setMessages(loaded.history ? createRestoredMessages(loaded.state, loaded.history) : createOpening(loaded.state));
-    lastTurn.current = null;
-    memoryRef.current = emptyMemory();
-    contextRef.current = emptyContextStore();
-    setLastTrace(null);
-    setLastUsage(null);
-    setNarrationDraft(null);
-    setPending(null);
-    return true;
-  }, [adopt]);
 
   const switchCampaign = useCallback(async (targetCampaignId: string) => {
     const remote = tryDesktopApi();
     if (!remote || busy || inflight.current) return;
     setBusy(true);
     try {
-      adoptDesktopCampaign(await loadDesktopCampaign(remote, targetCampaignId));
+      const loaded = await loadDesktopCampaign(remote, targetCampaignId);
+      const profile = await getDesktopInvestigator(remote, targetCampaignId);
+      adoptDesktopCampaign(loaded, profile);
     } finally {
       setBusy(false);
     }
@@ -978,7 +1215,10 @@ export function useSession() {
       const loaded = next
         ? await loadDesktopCampaign(remote, next.campaignId)
         : await createFreshDesktopCampaign(remote);
-      if (!adoptDesktopCampaign(loaded)) {
+      const profile = loaded
+        ? await getDesktopInvestigator(remote, loaded.campaign.campaignId)
+        : null;
+      if (!adoptDesktopCampaign(loaded, profile)) {
         pushNotice("旧战役已删除，但新战役载入失败；请重新启动后重试。", 0);
       }
     } finally {
@@ -1005,9 +1245,41 @@ export function useSession() {
       const loaded = opened.ok
         ? await loadDesktopBranch(remote, opened.value, restored.value.branchId)
         : null;
-      if (adoptDesktopCampaign(loaded)) return true;
+      const profile = await getDesktopInvestigator(remote, campaignId);
+      if (adoptDesktopCampaign(loaded, profile)) return true;
       pushNotice("恢复副本已经创建，但载入失败；请重新启动后重试。", authoritative.current.state.version);
       return false;
+    } finally {
+      setBusy(false);
+      inflight.current = false;
+    }
+  }, [adoptDesktopCampaign, busy, campaignId, pushNotice]);
+
+  const recreateDesktopInvestigator = useCallback(async (checkpointId: string) => {
+    const remote = tryDesktopApi();
+    if (!remote || !campaignId || busy || inflight.current) return false;
+    inflight.current = true;
+    setBusy(true);
+    try {
+      const recreated = await remote.checkpoint.recreateInvestigator({
+        campaignId,
+        checkpointId,
+        label: "重新创建调查员",
+      });
+      if (!recreated.ok) {
+        pushNotice(`重新创建失败：${recreated.error.messageKey}`, authoritative.current.state.version);
+        return false;
+      }
+      const opened = await remote.campaign.open({ campaignId });
+      const loaded = opened.ok
+        ? await loadDesktopBranch(remote, opened.value, recreated.value.branchId)
+        : null;
+      const profile = await getDesktopInvestigator(remote, campaignId);
+      if (profile !== null || !adoptDesktopCampaign(loaded, null)) {
+        pushNotice("重建分支已经创建，但载入失败；请重新启动后重试。", authoritative.current.state.version);
+        return false;
+      }
+      return true;
     } finally {
       setBusy(false);
       inflight.current = false;
@@ -1021,7 +1293,7 @@ export function useSession() {
       if (busy || inflight.current) return;
       setBusy(true);
       try {
-        adoptDesktopCampaign(await createFreshDesktopCampaign(remote));
+        adoptDesktopCampaign(await createFreshDesktopCampaign(remote), null);
       } finally {
         setBusy(false);
       }
@@ -1031,7 +1303,9 @@ export function useSession() {
     const fresh = initialState();
     origin.current = fresh;
     adopt({ state: fresh, log: [] });
-    setMessages(createOpening(fresh));
+    setInvestigatorProfile(null);
+    dispatchConfirmation({ type: "attempted" });
+    setMessages(createOpening(fresh, null));
     lastTurn.current = null;
     memoryRef.current = emptyMemory();
     contextRef.current = emptyContextStore();
@@ -1039,6 +1313,7 @@ export function useSession() {
     setLastUsage(null);
     setNarrationDraft(null);
     setPending(null);
+    dispatchCheckPreview({ type: "cleared" });
 
     if (!db) return;
     const handle = await db.openCampaign({
@@ -1049,57 +1324,103 @@ export function useSession() {
     });
     setCampaignId(handle.campaignId);
     setBranchId(handle.branchId);
+    persistedDialogue.current.hydrate(handle.branchId, []);
     await refreshBranches(handle.campaignId);
   }, [adopt, adoptDesktopCampaign, busy, refreshBranches]);
 
-  const confirmCard = useCallback(
-    async (draft: CardImportDraft) => {
-      const input = sheetInputFromDraft(draft);
+  const confirmInvestigator = useCallback(async (allocation: InvestigatorAllocation) => {
+    if (!campaignId || !branchId || busy || inflight.current || investigatorProfile) return false;
+    dispatchConfirmation({ type: "attempted" });
+    inflight.current = true;
+    setBusy(true);
+    setPending({ label: "确认调查员", intent: null, check: null });
+    dispatchCheckPreview({ type: "cleared" });
+    try {
       const remote = tryDesktopApi();
-      if (remote?.campaign.applyCharacterCard && campaignId && branchId) {
-        const result = await remote.campaign.applyCharacterCard({
+      if (remote) {
+        const confirmed = await remote.campaign.confirmInvestigator({
           campaignId,
           branchId,
-          expectedStateVersion: authoritative.current.state.version,
-          commandId: `card-${input.cardHash}`,
-          ...input,
+          allocation,
         });
-        if (!result.ok) {
-          pushNotice(`人设卡没写进战役：${result.error.code}`, authoritative.current.state.version);
-          return;
+        if (!confirmed.ok) {
+          dispatchConfirmation({
+            type: "rejected",
+            error: `调查员确认失败：${confirmed.error.messageKey}`,
+          });
+          return false;
         }
-        const events = await loadDesktopEvents(remote, campaignId, branchId);
-        const restored = replay(origin.current, events);
-        adopt({ state: restored, log: events });
-        pushNotice(`已确认「${input.name}」写入这场战役（人设卡）。`, restored.version);
-        return;
+        const loaded = await loadDesktopCampaign(remote, campaignId);
+        if (!adoptDesktopCampaign(loaded, confirmed.value.profile) || !loaded) {
+          dispatchConfirmation({
+            type: "rejected",
+            error: "调查员已经确认，但分支重载失败；请重新启动后重试。",
+          });
+          return false;
+        }
+        setMessages(createOpening(loaded.state, confirmed.value.profile));
+        return true;
       }
 
       const desk = authoritative.current;
-      const applied = applyCharacterCard({ state: desk.state, log: desk.log, draft });
-      adopt({ state: applied.state, log: applied.log });
+      if (desk.state.version > 0) {
+        dispatchConfirmation({ type: "rejected", error: "这一场已经开始，不能再确认新的调查员。" });
+        return false;
+      }
+      const rules = pack.manifest.creation;
+      if (!rules) {
+        dispatchConfirmation({ type: "rejected", error: "当前资料包没有调查员创建规则。" });
+        return false;
+      }
+      const projected = projectInvestigatorConfirmation({
+        state: desk.state,
+        log: desk.log,
+        allocation,
+        rules,
+        itemLocations: Object.fromEntries(pack.items.map((item) => [item.id, item.at])),
+      });
+      if (!projected) {
+        dispatchConfirmation({ type: "rejected", error: "调查员点数或人生经历未通过校验。" });
+        return false;
+      }
+
       const db = store.current;
-      if (db && branchId) {
+      if (db) {
         try {
-          await db.appendEvents(branchId, applied.committed);
+          await db.appendEvents(branchId, projected.committed);
           await db.saveCheckpoint({
             branchId,
-            cursor: applied.log.length - 1,
-            stateVersion: applied.state.version,
-            stateHash: stateHash(applied.state),
+            cursor: projected.log.length - 1,
+            stateVersion: projected.state.version,
+            stateHash: stateHash(projected.state),
             packRef: pack.ref,
           });
+          await refreshBranches(campaignId);
         } catch (error) {
+          setStoreDurable(false);
+          setStoreNote("调查员确认只保留在当前页面，关闭后可能丢失。");
           pushNotice(
-            `人设卡没落盘：${error instanceof Error ? error.message : String(error)}`,
-            applied.state.version,
+            `调查员确认未能落盘：${error instanceof Error ? error.message : String(error)}`,
+            projected.state.version,
           );
         }
       }
-      pushNotice(`已确认「${input.name}」写入这场战役（人设卡）。`, applied.state.version);
-    },
-    [adopt, branchId, campaignId, pushNotice],
-  );
+      adopt({ state: projected.state, log: projected.log });
+      setInvestigatorProfile(projected.profile);
+      setMessages(createOpening(projected.state, projected.profile));
+      return true;
+    } catch (error) {
+      dispatchConfirmation({
+        type: "rejected",
+        error: `调查员确认失败：${error instanceof Error ? error.message : String(error)}`,
+      });
+      return false;
+    } finally {
+      setPending(null);
+      setBusy(false);
+      inflight.current = false;
+    }
+  }, [adopt, adoptDesktopCampaign, branchId, busy, campaignId, investigatorProfile, pushNotice, refreshBranches]);
 
   const pushSystem = useCallback(
     (text: string) => {
@@ -1111,6 +1432,9 @@ export function useSession() {
   return {
     state: presented.state,
     log: presented.log,
+    investigatorProfile,
+    confirmationError: confirmation.error,
+    activeCheckPreview,
     pending,
     messages,
     narrationDraft,
@@ -1140,7 +1464,8 @@ export function useSession() {
     switchCampaign,
     deleteCampaign,
     restoreDesktopCheckpoint,
-    confirmCard,
+    recreateDesktopInvestigator,
+    confirmInvestigator,
     pushSystem,
   };
 }

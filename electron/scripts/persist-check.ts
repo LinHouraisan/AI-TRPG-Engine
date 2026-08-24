@@ -13,6 +13,10 @@ import { setSetting, getSetting } from "../main/persist/catalog";
 import { ensureDefaultProvider, listProviders, listTaskRoutes } from "../main/persist/providers";
 import { asBranchId, asStateVersion, type EntityId } from "../shared/ids";
 import { loadGameEvents } from "../main/persist/turns";
+import { hashProfile, loadInvestigator } from "../main/persist/investigator";
+import { restoreCheckpointCopy } from "../main/persist/checkpoints";
+import { replay } from "../../demo/src/engine/runtime";
+import { initialState } from "../../demo/src/engine/state";
 
 function xorSafeStorage(available: boolean): SafeStorage {
   const mask = 0xa5;
@@ -43,6 +47,26 @@ const paths = resolvePaths(root);
 const settingsSql = readFileSync(join(import.meta.dir, "../sql/settings.sql"), "utf8");
 const campaignSql = readFileSync(join(import.meta.dir, "../sql/campaign.sql"), "utf8");
 const memorySql = readFileSync(join(import.meta.dir, "../sql/campaign-0002-memory.sql"), "utf8");
+const checkpointSql = readFileSync(
+  join(import.meta.dir, "../sql/campaign-0003-checkpoint-tests.sql"),
+  "utf8",
+);
+const investigatorSql = readFileSync(
+  join(import.meta.dir, "../sql/campaign-0004-investigator.sql"),
+  "utf8",
+);
+const checkpointRecapSql = readFileSync(
+  join(import.meta.dir, "../sql/campaign-0005-checkpoint-recaps.sql"),
+  "utf8",
+);
+const checkpointDialogueSql = readFileSync(
+  join(import.meta.dir, "../sql/campaign-0006-checkpoint-dialogue-members.sql"),
+  "utf8",
+);
+const investigatorRecreationSql = readFileSync(
+  join(import.meta.dir, "../sql/campaign-0007-investigator-recreation.sql"),
+  "utf8",
+);
 
 let failed = 0;
 function assert(cond: boolean, label: string): void {
@@ -75,6 +99,11 @@ try {
 
   const campaigns = new CampaignService(settings, paths, clock, openBun, campaignSql, [
     { id: "0002_memory", sql: memorySql },
+    { id: "0003_checkpoint_tests", sql: checkpointSql },
+    { id: "0004_investigator", sql: investigatorSql },
+    { id: "0005_checkpoint_recaps", sql: checkpointRecapSql },
+    { id: "0006_checkpoint_dialogue_members", sql: checkpointDialogueSql },
+    { id: "0007_investigator_recreation", sql: investigatorRecreationSql },
   ]);
   const bad = campaigns.create("   ");
   assert(!bad.ok && bad.error.code === "IPC_INVALID_REQUEST", "空名字拒收");
@@ -89,6 +118,68 @@ try {
   const opened = campaigns.open(created.value.campaignId);
   assert(opened.ok && opened.value.headBranchId === created.value.headBranchId, "打开战役对得上主线");
 
+  const investigatorCampaign = campaigns.create("调查员持久化探测");
+  assert(investigatorCampaign.ok, "另开一场确认调查员");
+  if (!investigatorCampaign.ok) throw new Error("investigator campaign create failed");
+  const confirmed = campaigns.confirmInvestigator({
+    campaignId: investigatorCampaign.value.campaignId,
+    branchId: investigatorCampaign.value.headBranchId,
+    allocation: {
+      name: "林晚",
+      lifeHistoryId: "history.archive-correspondent",
+      occupationPoints: { 侦查: 55, 聆听: 35, 图书馆使用: 50, 话术: 70, 心理学: 70 },
+      interestPoints: { 侦查: 7, 聆听: 35, 图书馆使用: 9, 开锁: 89 },
+    },
+  });
+  assert(confirmed.ok && confirmed.value.stateVersion === 1, "确认调查员原子提交初始事件");
+  if (!confirmed.ok) throw new Error("investigator confirmation failed");
+  const confirmedDb = campaigns.driver(investigatorCampaign.value.campaignId);
+  const originalRecord = confirmedDb
+    ? loadInvestigator(confirmedDb, investigatorCampaign.value.headBranchId)
+    : null;
+  assert(Boolean(originalRecord), "主分支绑定调查员档案");
+  const initialEvents = confirmedDb
+    ? loadGameEvents(confirmedDb, investigatorCampaign.value.headBranchId)
+    : [];
+  const projected = replay(initialState(), initialEvents);
+  assert(
+    projected.pcName === "林晚" &&
+      projected.lifeHistoryId === "history.archive-correspondent" &&
+      projected.characteristics?.EDU === 70,
+    "事件重放恢复调查员投影",
+  );
+  campaigns.close(investigatorCampaign.value.campaignId);
+  campaigns.open(investigatorCampaign.value.campaignId);
+  const reopenedDb = campaigns.driver(investigatorCampaign.value.campaignId);
+  const reopenedRecord = reopenedDb
+    ? loadInvestigator(reopenedDb, investigatorCampaign.value.headBranchId)
+    : null;
+  const reopenedProfile = campaigns.getInvestigator(investigatorCampaign.value.campaignId);
+  assert(
+    reopenedRecord?.profileJson === originalRecord?.profileJson &&
+      reopenedRecord?.profileHash === originalRecord?.profileHash &&
+      reopenedProfile.ok &&
+      reopenedProfile.value !== null &&
+      hashProfile(reopenedProfile.value) === originalRecord?.profileHash,
+    "关闭重开后规范 JSON 和 SHA-256 不变",
+  );
+  const restoredInvestigator = reopenedDb
+    ? restoreCheckpointCopy(
+        reopenedDb,
+        confirmed.value.checkpointId,
+        "正式开局前副本",
+        clock.nowIso(),
+      )
+    : null;
+  const restoredRecord = restoredInvestigator && reopenedDb
+    ? loadInvestigator(reopenedDb, restoredInvestigator.branchId)
+    : null;
+  assert(
+    restoredRecord?.profileJson === originalRecord?.profileJson &&
+      restoredRecord?.profileHash === originalRecord?.profileHash,
+    "检查点副本继承同一调查员 JSON 和 SHA-256",
+  );
+
   const campaignDb = openBun(paths.campaignFile(created.value.campaignId));
   const tables = campaignDb
     .all<{ name: string }>("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
@@ -102,9 +193,14 @@ try {
     "rule_decisions",
     "narrations",
     "checkpoints",
+    "checkpoint_recaps",
+    "checkpoint_restore_sources",
+    "checkpoint_dialogue_members",
     "memory_entries",
     "memory_cursors",
     "director_frontier",
+    "investigator_profiles",
+    "branch_investigator_bindings",
   ]) {
     assert(tables.includes(name), `战役库有 ${name}`);
   }
@@ -171,18 +267,31 @@ try {
 
   campaigns.moveToTrash(created.value.campaignId);
   const afterTrash = campaigns.list({ limit: 20 });
-  assert(afterTrash.ok && afterTrash.value.items.length === 0, "进回收站后列表为空");
+  assert(
+    afterTrash.ok &&
+      !afterTrash.value.items.some((item) => item.campaignId === created.value.campaignId),
+    "进回收站后目标战役从列表消失",
+  );
   campaigns.restoreFromTrash(created.value.campaignId);
   const afterRestore = campaigns.list({ limit: 20 });
-  assert(afterRestore.ok && afterRestore.value.items.length === 1, "恢复之后重新出现");
+  assert(
+    afterRestore.ok &&
+      afterRestore.value.items.some((item) => item.campaignId === created.value.campaignId),
+    "恢复之后目标战役重新出现",
+  );
 
   const turnCredentials = new CredentialStore(
     join(root, "turn-credentials.json"),
     clock,
     xorSafeStorage(true),
   );
-  const turns = new TurnService(campaigns, turnCredentials, clock);
-  const fresh = campaigns.create("回合探测");
+  // 这段验证的是通用寄宿公寓内核，不是雾港产品开局；刻意使用未安装调查员
+  // 持久化迁移的低层 legacy schema。雾港的强制绑定门由 turns-opening.test 覆盖。
+  const turnCampaigns = new CampaignService(settings, paths, clock, openBun, campaignSql, [
+    { id: "0002_memory", sql: memorySql },
+  ]);
+  const turns = new TurnService(turnCampaigns, turnCredentials, clock);
+  const fresh = turnCampaigns.create("回合探测");
   assert(fresh.ok, "另开一场做回合探测");
   const live = fresh.ok ? fresh.value : undefined;
   if (live) {
@@ -223,7 +332,7 @@ try {
       );
       const view = turns.get(moved.value.operationId, live.campaignId);
       assert(view.ok && view.value.kind === "committed" && view.value.events.length > 0, "operation.get 带回已提交事件");
-      const db = campaigns.driver(live.campaignId);
+      const db = turnCampaigns.driver(live.campaignId);
       const events = db ? loadGameEvents(db, live.headBranchId) : [];
       assert(events.some((event) => event.payload.type === "moved"), "events 表里有 moved");
       const memCount = db?.get<{ n: number }>("SELECT count(*) AS n FROM memory_entries");
@@ -277,6 +386,7 @@ try {
       assert(againCount?.n === 1, "同一 commandId 不重复写 narration");
     }
   }
+  turnCampaigns.dispose();
 
   const secret = "sk-live-persist-check-plaintext-secret";
   const credFile = join(root, "credentials.json");
