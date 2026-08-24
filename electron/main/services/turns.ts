@@ -158,13 +158,43 @@ export class TurnService {
         onCandidate: (check) => hooks.onCandidate?.({ commandId: input.commandId, intent, check }),
       });
     }
+    const authoritativeCatalog = getCatalog(this.campaigns.settings, input.campaignId);
+    const authoritativeBranch = db.get<{ head_state_version: number }>(
+      "SELECT head_state_version FROM branches WHERE branch_id = ?",
+      [input.branchId],
+    );
+    const authoritativeLog = loadGameEvents(db, input.branchId);
+    const authoritativeState = replay(initialState(), authoritativeLog);
+    const expectedStateVersion = Number(input.expectedStateVersion);
+    const intentStateVersion = intent.kind === "investigation" ? intent.stateVersion : expectedStateVersion;
+    if (
+      !authoritativeCatalog ||
+      authoritativeCatalog.head_branch_id !== input.branchId ||
+      authoritativeCatalog.head_state_version !== expectedStateVersion ||
+      authoritativeBranch?.head_state_version !== expectedStateVersion ||
+      authoritativeState.version !== expectedStateVersion ||
+      intentStateVersion !== expectedStateVersion
+    ) {
+      return fail({
+        code: "TURN_VERSION_CONFLICT",
+        messageKey: "turn.version_conflict",
+        retryable: true,
+        details: {
+          expected: expectedStateVersion,
+          catalog: authoritativeCatalog?.head_state_version,
+          branch: authoritativeBranch?.head_state_version,
+          replayed: authoritativeState.version,
+          intent: intentStateVersion,
+        },
+      });
+    }
     const outcome = playTurn({
       text,
-      state,
-      log,
+      state: authoritativeState,
+      log: authoritativeLog,
       intent,
       profile,
-      turnId: `${input.branchId}:turn-${state.turn + 1}`,
+      turnId: `${input.branchId}:turn-${authoritativeState.turn + 1}`,
     });
     const now = this.clock.nowIso();
     const operationId = uuidv7();
@@ -178,7 +208,7 @@ export class TurnService {
       narration: outcome.kind === "committed" ? outcome.narration : outcome.text,
       narrationKind: outcome.kind === "committed" ? "模板" : "程序",
       events: outcome.kind === "committed" ? outcome.committed : [],
-      stateVersion: outcome.kind === "committed" ? outcome.state.version : state.version,
+      stateVersion: outcome.kind === "committed" ? outcome.state.version : authoritativeState.version,
       check: outcome.kind === "committed" ? outcome.check : undefined,
       intent: outcome.intent,
     };
@@ -202,8 +232,8 @@ export class TurnService {
       text,
       now,
       status,
-      baseVersion: state.version,
-      committedVersion: outcome.kind === "committed" ? outcome.state.version : state.version,
+      baseVersion: authoritativeState.version,
+      committedVersion: outcome.kind === "committed" ? outcome.state.version : authoritativeState.version,
       events: view.events,
       check: outcome.kind === "committed" ? outcome.check : undefined,
       result: view,
