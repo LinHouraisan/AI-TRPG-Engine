@@ -260,6 +260,10 @@ function campaignService() {
         id: "0004_investigator",
         sql: readFileSync(join(sqlDir, "campaign-0004-investigator.sql"), "utf8"),
       },
+      {
+        id: "0005_checkpoint_recaps",
+        sql: readFileSync(join(sqlDir, "campaign-0005-checkpoint-recaps.sql"), "utf8"),
+      },
     ],
   );
   return {

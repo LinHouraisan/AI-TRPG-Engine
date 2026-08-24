@@ -102,7 +102,12 @@ test("载入恢复分支时保留主进程返回的前情提要和最近对话",
           items: [],
           events: [],
           recap: "此前发生的事情",
-          recentTurns: [{ turnId: "t3", stateVersion: 3, player: "玩家行动", gm: "GM回应" }],
+          recentTurns: [
+            { turnId: "t0", stateVersion: 0, player: "过早的行动", gm: "过早的回应" },
+            { turnId: "t1", stateVersion: 1, player: "第一个行动", gm: "第一个回应" },
+            { turnId: "t2", stateVersion: 2, player: "第二个行动", gm: "第二个回应" },
+            { turnId: "t3", stateVersion: 3, player: "玩家行动", gm: "GM回应" },
+          ],
           restoredFrom: "检查点 v3",
         },
       }),
@@ -112,7 +117,11 @@ test("载入恢复分支时保留主进程返回的前情提要和最近对话",
   const loaded = await loadDesktopBranch(api, restored, "branch-copy");
   expect(loaded?.history).toEqual({
     recap: "此前发生的事情",
-    recentTurns: [{ turnId: "t3", stateVersion: 3, player: "玩家行动", gm: "GM回应" }],
+    recentTurns: [
+      { turnId: "t1", stateVersion: 1, player: "第一个行动", gm: "第一个回应" },
+      { turnId: "t2", stateVersion: 2, player: "第二个行动", gm: "第二个回应" },
+      { turnId: "t3", stateVersion: 3, player: "玩家行动", gm: "GM回应" },
+    ],
     restoredFrom: "检查点 v3",
   });
 });

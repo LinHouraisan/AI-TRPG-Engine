@@ -130,7 +130,7 @@ export interface DesktopApi {
     }): Promise<DesktopResult<{ items: unknown[]; events?: unknown[] } & Partial<DesktopBranchHistory>>>;
   };
   checkpoint: {
-    list(input:{campaignId:string}): Promise<DesktopResult<Array<{checkpointId:string;branchId:string;stateVersion:number;eventSequence:number;label:string;createdAt:string;purpose:string|null;passed:boolean|null;stateHash:string}>>>;
+    list(input:{campaignId:string}): Promise<DesktopResult<Array<{checkpointId:string;branchId:string;stateVersion:number;eventSequence:number;label:string;createdAt:string;purpose:string|null;passed:boolean|null;stateHash:string;recap:string}>>>;
     create(input:{campaignId:string;branchId:string;label:string;purpose?:string;steps?:string[];expected?:unknown;actual?:unknown;passed?:boolean}): Promise<DesktopResult<unknown>>;
     restoreCopy(input:{campaignId:string;checkpointId:string;label:string}): Promise<DesktopResult<{branchId:string;stateVersion:number}>>;
   };

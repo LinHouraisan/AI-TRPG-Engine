@@ -240,7 +240,7 @@ export interface DesktopApi {
   model: { list(): Promise<Result<never>> };
   backup: { exportCampaign(): Promise<Result<never>> };
   checkpoint: {
-    list(input:{campaignId:CampaignId}): Promise<Result<Array<{checkpointId:string;branchId:string;stateVersion:number;eventSequence:number;label:string;createdAt:string;purpose:string|null;passed:boolean|null;stateHash:string}>>>;
+    list(input:{campaignId:CampaignId}): Promise<Result<Array<{checkpointId:string;branchId:string;stateVersion:number;eventSequence:number;label:string;createdAt:string;purpose:string|null;passed:boolean|null;stateHash:string;recap:string}>>>;
     create(input:{campaignId:CampaignId;branchId:BranchId;label:string;purpose?:string;steps?:string[];expected?:unknown;actual?:unknown;passed?:boolean}): Promise<Result<unknown>>;
     restoreCopy(input:{campaignId:CampaignId;checkpointId:string;label:string}): Promise<Result<{branchId:string;stateVersion:number}>>;
   };

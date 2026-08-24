@@ -84,28 +84,54 @@ test("续场开场消息使用实际恢复版本", () => {
   expect(createOpening(restored, confirmedProfile).every((message) => message.stateVersion === 28)).toBe(true);
 });
 
-test("恢复分支显示前情提要和最近三个完整回合，不显示默认开场", () => {
+test("restored view renders recap then exactly the real latest three turns", () => {
   const restored = { ...initialState(), version: 6, turn: 6 };
+  const turns = [
+    { turnId: "t1", stateVersion: 1, player: "第一轮玩家", gm: "第一轮守秘人" },
+    { turnId: "t2", stateVersion: 2, player: "第二轮玩家", gm: "第二轮守秘人" },
+    { turnId: "t3", stateVersion: 3, player: "第三轮玩家", gm: "第三轮守秘人" },
+    { turnId: "t4", stateVersion: 4, player: "第四轮玩家", gm: "第四轮守秘人" },
+  ];
   const messages = createRestoredMessages(restored, {
-    recap: "你已经进入公寓，并发现书桌上的锁有新划痕。",
-    recentTurns: [
-      { turnId: "t2", stateVersion: 2, player: "第二轮玩家", gm: "第二轮守秘人" },
-      { turnId: "t3", stateVersion: 3, player: "第三轮玩家", gm: "第三轮守秘人" },
-      { turnId: "t4", stateVersion: 4, player: "第四轮玩家", gm: "第四轮守秘人" },
-    ],
-    restoredFrom: "手动检查点 v4",
+    recap: "林晚因沈鹭寄来的车票来到雾港站，并发现末班车名单有异常。",
+    recentTurns: turns.slice(-3),
+    restoredFrom: "第三幕前",
   });
 
+  expect(messages[0]?.text).toStartWith("前情提要：林晚因沈鹭");
+  expect(messages.filter((message) => message.role === "pl")).toHaveLength(3);
+  expect(messages.some((message) => message.text === pack.manifest.opening)).toBe(false);
   expect(messages.map((message) => message.text)).toEqual([
-    "前情提要：你已经进入公寓，并发现书桌上的锁有新划痕。",
+    "前情提要：林晚因沈鹭寄来的车票来到雾港站，并发现末班车名单有异常。",
     "第二轮玩家",
     "第二轮守秘人",
     "第三轮玩家",
     "第三轮守秘人",
     "第四轮玩家",
     "第四轮守秘人",
-    "已从「手动检查点 v4」创建恢复分支。原检查点仍然保留。",
+    "已从「第三幕前」创建恢复分支。原检查点仍然保留。",
   ]);
+});
+
+test("restored view keeps two real turns without opening padding", () => {
+  const messages = createRestoredMessages(initialState(), {
+    recap: "林晚刚到雾港站。",
+    recentTurns: [
+      { turnId: "t1", stateVersion: 1, player: "第一问", gm: "第一答" },
+      { turnId: "t2", stateVersion: 1, player: "第二问", gm: "第二答" },
+    ],
+    restoredFrom: "开场后",
+  });
+
+  expect(messages.filter((message) => message.role === "pl").map((message) => message.text)).toEqual([
+    "第一问",
+    "第二问",
+  ]);
+  expect(messages.filter((message) => message.role === "kp").map((message) => message.text)).toEqual([
+    "第一答",
+    "第二答",
+  ]);
+  expect(messages.some((message) => message.text === pack.manifest.opening)).toBe(false);
 });
 
 test("recent dialogue ignores an unmatched player message", () => {

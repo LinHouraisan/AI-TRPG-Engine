@@ -287,8 +287,15 @@ export class TurnService {
   timeline(campaignId: CampaignId, branchId: string, limit: number) {
     const opened = this.campaigns.ensureOpen(campaignId);
     if (!opened.ok) return opened;
-    const events = loadGameEvents(opened.value, branchId);
-    const items = listTimeline(opened.value, branchId, limit).map((row) => {
+    const branch = opened.value.get<{ head_state_version: number; head_sequence: number }>(
+      "SELECT head_state_version, head_sequence FROM branches WHERE branch_id = ?",
+      [branchId],
+    );
+    const upperBound = branch
+      ? { stateVersion: branch.head_state_version, eventSequence: branch.head_sequence }
+      : undefined;
+    const events = loadGameEvents(opened.value, branchId, upperBound?.eventSequence);
+    const items = listTimeline(opened.value, branchId, limit, upperBound?.eventSequence).map((row) => {
       const event = JSON.parse(row.payload_json) as GameEvent;
       return {
         kind: "state_change" as const,

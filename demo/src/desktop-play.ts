@@ -42,7 +42,7 @@ export async function loadDesktopBranch(
   const events = ((page.value as { events?: GameEvent[] }).events ?? []);
   const value = page.value as Partial<DesktopBranchHistory>;
   const history = typeof value.recap === "string" && Array.isArray(value.recentTurns)
-    ? { recap: value.recap, recentTurns: value.recentTurns, restoredFrom: value.restoredFrom ?? null }
+    ? { recap: value.recap, recentTurns: value.recentTurns.slice(-3), restoredFrom: value.restoredFrom ?? null }
     : null;
   return {
     campaign,
