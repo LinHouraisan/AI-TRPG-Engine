@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fixedClock } from "../main/clock";
-import { createCheckpoint, listCheckpoints, restoreCheckpointCopy } from "../main/persist/checkpoints";
-import { openBun } from "../main/persist/bun-driver";
-import { applyInit, applyMigration } from "../main/persist/migrate";
-import { loadBranchHistory } from "../main/persist/turns";
+import { fixedClock } from "../src/main/clock";
+import { createCheckpoint, listCheckpoints, restoreCheckpointCopy } from "../src/main/persist/checkpoints";
+import { openBun } from "../src/main/persist/bun-driver";
+import { applyInit, applyMigration } from "../src/main/persist/migrate";
+import { loadBranchHistory } from "../src/main/persist/turns";
 
 function assert(ok: unknown, label: string): asserts ok {
   if (!ok) throw new Error(label);

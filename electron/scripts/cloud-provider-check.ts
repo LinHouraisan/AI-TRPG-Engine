@@ -1,11 +1,11 @@
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { CredentialStore } from "../main/credentials";
-import { withKeeperConfig } from "../main/model-config";
-import { openBun } from "../main/persist/bun-driver";
-import { applyInit } from "../main/persist/migrate";
-import { setTaskRoute, upsertProfile, upsertProvider } from "../main/persist/providers";
+import { CredentialStore } from "../src/main/credentials";
+import { withKeeperConfig } from "../src/main/model-config";
+import { openBun } from "../src/main/persist/bun-driver";
+import { applyInit } from "../src/main/persist/migrate";
+import { setTaskRoute, upsertProfile, upsertProvider } from "../src/main/persist/providers";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

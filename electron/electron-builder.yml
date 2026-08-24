@@ -11,7 +11,7 @@ files:
 extraResources:
   - from: dist/renderer
     to: renderer
-  - from: ../demo/src/data/packs
+  - from: content/packs
     to: packs
 asar: true
 asarUnpack:

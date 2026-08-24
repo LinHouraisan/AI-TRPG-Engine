@@ -122,8 +122,7 @@ type PackJson = {
   };
 };
 
-const repoRoot = join(import.meta.dir, "../..");
-const packsDir = join(repoRoot, "demo/src/data/packs");
+const packsDir = join(import.meta.dir, "../content/packs");
 const defaultOutDir = join(import.meta.dir, "../dist-content");
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();

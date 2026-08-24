@@ -8,35 +8,21 @@
 | --- | --- |
 | `docs/` | 逻辑架构（00–04）与 [V1 模块实现设计](docs/05-implementation-design/README.md)（Draft） |
 | `PRD/` | 需求文档；物理规格以 `docs/05` 为准，本目录记录仓库现状与差距 |
-| `demo/` | 事件内核与跑团桌的可运行切片（浏览器，不依赖 Tauri） |
-| `handbook/` | 作者手册（Astro），《寄宿公寓账本》的权威数据 |
-| `electron/` | V1 桌面外壳：Electron 主进程、`desktopApi`、`better-sqlite3` |
+| `electron/` | 唯一应用工作区：渲染器、内核、主进程、内容、测试与 Windows 打包 |
 
 ## 运行桌面程序（Electron）
 
 ```bash
-cd electron
-bun install
-bun run persist:check
-bun run dev
+bun install --ignore-scripts
+bun run desktop:check
+bun run desktop
 ```
 
-窗口加载的是 `demo/` 跑团桌。有 `window.desktopApi` 时顶栏会出现 Electron 战役目录；浏览器里单独开 Demo 则没有这一栏。
-
-## 运行试玩 Demo
-
-```bash
-cd demo
-bun install
-cp .env.example .env.local   # 填上本地 Ollama 的地址
-bun run dev
-```
-
-Demo 不依赖 Tauri，直接在浏览器里跑。守秘人叙述接本地 Ollama，把它关掉之后退回确定性模板，照样能玩完整条路径。主持人选项可勾「调试后台任务」，记录栏画出提交后的 Information / Director / Memory（默认关）。详见 [demo/README.md](demo/README.md) 和 [demo/PLAN.md](demo/PLAN.md)。
+Windows 解包版使用 `bun run package:win` 生成到 `electron/release/win-unpacked/`。
 
 ## 说明
 
-- **权威内核在 `demo/` 的事件循环**：浏览器里自己提交；Electron 里走主进程 `turn:submitAction`。主持人写不了事实。这一段做了什么见 [PRD/07](PRD/07-从文档对齐到现在.md)。
+- **权威内核在 `electron/src/core`**：Electron 通过主进程 `turn:submitAction` 提交行动，主持人写不了事实。
 - V1.0 见 [`docs/05-implementation-design/`](docs/05-implementation-design/README.md)。外壳已锁定 Electron。正式分发目标是 Windows x64。
-- Demo 与桌面的 API 密钥都不进数据库。桌面走系统钥匙串；Demo 接本地 Ollama，默认不存云端密钥。
+- API 密钥不进数据库，桌面使用系统安全存储。
 - 随包的规则文本只有 5e SRD，本产品与《龙与地下城》没有官方关系。试玩切片走的是《克苏鲁的呼唤》式百分规则，文本是自写的。

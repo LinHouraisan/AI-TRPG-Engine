@@ -1,21 +1,21 @@
 /**
  * 用主进程 TurnService 再跑一遍寄宿公寓金样。
- * 哈希必须和 demo/scripts/smoke.ts 当场算出来的一样。
+ * 哈希必须和 scripts/smoke.ts 当场算出来的一样。
  */
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { replay, stateHash } from "../../demo/src/engine/runtime";
-import { initialState, visibleItemsInRoom } from "../../demo/src/engine/state";
-import { fixedClock } from "../main/clock";
-import { CredentialStore } from "../main/credentials";
-import { resolvePaths } from "../main/paths";
-import { openBun } from "../main/persist/bun-driver";
-import { applyInit } from "../main/persist/migrate";
-import { loadGameEvents } from "../main/persist/turns";
-import { CampaignService } from "../main/services/campaigns";
-import { TurnService } from "../main/services/turns";
-import { asBranchId, asStateVersion, type EntityId } from "../shared/ids";
+import { replay, stateHash } from "@core/engine/runtime";
+import { initialState, visibleItemsInRoom } from "@core/engine/state";
+import { fixedClock } from "../src/main/clock";
+import { CredentialStore } from "../src/main/credentials";
+import { resolvePaths } from "../src/main/paths";
+import { openBun } from "../src/main/persist/bun-driver";
+import { applyInit } from "../src/main/persist/migrate";
+import { loadGameEvents } from "../src/main/persist/turns";
+import { CampaignService } from "../src/main/services/campaigns";
+import { TurnService } from "../src/main/services/turns";
+import { asBranchId, asStateVersion, type EntityId } from "../src/shared/ids";
 
 const root = mkdtempSync(join(tmpdir(), "ai-trpg-gold-"));
 const clock = fixedClock("2026-08-19T00:00:00.000Z");

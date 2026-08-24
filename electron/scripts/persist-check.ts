@@ -1,22 +1,22 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fixedClock } from "../main/clock";
-import { CredentialStore, type SafeStorage } from "../main/credentials";
-import { resolvePaths } from "../main/paths";
-import { openBun } from "../main/persist/bun-driver";
-import { checksum } from "../main/persist/migrate";
-import { CampaignService } from "../main/services/campaigns";
-import { TurnService } from "../main/services/turns";
-import { applyInit } from "../main/persist/migrate";
-import { setSetting, getSetting } from "../main/persist/catalog";
-import { ensureDefaultProvider, listProviders, listTaskRoutes } from "../main/persist/providers";
-import { asBranchId, asStateVersion, type EntityId } from "../shared/ids";
-import { loadGameEvents } from "../main/persist/turns";
-import { hashProfile, loadInvestigator } from "../main/persist/investigator";
-import { restoreCheckpointCopy } from "../main/persist/checkpoints";
-import { replay } from "../../demo/src/engine/runtime";
-import { initialState } from "../../demo/src/engine/state";
+import { fixedClock } from "../src/main/clock";
+import { CredentialStore, type SafeStorage } from "../src/main/credentials";
+import { resolvePaths } from "../src/main/paths";
+import { openBun } from "../src/main/persist/bun-driver";
+import { checksum } from "../src/main/persist/migrate";
+import { CampaignService } from "../src/main/services/campaigns";
+import { TurnService } from "../src/main/services/turns";
+import { applyInit } from "../src/main/persist/migrate";
+import { setSetting, getSetting } from "../src/main/persist/catalog";
+import { ensureDefaultProvider, listProviders, listTaskRoutes } from "../src/main/persist/providers";
+import { asBranchId, asStateVersion, type EntityId } from "../src/shared/ids";
+import { loadGameEvents } from "../src/main/persist/turns";
+import { hashProfile, loadInvestigator } from "../src/main/persist/investigator";
+import { restoreCheckpointCopy } from "../src/main/persist/checkpoints";
+import { replay } from "@core/engine/runtime";
+import { initialState } from "@core/engine/state";
 
 function xorSafeStorage(available: boolean): SafeStorage {
   const mask = 0xa5;

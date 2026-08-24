@@ -4,10 +4,12 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "workspaces": ["handbook"],
+  "workspaces": ["electron"],
   "scripts": {
     "desktop": "bun run --cwd electron dev",
     "desktop:check": "bun run --cwd electron persist:check",
-    "handbook": "bun ./handbook/node_modules/.bin/astro dev --root ./handbook"
+    "test": "bun run --cwd electron test",
+    "build": "bun run --cwd electron build",
+    "package:win": "bun run --cwd electron package:win"
   }
 }

@@ -2,12 +2,11 @@ import { spawn } from "node:child_process";
 import { join } from "node:path";
 
 const root = join(import.meta.dir, "..");
-const repo = join(root, "..");
 
 await Bun.$`bun scripts/build.ts`.cwd(root);
 
-const vite = spawn("bun", ["run", "dev"], {
-  cwd: join(repo, "demo"),
+const vite = spawn("bun", ["x", "vite", "--host", "127.0.0.1", "--port", "1421"], {
+  cwd: root,
   stdio: "inherit",
 });
 
@@ -30,7 +29,7 @@ const electronBin = join(root, "node_modules/.bin/electron");
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
 env.ELECTRON_RENDERER_URL = "http://127.0.0.1:1421";
-env.AI_TRPG_PACKS_DIR = join(repo, "demo/src/data/packs");
+env.AI_TRPG_PACKS_DIR = join(root, "content/packs");
 
 const electron = spawn(electronBin, ["."], {
   cwd: root,

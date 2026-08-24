@@ -7,7 +7,7 @@ description: Use when packaging or refreshing the AI TRPG Engine Windows demo an
 
 ## Output contract
 
-Produce one runnable folder at `electron/release/win-unpacked`. Keep at most one previous complete build at `electron/release/win-unpacked-old`.
+Produce one runnable folder at `electron/release/win-unpacked`.
 
 Do not build installers, portable single-file executables, ZIP files, or blockmaps unless the user explicitly requests them. Final reporting should normally contain only the new folder path and verification result.
 
@@ -23,11 +23,10 @@ Do not build installers, portable single-file executables, ZIP files, or blockma
    bun run --cwd electron rebuild:native
    ```
 
-3. Build renderer and main process, then replace only `electron/dist/renderer` with `demo/dist`:
+3. Build the Electron-owned renderer and main process:
 
    ```powershell
-   bun run --cwd demo build
-   bun run --cwd electron build:main
+   bun run --cwd electron build
    ```
 
 4. From `electron`, build only an unpacked directory into staging inside the existing release folder:
@@ -41,28 +40,20 @@ Do not build installers, portable single-file executables, ZIP files, or blockma
 5. Verify `electron/release/staging/win-unpacked` before rotating folders:
 
    ```powershell
-   bun test demo/src/session-opening.test.ts demo/src/keeper/guard.test.ts demo/src/keeper/free-turn.test.ts demo/src/character/creation.test.ts
+   bun run --cwd electron typecheck
+   bun run --cwd electron test
    bun run --cwd electron checkpoint:check
    bun run --cwd electron demo:e2e
    ```
 
    Launch the staged executable briefly and confirm it remains running. Stop only the process launched for this check.
 
-6. Rotate only after verification succeeds:
-
-   - Delete `win-unpacked-old` if it exists.
-   - Move the current `win-unpacked` to `win-unpacked-old` only when it is complete; delete it when incomplete.
-   - Move `staging/win-unpacked` to `win-unpacked`.
-   - Delete the empty staging directory and unrelated generated files in `electron/release`.
-
-   Before recursive deletion or moving on Windows, resolve every absolute path and verify it remains under `electron/release`. If the current build is locked and no packaged app process owns it, keep it in place and rename the verified staged folder to `win-unpacked-new`. Keep both under the same `electron/release`; never create another top-level release directory.
+6. Replace `win-unpacked` with the verified staged folder and delete staging. Before deletion or moving, resolve every absolute path and verify it remains under `electron/release`. If the current build is locked, stop and report the lock; do not create fallback release trees.
 
 7. Confirm the final release directory contains only:
 
    ```text
    electron/release/win-unpacked
-   electron/release/win-unpacked-old  # only when a complete previous build exists
-   electron/release/win-unpacked-new  # lock fallback; replaces win-unpacked-old
    ```
 
 ## Success criteria

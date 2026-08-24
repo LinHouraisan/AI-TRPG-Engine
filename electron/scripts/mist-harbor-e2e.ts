@@ -20,12 +20,12 @@ const [
   { loadGameEvents }, { openBun }, { applyInit }, { setSetting },
   { CampaignService }, { TurnService },
 ] = await Promise.all([
-  import("../../demo/src/engine/pack"), import("../main/clock"),
-  import("../main/credentials"), import("../main/paths"),
-  import("../main/persist/checkpoints"), import("../main/persist/investigator"),
-  import("../main/persist/turns"), import("../main/persist/bun-driver"),
-  import("../main/persist/migrate"), import("../main/persist/catalog"),
-  import("../main/services/campaigns"), import("../main/services/turns"),
+  import("@core/engine/pack"), import("../src/main/clock"),
+  import("../src/main/credentials"), import("../src/main/paths"),
+  import("../src/main/persist/checkpoints"), import("../src/main/persist/investigator"),
+  import("../src/main/persist/turns"), import("../src/main/persist/bun-driver"),
+  import("../src/main/persist/migrate"), import("../src/main/persist/catalog"),
+  import("../src/main/services/campaigns"), import("../src/main/services/turns"),
 ]);
 
 const scratch = mkdtempSync(join(tmpdir(), "mist-harbor-e2e-"));
