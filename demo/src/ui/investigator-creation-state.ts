@@ -1,4 +1,4 @@
-import { validateAllocation } from "@/character/creation";
+import { allocationBudget, validateAllocation } from "@/character/creation";
 import type {
   AllocationIssue,
   InvestigatorAllocation,
@@ -58,7 +58,7 @@ export function initialCreationState(rules: InvestigatorCreationRules): Creation
     allocation: {
       name: "林晚",
       lifeHistoryId: "",
-      occupationPoints: {},
+      occupationPoints: { ...rules.occupationDefaults },
       interestPoints: {},
     },
     issues: [],
@@ -68,7 +68,7 @@ export function initialCreationState(rules: InvestigatorCreationRules): Creation
 export function creationReducer(state: CreationState, action: CreationAction): CreationState {
   if (action.type === "go") return moveTo(state, action.step);
 
-  const allocation = updateAllocation(state.allocation, action);
+  const allocation = updateAllocation(state.allocation, action, state.rules);
   return {
     ...state,
     allocation,
@@ -79,15 +79,28 @@ export function creationReducer(state: CreationState, action: CreationAction): C
 function updateAllocation(
   allocation: InvestigatorAllocation,
   action: Exclude<CreationAction, { type: "go" }>,
+  rules: InvestigatorCreationRules,
 ): InvestigatorAllocation {
   if (action.type === "set-name") return { ...allocation, name: action.name };
   if (action.type === "select-history") {
     return { ...allocation, lifeHistoryId: action.lifeHistoryId };
   }
   const key = action.pool === "occupation" ? "occupationPoints" : "interestPoints";
+  const otherKey = action.pool === "occupation" ? "interestPoints" : "occupationPoints";
+  const current = allocation[key][action.skill] ?? 0;
+  const spentElsewhere = Object.entries(allocation[key])
+    .reduce((total, [skill, value]) => total + (skill === action.skill ? 0 : value), 0);
+  const poolBudget = allocationBudget(rules)[action.pool];
+  const skillRoom = rules.maxSkill
+    - (rules.baseSkills[action.skill] ?? 0)
+    - (allocation[otherKey][action.skill] ?? 0);
+  const maximum = Math.max(0, Math.min(poolBudget - spentElsewhere, skillRoom));
+  const value = Number.isFinite(action.value)
+    ? Math.min(maximum, Math.max(0, Math.trunc(action.value)))
+    : current;
   return {
     ...allocation,
-    [key]: { ...allocation[key], [action.skill]: action.value },
+    [key]: { ...allocation[key], [action.skill]: value },
   };
 }
 

@@ -176,6 +176,7 @@ const creationSchema: z.ZodType<InvestigatorCreationRules> = z.object({
   }),
   baseSkills: z.record(z.string(), z.number().int()),
   occupationSkills: z.array(z.string()).min(1),
+  occupationDefaults: z.record(z.string(), z.number().int().nonnegative()),
   maxSkill: z.literal(90),
   hp: z.number().int().positive(),
   san: z.number().int().positive(),

@@ -23,6 +23,37 @@ test("cannot advance from skills until both point pools are exactly spent", () =
   expect(next.issues.some((issue) => issue.code === "POINTS_REMAINING")).toBe(true);
 });
 
+test("selected occupation starts with its authored occupation point allocation", () => {
+  const state = initialCreationState(rules);
+
+  expect(state.allocation.occupationPoints).toEqual({
+    侦查: 55,
+    聆听: 35,
+    图书馆使用: 50,
+    话术: 70,
+    心理学: 70,
+  });
+});
+
+test("point editing clamps immediately to the pool remainder and final skill cap", () => {
+  const initial = initialCreationState(rules);
+  const interestCapped = creationReducer(initial, {
+    type: "set-points",
+    pool: "interest",
+    skill: "侦查",
+    value: 999,
+  });
+  expect(interestCapped.allocation.interestPoints.侦查).toBe(10);
+
+  const occupationCapped = creationReducer(initial, {
+    type: "set-points",
+    pool: "occupation",
+    skill: "侦查",
+    value: 999,
+  });
+  expect(occupationCapped.allocation.occupationPoints.侦查).toBe(55);
+});
+
 test("valid allocation can advance to life history", () => {
   const state = {
     ...initialCreationState(rules),

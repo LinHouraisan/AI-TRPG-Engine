@@ -63,7 +63,28 @@ export async function handleFreeTurn(params: {
     recentTurns: params.recentTurns,
     signal: params.signal,
   });
+  if (
+    routed.intent.kind === "unclear"
+    && isConcretePresentNpcAction(params.spoken, params.state, params.scenarioPack)
+  ) {
+    return {
+      modelTaskId: params.modelTaskId,
+      intent: { kind: "free_action", text: params.spoken },
+      source: "程序",
+      note: "已按现场 NPC 的明确自由行动处理",
+    };
+  }
   return { modelTaskId: params.modelTaskId, ...routed };
+}
+
+function isConcretePresentNpcAction(spoken: string, state: GameState, scenarioPack?: Pack): boolean {
+  if (!scenarioPack || !/(打断|阻止|帮助|跟随|靠近|离开|等待|观察|展示|交给|拿给|叫住|追问)/.test(spoken)) return false;
+  return scenarioPack.npcs.some((npc) => {
+    if (state.npcAt[npc.id] !== state.pcAt) return false;
+    const names = [npc.title, npc.title.slice(-2), ...npc.title.split(/[空格·]/)]
+      .filter((name) => name.length >= 2);
+    return names.some((name) => spoken.includes(name));
+  });
 }
 
 /**

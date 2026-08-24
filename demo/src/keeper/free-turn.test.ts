@@ -66,6 +66,26 @@ test("free-turn accepts an off-script action instead of forcing clarification", 
   });
 });
 
+test("a concrete action toward a present NPC survives an overly strict unclear route", async () => {
+  globalThis.fetch = (async () => new Response(JSON.stringify({
+    choices: [{ message: { content: '{"verb":"unclear","target":"","text":"请说具体一点。"}' } }],
+  }), { status: 200 })) as unknown as typeof fetch;
+
+  const result = await handleFreeTurn({
+    config,
+    state: {
+      ...initialState(),
+      pcAt: "loc.ticket",
+      npcAt: { "npc.clerk": "loc.ticket" },
+    },
+    scenarioPack: mist,
+    spoken: "打断罗姨工作",
+    modelTaskId: "task-present-npc-action",
+  });
+
+  expect(result.intent).toEqual({ kind: "free_action", text: "打断罗姨工作" });
+});
+
 test("searching for leverage on the conductor selects an authored Spot Hidden check", async () => {
   globalThis.fetch = (async () => new Response(JSON.stringify({
     choices: [{ message: { content: JSON.stringify({

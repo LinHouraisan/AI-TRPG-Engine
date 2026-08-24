@@ -15,6 +15,7 @@ export type InvestigatorCreationRules = {
   characteristics: Record<Characteristic, number>;
   baseSkills: Record<string, number>;
   occupationSkills: string[];
+  occupationDefaults: Record<string, number>;
   maxSkill: 90;
   hp: number;
   san: number;

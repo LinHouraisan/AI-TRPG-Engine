@@ -115,13 +115,26 @@ export function InvestigatorCreation({
                     {Object.entries(rules.baseSkills).map(([skill, base]) => {
                       const occupation = state.allocation.occupationPoints[skill] ?? 0;
                       const interest = state.allocation.interestPoints[skill] ?? 0;
+                      const final = base + occupation + interest;
+                      const occupationMax = occupation + Math.min(
+                        budget.occupation - occupationSpent,
+                        rules.maxSkill - final,
+                      );
+                      const interestMax = interest + Math.min(
+                        budget.interest - interestSpent,
+                        rules.maxSkill - final,
+                      );
                       return (
                         <tr key={skill} className="border-t border-line/35">
-                          <td className="py-2">{skill} <span className="text-muted">{base}</span></td>
+                          <td className="py-2">
+                            {skill} <span className="text-muted">{base}</span>
+                            {final === rules.maxSkill ? <span className="ml-2 text-[11px] text-brass">已达上限</span> : null}
+                          </td>
                           <td>
                             {rules.occupationSkills.includes(skill) ? (
                               <PointInput
                                 value={occupation}
+                                max={occupationMax}
                                 onChange={(value) => dispatch({ type: "set-points", pool: "occupation", skill, value })}
                               />
                             ) : <span className="text-muted">—</span>}
@@ -129,10 +142,11 @@ export function InvestigatorCreation({
                           <td>
                             <PointInput
                               value={interest}
+                              max={interestMax}
                               onChange={(value) => dispatch({ type: "set-points", pool: "interest", skill, value })}
                             />
                           </td>
-                          <td className="text-right tabular-nums">{base + occupation + interest}</td>
+                          <td className="text-right tabular-nums">{final}</td>
                         </tr>
                       );
                     })}
@@ -201,13 +215,14 @@ export function InvestigatorCreation({
   );
 }
 
-function PointInput({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+function PointInput({ value, max, onChange }: { value: number; max: number; onChange: (value: number) => void }) {
   return (
     <div className="flex items-center gap-1">
       <button type="button" onClick={() => onChange(Math.max(0, value - 1))} className="size-8 rounded border border-line/60">−</button>
       <input
         type="number"
         min={0}
+        max={max}
         step={1}
         value={value}
         onChange={(event) => {
@@ -216,7 +231,12 @@ function PointInput({ value, onChange }: { value: number; onChange: (value: numb
         }}
         className="w-16 rounded border border-line/60 bg-ink-3 px-2 py-1.5 text-center tabular-nums"
       />
-      <button type="button" onClick={() => onChange(value + 1)} className="size-8 rounded border border-line/60">+</button>
+      <button
+        type="button"
+        disabled={value >= max}
+        onClick={() => onChange(value + 1)}
+        className="size-8 rounded border border-line/60 disabled:opacity-35"
+      >+</button>
     </div>
   );
 }
