@@ -82,6 +82,43 @@ test("interaction points reject menus and copied player instructions", () => {
   }
 });
 
+test("interaction points reject player instructions appended to scene descriptions", () => {
+  const feedback = "她听见了你的追问";
+  const reaction = "她没有收起桌上的车票";
+  for (const interactionPoint of [
+    "车票仍摊在桌上，接下来请调查车票",
+    "车门仍开着，然后你可以前往站台",
+    "票背露出淡字，不妨查看那行墨痕",
+    "女孩没有收回手，你能继续追问她",
+    "雾里传来铃声，接下来选择行动",
+  ]) {
+    expect(checkNarrationQuality({
+      text: `${feedback}，${reaction}。${interactionPoint}。`,
+      feedback,
+      reaction,
+      interactionPoints: [interactionPoint],
+    }, "dialogue")).toEqual({ ok: false, reason: "menu_interaction" });
+  }
+});
+
+test("neutral affordances and quoted NPC speech are not player instructions", () => {
+  const feedback = "她听见了你的追问";
+  const reaction = "她没有收起桌上的车票";
+  for (const interactionPoint of [
+    "车票可以证明他的行程",
+    "车票仍摊在桌上，票背的蓝墨痕没有被她遮住",
+    "她低声说：“接下来请调查那张车票。”",
+    "她低声说，接下来请调查那张车票",
+  ]) {
+    expect(checkNarrationQuality({
+      text: `${feedback}，${reaction}。${interactionPoint}`,
+      feedback,
+      reaction,
+      interactionPoints: [interactionPoint],
+    }, "dialogue")).toEqual({ ok: true });
+  }
+});
+
 test("a cohesive scene affordance satisfies every rich narration field", () => {
   expect(checkNarrationQuality({
     text: "她听见了你的追问，目光落向那张潮湿车票。车票背面的淡蓝字迹仍露在她指尖旁。",

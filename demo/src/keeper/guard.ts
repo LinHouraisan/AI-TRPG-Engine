@@ -51,10 +51,29 @@ function normalizeReflection(text: string): string {
 }
 
 function hasMenuInteraction(text: string, interactionPoints: string[]): boolean {
-  if (/(?:^|\n)\s*(?:\d+[.、)]|[-*•])\s*|你可以选择|选项[：:]/u.test(text)) return true;
-  return interactionPoints.some((point) =>
-    /^(?:\d+[.、)]|[-*•]|你可以|请选择|选项[：:]?|继续(?:追问|询问|调查|查看|尝试)|(?:追问|询问|调查|查看|尝试|选择|决定))/u.test(point),
-  );
+  const narrativeText = withoutNpcSpeech(text);
+  if (/(?:^|\n)\s*(?:\d+[.、)]|[-*•])\s*|你可以选择|选项[：:]/u.test(narrativeText)) {
+    return true;
+  }
+  return interactionPoints.some((point) => {
+    const narrativePoint = withoutNpcSpeech(point).trim();
+    if (/^(?:\d+[.、)]|[-*•]|你可以|请选择|选项[：:]?|继续(?:追问|询问|调查|查看|尝试)|(?:追问|询问|调查|查看|尝试|选择|决定))/u.test(narrativePoint)) {
+      return true;
+    }
+    if (/(?:接下来|请|你可以|你能|不妨)\s*(?:请|你可以|你能|不妨)?\s*(?:先|再|继续)?\s*(?:调查|查看|询问|追问|选择|前往|行动)|然后\s*(?:请|你可以|你能|不妨)?\s*(?:先|再|继续)?\s*(?:调查|查看|询问|追问|选择|前往|行动)/u.test(narrativePoint)) {
+      return true;
+    }
+    return /[，,；;]\s*(?:请|你可以|你能|不妨)?\s*(?:先|再|继续)?\s*(?:调查|查看|询问|追问|选择|前往|行动)[^。！？\n]{0,16}[。！？]?\s*$/u.test(narrativePoint);
+  });
+}
+
+function withoutNpcSpeech(text: string): string {
+  return text
+    .replace(/“[^”]*”/gu, "")
+    .replace(/‘[^’]*’/gu, "")
+    .replace(/"[^"]*"/gu, "")
+    .replace(/'[^']*'/gu, "")
+    .replace(/(?:低声说|低声道|喊道|回答|提醒|说|问)[：，,][^。！？\n]*/gu, "");
 }
 
 function hasRepeatedPadding(text: string): boolean {

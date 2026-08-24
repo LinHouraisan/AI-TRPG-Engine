@@ -56,3 +56,18 @@ Implemented Task 6 in the assigned isolated worktree with focused red/green cove
 - Full demo suite: 81 pass, 0 fail, 218 assertions.
 - `bun run --cwd demo typecheck`: pass.
 - `git diff --check`: pass with only the repository's existing LF-to-CRLF warnings.
+
+## Review Fix Round 2
+
+- Strengthened the non-menu interaction rule beyond start-anchored commands. Interaction points now reject player-directed cue/action combinations anywhere in the narrative layer, including `接下来`、`然后`、`请`、`你可以/你能`、`不妨` with `调查`、`查看`、`询问`、`追问`、`选择`、`前往` or `行动`.
+- Scene descriptions followed by imperative suffixes are rejected, including the exact regression `车票仍摊在桌上，接下来请调查车票`.
+- Quoted dialogue and explicitly reported NPC speech are removed only for command classification, so in-world speech remains valid. Neutral affordances such as `车票可以证明他的行程` and descriptive unresolved details remain accepted.
+- Updated the Keeper prompt with the same cue/action examples so the model receives the validation boundary before generation.
+
+## Review-Fix-Round-2 Verification
+
+- Focused Keeper suite: 28 pass, 0 fail, 99 assertions.
+- `bun run --cwd demo keeper:check`: 234 checks passed.
+- Full demo suite: 83 pass, 0 fail, 227 assertions.
+- `bun run --cwd demo typecheck`: pass.
+- `git diff --check`: pass with only the repository's existing LF-to-CRLF warnings.
