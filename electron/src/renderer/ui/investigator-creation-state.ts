@@ -33,18 +33,6 @@ export function canSubmitConfirmation(params: {
   return params.ready && !params.busy && params.issueCount === 0;
 }
 
-export function shouldAutoConfirm(params: {
-  step: CreationStep;
-  ready: boolean;
-  busy: boolean;
-  issueCount: number;
-  alreadyAttempted: boolean;
-}): boolean {
-  return params.step === "review"
-    && canSubmitConfirmation(params)
-    && !params.alreadyAttempted;
-}
-
 export type CreationState = {
   step: CreationStep;
   rules: InvestigatorCreationRules;

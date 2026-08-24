@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef } from "react";
+import { useReducer } from "react";
 import { allocationBudget } from "@core/character/creation";
 import type { InvestigatorAllocation, InvestigatorCreationRules } from "@core/character/types";
 import { pack } from "@core/engine/pack";
@@ -6,7 +6,6 @@ import {
   creationReducer,
   canSubmitConfirmation,
   initialCreationState,
-  shouldAutoConfirm,
   type CreationStep,
 } from "./investigator-creation-state";
 
@@ -36,20 +35,6 @@ export function InvestigatorCreation({
   const occupationSpent = sum(state.allocation.occupationPoints);
   const interestSpent = sum(state.allocation.interestPoints);
   const history = rules.lifeHistories.find((candidate) => candidate.id === state.allocation.lifeHistoryId);
-  const autoAttempted = useRef<string | null>(null);
-  const allocationKey = JSON.stringify(state.allocation);
-
-  useEffect(() => {
-    if (!shouldAutoConfirm({
-      step: state.step,
-      ready,
-      busy,
-      issueCount: state.issues.length,
-      alreadyAttempted: autoAttempted.current === allocationKey,
-    })) return;
-    autoAttempted.current = allocationKey;
-    void onConfirm(state.allocation);
-  }, [allocationKey, busy, onConfirm, ready, state.allocation, state.issues.length, state.step]);
 
   function go(step: CreationStep) {
     dispatch({ type: "go", step });
@@ -211,17 +196,22 @@ export function InvestigatorCreation({
                 <p><span className="text-muted">公开关系：</span>{history?.relationship.text}</p>
               </div>
               <IssueList issues={state.issues.map((issue) => issue.message)} />
-              <div className="flex items-center justify-between gap-3">
+              <form
+                className="flex items-center justify-between gap-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void onConfirm(state.allocation);
+                }}
+              >
                 <button type="button" onClick={() => go("history")} className="rounded border border-line/70 px-3 py-2 text-sm">上一步</button>
                 <button
-                  type="button"
+                  type="submit"
                   disabled={!canSubmitConfirmation({ ready, busy, issueCount: state.issues.length })}
-                  onClick={() => void onConfirm(state.allocation)}
                   className="rounded border border-brass/70 bg-brass/10 px-4 py-2 text-sm text-brass disabled:opacity-40"
                 >
                   {busy ? "正在确认…" : "确认调查员并开始"}
                 </button>
-              </div>
+              </form>
             </>
           ) : null}
         </div>
