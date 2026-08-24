@@ -1,5 +1,5 @@
 import { useReducer } from "react";
-import { allocationBudget } from "@core/character/creation";
+import { allocationBudget, validateAllocation } from "@core/character/creation";
 import type { InvestigatorAllocation, InvestigatorCreationRules } from "@core/character/types";
 import { pack } from "@core/engine/pack";
 import {
@@ -8,6 +8,7 @@ import {
   initialCreationState,
   type CreationStep,
 } from "./investigator-creation-state";
+import { InvestigatorProfileCard } from "./InvestigatorProfileCard";
 
 const STEPS: Array<{ id: CreationStep; label: string }> = [
   { id: "premise", label: "前提" },
@@ -35,6 +36,8 @@ export function InvestigatorCreation({
   const occupationSpent = sum(state.allocation.occupationPoints);
   const interestSpent = sum(state.allocation.interestPoints);
   const history = rules.lifeHistories.find((candidate) => candidate.id === state.allocation.lifeHistoryId);
+  const validated = validateAllocation(rules, state.allocation);
+  const reviewProfile = validated.ok ? validated.profile : null;
 
   function go(step: CreationStep) {
     dispatch({ type: "go", step });
@@ -189,29 +192,30 @@ export function InvestigatorCreation({
 
           {state.step === "review" ? (
             <>
-              <div className="rounded border border-line/50 bg-ink-3/35 p-4 text-sm leading-7">
-                <p><span className="text-muted">调查员：</span>{state.allocation.name} · {rules.occupation}</p>
-                <p><span className="text-muted">人生经历：</span>{history?.title}</p>
-                <p><span className="text-muted">扮演提示：</span>{history?.roleplayPrompt}</p>
-                <p><span className="text-muted">公开关系：</span>{history?.relationship.text}</p>
-              </div>
+              {reviewProfile ? (
+                <div className="rounded border border-line/50 bg-ink-3/35 p-4">
+                  <InvestigatorProfileCard
+                    profile={reviewProfile}
+                    hp={reviewProfile.hp}
+                    hpMax={reviewProfile.hp}
+                    san={reviewProfile.san}
+                    sanMax={reviewProfile.sanMax}
+                    relationships={history ? [history.relationship.text] : []}
+                  />
+                </div>
+              ) : null}
               <IssueList issues={state.issues.map((issue) => issue.message)} />
-              <form
-                className="flex items-center justify-between gap-3"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void onConfirm(state.allocation);
-                }}
-              >
+              <div className="flex items-center justify-between gap-3">
                 <button type="button" onClick={() => go("history")} className="rounded border border-line/70 px-3 py-2 text-sm">上一步</button>
                 <button
-                  type="submit"
+                  type="button"
                   disabled={!canSubmitConfirmation({ ready, busy, issueCount: state.issues.length })}
+                  onClick={() => void onConfirm(state.allocation)}
                   className="rounded border border-brass/70 bg-brass/10 px-4 py-2 text-sm text-brass disabled:opacity-40"
                 >
                   {busy ? "正在确认…" : "确认调查员并开始"}
                 </button>
-              </form>
+              </div>
             </>
           ) : null}
         </div>
