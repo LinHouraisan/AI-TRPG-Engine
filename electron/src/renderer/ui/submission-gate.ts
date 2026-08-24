@@ -12,3 +12,7 @@ export function createSubmissionGate() {
     },
   };
 }
+
+export function createInvestigatorConfirmationGate() {
+  return createSubmissionGate();
+}

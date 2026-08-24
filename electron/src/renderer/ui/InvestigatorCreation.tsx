@@ -1,4 +1,4 @@
-import { useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { allocationBudget } from "@core/character/creation";
 import type { InvestigatorAllocation, InvestigatorCreationRules } from "@core/character/types";
 import { pack } from "@core/engine/pack";
@@ -6,6 +6,7 @@ import {
   creationReducer,
   canSubmitConfirmation,
   initialCreationState,
+  shouldAutoConfirm,
   type CreationStep,
 } from "./investigator-creation-state";
 
@@ -35,6 +36,20 @@ export function InvestigatorCreation({
   const occupationSpent = sum(state.allocation.occupationPoints);
   const interestSpent = sum(state.allocation.interestPoints);
   const history = rules.lifeHistories.find((candidate) => candidate.id === state.allocation.lifeHistoryId);
+  const autoAttempted = useRef<string | null>(null);
+  const allocationKey = JSON.stringify(state.allocation);
+
+  useEffect(() => {
+    if (!shouldAutoConfirm({
+      step: state.step,
+      ready,
+      busy,
+      issueCount: state.issues.length,
+      alreadyAttempted: autoAttempted.current === allocationKey,
+    })) return;
+    autoAttempted.current = allocationKey;
+    void onConfirm(state.allocation);
+  }, [allocationKey, busy, onConfirm, ready, state.allocation, state.issues.length, state.step]);
 
   function go(step: CreationStep) {
     dispatch({ type: "go", step });

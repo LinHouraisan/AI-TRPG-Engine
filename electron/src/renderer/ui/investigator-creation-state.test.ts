@@ -10,6 +10,7 @@ import {
   initialConfirmationState,
   initialCreationState,
   openingGate,
+  shouldAutoConfirm,
 } from "./investigator-creation-state";
 
 const rules = loadPackById("mist-harbor").manifest.creation;
@@ -100,4 +101,21 @@ test("rejected confirmation renders a visible alert without disabling retry", ()
   expect(html).toContain('role="alert"');
   expect(html).toContain("调查员确认失败：investigator.allocation_invalid");
   expect(canSubmitConfirmation({ ready: true, busy: false, issueCount: 0 })).toBe(true);
+});
+
+test("a valid review automatically confirms once without relying on the final button click", () => {
+  expect(shouldAutoConfirm({
+    step: "review",
+    ready: true,
+    busy: false,
+    issueCount: 0,
+    alreadyAttempted: false,
+  })).toBe(true);
+  expect(shouldAutoConfirm({
+    step: "review",
+    ready: true,
+    busy: false,
+    issueCount: 0,
+    alreadyAttempted: true,
+  })).toBe(false);
 });

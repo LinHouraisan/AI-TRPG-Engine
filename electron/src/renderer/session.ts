@@ -24,6 +24,7 @@ import type { DialogueTurn } from "@core/keeper/dialogue-context";
 import { handleFreeTurn, narrateFreeTurn, newFreeTurnTaskId } from "@core/keeper/free-turn";
 import { keeperNarrate, type NarrationStreamEvent } from "@core/keeper/keeper";
 import { PersistedDialogueSource } from "@core/keeper/persisted-dialogue";
+import { createInvestigatorConfirmationGate } from "@renderer/ui/submission-gate";
 import {
   openStore,
   type BranchInfo,
@@ -335,6 +336,7 @@ export function useSession() {
   const [lastUsage, setLastUsage] = useState<ContextUsage | null>(null);
   const [lastTrace, setLastTrace] = useState<JobTrace | null>(null);
   const inflight = useRef(false);
+  const investigatorConfirmationGate = useRef(createInvestigatorConfirmationGate());
   const memoryRef = useRef<MemoryState>(emptyMemory());
   const contextRef = useRef<ContextStore>(emptyContextStore());
   const liveInflight = useRef(false);
@@ -1329,13 +1331,13 @@ export function useSession() {
   }, [adopt, adoptDesktopCampaign, busy, refreshBranches]);
 
   const confirmInvestigator = useCallback(async (allocation: InvestigatorAllocation) => {
-    if (!campaignId || !branchId || busy || inflight.current || investigatorProfile) return false;
-    dispatchConfirmation({ type: "attempted" });
-    inflight.current = true;
-    setBusy(true);
-    setPending({ label: "确认调查员", intent: null, check: null });
-    dispatchCheckPreview({ type: "cleared" });
-    try {
+    if (!campaignId || !branchId || busy || investigatorProfile) return false;
+    return investigatorConfirmationGate.current.run(async () => {
+      dispatchConfirmation({ type: "attempted" });
+      setBusy(true);
+      setPending({ label: "确认调查员", intent: null, check: null });
+      dispatchCheckPreview({ type: "cleared" });
+      try {
       const remote = tryDesktopApi();
       if (remote) {
         const confirmed = await remote.campaign.confirmInvestigator({
@@ -1409,17 +1411,17 @@ export function useSession() {
       setInvestigatorProfile(projected.profile);
       setMessages(createOpening(projected.state, projected.profile));
       return true;
-    } catch (error) {
-      dispatchConfirmation({
-        type: "rejected",
-        error: `调查员确认失败：${error instanceof Error ? error.message : String(error)}`,
-      });
-      return false;
-    } finally {
-      setPending(null);
-      setBusy(false);
-      inflight.current = false;
-    }
+      } catch (error) {
+        dispatchConfirmation({
+          type: "rejected",
+          error: `调查员确认失败：${error instanceof Error ? error.message : String(error)}`,
+        });
+        return false;
+      } finally {
+        setPending(null);
+        setBusy(false);
+      }
+    });
   }, [adopt, adoptDesktopCampaign, branchId, busy, campaignId, investigatorProfile, pushNotice, refreshBranches]);
 
   const pushSystem = useCallback(
