@@ -17,6 +17,7 @@ const COLUMN_COLOR: Record<ContextColumnName, string> = {
   经过: "var(--color-ctx-history)",
   本回合已提交的事实: "var(--color-ctx-facts)",
   作者写好的句子: "var(--color-ctx-authored)",
+  "NPC 对话": "var(--color-ctx-people)",
 };
 
 function omissionLine(name: ContextColumnName, dropped: number): string | null {

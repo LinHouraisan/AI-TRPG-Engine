@@ -18,6 +18,7 @@ import {
 } from "./contract";
 import { buildContext, buildRouteContext, type ContextUsage } from "./context";
 import { checkNarration } from "./guard";
+import type { DialogueTurn } from "./dialogue-context";
 
 const NARRATE_SYSTEM = [
   "你是《克苏鲁的呼唤》的守秘人，主持一场简体中文的跑团。",
@@ -81,6 +82,9 @@ export async function keeperNarrate(params: {
   events: GameEvent[];
   intent: Intent;
   spoken: string;
+  recentTurns?: DialogueTurn[];
+  profile?: InvestigationProfile | null;
+  scenarioPack?: Pack;
   fallback: string;
   signal?: AbortSignal;
   onStream?: (event: NarrationStreamEvent) => void;
@@ -96,6 +100,10 @@ export async function keeperNarrate(params: {
   const context = buildContext({
     state: params.state,
     events: params.events,
+    recentTurns: params.recentTurns,
+    profile: params.profile,
+    spoken: params.spoken,
+    scenarioPack: params.scenarioPack,
     budgetChars: params.config.contextBudgetChars,
   });
   const done = (result: Omit<NarrationResult, "usage">): NarrationResult =>
@@ -127,6 +135,7 @@ export async function keeperNarrate(params: {
         text: value.text,
         allowedNames: context.allowedNames,
         events: params.events,
+        scenarioPack: params.scenarioPack,
       });
       if (verdict.ok) return done({ text: value.text.trim(), source: "模型", ms });
 
@@ -161,6 +170,7 @@ export async function keeperRoute(params: {
   scenarioPack?: Pack;
   currentStateVersion?: () => number;
   spoken: string;
+  recentTurns?: DialogueTurn[];
   signal?: AbortSignal;
 }): Promise<RouteResult> {
   const { config, state, spoken } = params;
@@ -170,7 +180,7 @@ export async function keeperRoute(params: {
     const { value } = await askKeeper({
       config,
       system: ROUTE_SYSTEM,
-      user: `${buildRouteContext(state, params.profile ?? investigationProfileFromState(state), params.scenarioPack)}\n\n【玩家说】${spoken}`,
+      user: `${buildRouteContext(state, params.profile ?? investigationProfileFromState(state), params.scenarioPack, params.recentTurns, spoken)}\n\n【玩家说】${spoken}`,
       schema: routeReplySchema,
       jsonSchema: routeJsonSchema,
       maxTokens: 160,

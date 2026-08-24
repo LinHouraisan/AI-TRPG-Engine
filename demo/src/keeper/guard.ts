@@ -1,4 +1,4 @@
-import { pack } from "@/engine/pack";
+import { pack, type Pack } from "@/engine/pack";
 import type { GameEvent } from "@/engine/types";
 
 /**
@@ -16,6 +16,7 @@ export function checkNarration(params: {
   text: string;
   allowedNames: string[];
   events: GameEvent[];
+  scenarioPack?: Pack;
 }): GuardVerdict {
   const text = params.text.trim();
 
@@ -24,10 +25,11 @@ export function checkNarration(params: {
 
   // 资料包里存在、但这一刻玩家感知不到的专有名词，一个都不许出现。
   const allowed = new Set(params.allowedNames);
+  const scenarioPack = params.scenarioPack ?? pack;
   const known = [
-    ...pack.rooms.map((r) => r.title),
-    ...pack.items.map((i) => i.title),
-    ...pack.npcs.map((n) => n.title),
+    ...scenarioPack.rooms.map((r) => r.title),
+    ...scenarioPack.items.map((i) => i.title),
+    ...scenarioPack.npcs.map((n) => n.title),
   ];
   for (const name of known) {
     if (allowed.has(name)) continue;

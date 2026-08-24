@@ -1,4 +1,5 @@
 import type { CheckResult, GameEvent } from "../../../demo/src/engine/types";
+import type { DialogueTurn } from "../../../demo/src/keeper/dialogue-context";
 import type { Driver } from "./driver";
 
 export type StoredTurn = {
@@ -187,6 +188,16 @@ export function listTimeline(db: Driver, branchId: string, limit: number) {
      FROM events WHERE branch_id = ? ORDER BY sequence LIMIT ?`,
     [branchId, limit],
   );
+}
+
+export function loadRecentDialogueTurns(db: Driver, branchId: string): DialogueTurn[] {
+  return db.all<{ input_text: string; text: string }>(
+    `SELECT t.input_text, n.text
+     FROM turns t JOIN narrations n ON n.turn_id = t.turn_id AND n.status = 'final'
+     WHERE t.branch_id = ?
+     ORDER BY t.created_at DESC, t.turn_id DESC LIMIT 3`,
+    [branchId],
+  ).reverse().map((row) => ({ player: row.input_text, gm: row.text }));
 }
 
 export type BranchHistoryView = {

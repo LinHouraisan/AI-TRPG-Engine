@@ -114,6 +114,7 @@ export const npcSchema = z.object({
   title: z.string(),
   startAt: z.string(),
   line: z.string(),
+  knownFacts: z.array(z.string().startsWith("fact.")).default([]),
   keeperNote: z.string().optional(),
 });
 

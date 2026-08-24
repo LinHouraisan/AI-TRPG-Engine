@@ -20,6 +20,7 @@ import { initialState } from "@/engine/state";
 import type { CheckCandidate, CheckResult, EventDraft, GameEvent, GameState, Intent } from "@/engine/types";
 import { loadConfig, saveConfig, type KeeperConfig } from "@/keeper/config";
 import type { ContextUsage } from "@/keeper/context";
+import type { DialogueTurn } from "@/keeper/dialogue-context";
 import { handleFreeTurn, narrateFreeTurn, newFreeTurnTaskId } from "@/keeper/free-turn";
 import { keeperNarrate, type NarrationStreamEvent } from "@/keeper/keeper";
 import {
@@ -202,6 +203,23 @@ function investigatorFromState(state: GameState): InvestigatorProfile | null {
     lifeHistoryId: state.lifeHistoryId,
     contentVersion: creation.contentVersion,
   };
+}
+
+export function recentDialogueTurns(messages: Message[]): DialogueTurn[] {
+  const turns: DialogueTurn[] = [];
+  let player: string | undefined;
+  for (const message of messages) {
+    if (isTransient(message) || message.role === "system") continue;
+    if (message.role === "pl") {
+      player = message.text;
+      continue;
+    }
+    if (message.role === "kp" && player !== undefined) {
+      turns.push({ player, gm: message.text });
+      player = undefined;
+    }
+  }
+  return turns.slice(-3);
 }
 
 export function projectInvestigatorConfirmation(params: {
@@ -506,6 +524,7 @@ export function useSession() {
         inflight.current = true;
       }
       const { state, log } = authoritative.current;
+      const recentTurns = recentDialogueTurns(messages);
       setBusy(true);
       setNarrationDraft(null);
       const candidateCheck = checkCandidateForIntent({ intent, state, profile: investigatorProfile });
@@ -800,6 +819,9 @@ export function useSession() {
               events: result.committed,
               intent,
               spoken,
+              recentTurns,
+              profile: investigatorProfile,
+              scenarioPack: pack,
               fallback,
               onStream: onNarrationStream,
             })
@@ -809,6 +831,9 @@ export function useSession() {
               events: result.committed,
               intent,
               spoken,
+              recentTurns,
+              profile: investigatorProfile,
+              scenarioPack: pack,
               fallback,
               onStream: onNarrationStream,
             });
@@ -857,6 +882,7 @@ export function useSession() {
       rememberUsage,
       reveal,
       investigatorProfile,
+      messages,
     ],
   );
 
@@ -881,6 +907,7 @@ export function useSession() {
           profile: investigatorProfile,
           currentStateVersion: () => authoritative.current.state.version,
           spoken: text,
+          recentTurns: recentDialogueTurns(messages),
           modelTaskId,
         });
         setStatus(null);
@@ -899,7 +926,7 @@ export function useSession() {
       }
       return false;
     },
-    [act, config, investigatorProfile, pushNotice, reveal],
+    [act, config, investigatorProfile, messages, pushNotice, reveal],
   );
 
   /** 换一种说法：同一批已提交事件重讲一遍，状态版本和骰子都不动。 */
@@ -918,6 +945,9 @@ export function useSession() {
         events: turn.events,
         intent: turn.intent,
         spoken: turn.spoken,
+        recentTurns: recentDialogueTurns(messages),
+        profile: investigatorProfile,
+        scenarioPack: pack,
         fallback: turn.fallback,
         onStream: onNarrationStream,
       });
@@ -947,7 +977,7 @@ export function useSession() {
       setBusy(false);
       inflight.current = false;
     }
-  }, [config, onNarrationStream, pushNotice, rememberUsage]);
+  }, [config, investigatorProfile, messages, onNarrationStream, pushNotice, rememberUsage]);
 
   /** 切到某条分支：状态一律由那条分支的事件重放得来，不从别处抄。 */
   const switchBranch = useCallback(

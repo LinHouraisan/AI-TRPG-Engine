@@ -3,6 +3,12 @@ import { allowedInvestigationSkills, visibleInvestigations, type InvestigationPr
 import { itemsInRoom, npcsInRoom, visibleItemsInRoom } from "@/engine/state";
 import type { GameEvent, GameState } from "@/engine/types";
 import { DEFAULT_CONTEXT_BUDGET_CHARS } from "./config";
+import {
+  buildNpcDialogueContext,
+  buildRecentDialogueContext,
+  resolveDialogueNpcId,
+  type DialogueTurn,
+} from "./dialogue-context";
 
 /**
  * 喂给主持人的上下文。
@@ -37,6 +43,7 @@ export const CONTEXT_COLUMN_NAMES = [
   "经过",
   "本回合已提交的事实",
   "作者写好的句子",
+  "NPC 对话",
 ] as const;
 
 export type ContextColumnName = (typeof CONTEXT_COLUMN_NAMES)[number];
@@ -76,6 +83,10 @@ export const CONTEXT_OMISSION = {
 export function buildContext(params: {
   state: GameState;
   events: GameEvent[];
+  recentTurns?: DialogueTurn[];
+  profile?: InvestigationProfile | null;
+  spoken?: string;
+  scenarioPack?: Pack;
   budgetChars?: number;
 }): KeeperContext {
   const { state } = params;
@@ -120,6 +131,22 @@ export function buildContext(params: {
   const historyItems = perceivedSummaries(prior);
   const thisTurnFacts = perceivedSummaries(current);
   const authored = current.map((event) => event.narration).filter(Boolean);
+  const recentTurns = params.recentTurns ?? [];
+  const npcId = resolveDialogueNpcId({
+    state,
+    recentTurns,
+    spoken: params.spoken,
+    scenarioPack: params.scenarioPack,
+  });
+  const npcDialogue = npcId
+    ? buildNpcDialogueContext({
+        npcId,
+        state,
+        recentTurns,
+        profile: params.profile ?? null,
+        scenarioPack: params.scenarioPack,
+      })
+    : buildRecentDialogueContext(recentTurns);
 
   const historyHad = historyItems.length > 0;
   let historyDropped = 0;
@@ -183,6 +210,7 @@ export function buildContext(params: {
         : "",
       0,
     );
+    weigh("NPC 对话", npcDialogue, 0);
 
     const text = parts.join("\n");
     return {
@@ -299,6 +327,8 @@ export function buildRouteContext(
   state: GameState,
   profile?: InvestigationProfile | null,
   scenarioPack: Pack = pack,
+  recentTurns: DialogueTurn[] = [],
+  spoken = "",
 ): string {
   const room = packIndex.room(state.pcAt);
   const here = visibleItemsInRoom(state, state.pcAt);
@@ -344,5 +374,10 @@ export function buildRouteContext(
       investigationLines.join("；") || "无"
     }`,
   );
+  const npcId = resolveDialogueNpcId({ state, recentTurns, spoken, scenarioPack });
+  const dialogue = npcId
+    ? buildNpcDialogueContext({ npcId, state, recentTurns, profile: profile ?? null, scenarioPack })
+    : buildRecentDialogueContext(recentTurns);
+  if (dialogue) lines.push(dialogue);
   return lines.join("\n");
 }

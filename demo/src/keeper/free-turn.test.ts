@@ -152,3 +152,35 @@ test("free-turn rejects an investigation proposed for a stale state version", as
   expect(result.intent.kind).toBe("unclear");
   expect(result.note).toContain("状态版本");
 });
+
+test("Figure 2 followups continue the girl's previous question", async () => {
+  const recentTurns = [{ player: "询问女孩的名字", gm: "你能替我记住一个名字吗？" }];
+  for (const spoken of ["可以", "继续问她", "刚才那个名字"]) {
+    globalThis.fetch = (async (_input, init) => {
+      const body = JSON.parse(String(init?.body)) as {
+        messages: Array<{ role: string; content: string }>;
+      };
+      const prompt = body.messages.find((message) => message.role === "user")?.content ?? "";
+      const content = prompt.includes("你能替我记住一个名字吗？")
+        ? '{"verb":"talk","target":"","text":""}'
+        : '{"verb":"unclear","target":"","text":"你指什么？"}';
+      return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
+    }) as typeof fetch;
+
+    const result = await handleFreeTurn({
+      config,
+      state: {
+        ...initialState(),
+        pcAt: "loc.carriage",
+        npcAt: { "npc.girl": "loc.carriage" },
+        lifeHistoryId: "history.tide-photographer",
+      },
+      scenarioPack: mist,
+      spoken,
+      recentTurns,
+      modelTaskId: `task-figure-two-${spoken}`,
+    });
+
+    expect(result.intent.kind).toBe("talk");
+  }
+});

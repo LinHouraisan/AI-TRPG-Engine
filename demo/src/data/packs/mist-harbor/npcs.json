@@ -1,7 +1,7 @@
 [
-  {"id":"npc.conductor","title":"列车员许澄","startAt":"loc.platform","line":"请上车。末班车不等记得太多的人。","keeperNote":"隐瞒誓约，但不会直接伤害乘客。"},
-  {"id":"npc.reporter","title":"记者顾弦","startAt":"loc.concourse","line":"沈鹭也给你寄了票？那我们最好交换一下知道的事。","keeperNote":"掌握旧线事故剪报。"},
-  {"id":"npc.clerk","title":"售票员罗姨","startAt":"loc.ticket","line":"今晚只卖了四十七张票。一直都是四十七张。","keeperNote":"每次循环都会忘掉四十八号。"},
-  {"id":"npc.girl","title":"无名女孩","startAt":"loc.carriage","line":"你能替我记住一个名字吗？","keeperNote":"她是许遥，是维持循环的第一段记忆。"},
-  {"id":"npc.shen","title":"档案员沈鹭","startAt":"loc.terminus","line":"别急着救我。先决定你愿意让谁被世界记住。","keeperNote":"知道四种终局的代价。"}
+  {"id":"npc.conductor","title":"列车员许澄","startAt":"loc.platform","line":"请上车。末班车不等记得太多的人。","knownFacts":["fact.conductor_oath"],"keeperNote":"隐瞒誓约，但不会直接伤害乘客。"},
+  {"id":"npc.reporter","title":"记者顾弦","startAt":"loc.concourse","line":"沈鹭也给你寄了票？那我们最好交换一下知道的事。","knownFacts":["fact.reporter_note"],"keeperNote":"掌握旧线事故剪报。"},
+  {"id":"npc.clerk","title":"售票员罗姨","startAt":"loc.ticket","line":"今晚只卖了四十七张票。一直都是四十七张。","knownFacts":["fact.roster_gap"],"keeperNote":"每次循环都会忘掉四十八号。"},
+  {"id":"npc.girl","title":"无名女孩","startAt":"loc.carriage","line":"你能替我记住一个名字吗？","knownFacts":["fact.child_name"],"keeperNote":"她是许遥，是维持循环的第一段记忆。"},
+  {"id":"npc.shen","title":"档案员沈鹭","startAt":"loc.terminus","line":"别急着救我。先决定你愿意让谁被世界记住。","knownFacts":["fact.break_cost","fact.return_method","fact.loop_method","fact.bargain"],"keeperNote":"知道四种终局的代价。"}
 ]

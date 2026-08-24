@@ -1,4 +1,5 @@
 import { keeperNarrate } from "../../../demo/src/keeper/keeper";
+import type { DialogueTurn } from "../../../demo/src/keeper/dialogue-context";
 import type { InvestigatorProfile } from "../../../demo/src/character/types";
 import { checkCandidateForIntent, publishCheckCandidate } from "../../../demo/src/engine/check-preview";
 import { handleFreeTurn, newFreeTurnTaskId } from "../../../demo/src/keeper/free-turn";
@@ -33,6 +34,7 @@ import {
   listTimeline,
   loadBranchHistory,
   loadGameEvents,
+  loadRecentDialogueTurns,
 } from "../persist/turns";
 import { loadMemory, saveFrontier, saveMemory } from "../persist/derived";
 import type { CampaignService } from "./campaigns";
@@ -126,6 +128,7 @@ export class TurnService {
 
     const log = loadGameEvents(db, input.branchId);
     const state = replay(initialState(), log);
+    const recentTurns = loadRecentDialogueTurns(db, input.branchId);
     let profile: InvestigatorProfile | null = null;
     let intent = route(text, state);
     let freeTurnTaskId: string | undefined;
@@ -139,6 +142,7 @@ export class TurnService {
           state,
           profile,
           spoken: text,
+          recentTurns,
           modelTaskId: freeTurnTaskId!,
           currentStateVersion: () => getCatalog(this.campaigns.settings, input.campaignId)?.head_state_version ?? -1,
         }),
@@ -259,6 +263,8 @@ export class TurnService {
       view,
       stateAfter: outcome.kind === "committed" ? outcome.state : state,
       modelTaskId: freeTurnTaskId,
+      recentTurns,
+      profile,
     }).catch(() => undefined);
     this.finishing.set(operationId, task);
     return ok({ operationId, turnId });
@@ -454,6 +460,8 @@ export class TurnService {
     view: TurnView;
     stateAfter: GameState;
     modelTaskId?: string;
+    recentTurns: DialogueTurn[];
+    profile: InvestigatorProfile | null;
   }): Promise<void> {
     const { db, operationId, turnId, view } = params;
     this.emit(operationId, {
@@ -470,6 +478,26 @@ export class TurnService {
     }
 
     if (view.kind !== "committed") {
+      const narrationId = uuidv7();
+      persistFinalNarration({
+        db,
+        narrationId,
+        branchId: params.branchId,
+        turnId,
+        stateVersion: view.stateVersion,
+        modelTaskId: "program",
+        promptVersion: "program-w0",
+        text: view.narration,
+        now: this.clock.nowIso(),
+        operationId,
+        result: view,
+      });
+      this.emit(operationId, {
+        type: "narration.completed",
+        operationId: asOperationId(operationId),
+        turnId: asTurnId(turnId),
+        narrationId,
+      });
       this.emit(operationId, {
         type: "operation.status",
         operation: this.operationView(operationId, "succeeded", view.kind),
@@ -492,7 +520,11 @@ export class TurnService {
     let text = fallback;
     let note: string | undefined;
     let modelTaskId = params.modelTaskId ?? "template";
-    if (view.events.length > 0 || (view.intent as Intent).kind === "free_action") {
+    if (
+      view.events.length > 0 ||
+      (view.intent as Intent).kind === "free_action" ||
+      (view.intent as Intent).kind === "talk"
+    ) {
       const configured = withKeeperConfig(this.campaigns.settings, this.credentials, async (config) => ({
         result: await keeperNarrate({
           config,
@@ -500,6 +532,8 @@ export class TurnService {
           events: view.events,
           intent: view.intent as Intent,
           spoken: params.spoken,
+          recentTurns: params.recentTurns,
+          profile: params.profile,
           fallback,
           onStream: (event) => {
             if (event.kind === "draft") batcher.accept(event.draft);
