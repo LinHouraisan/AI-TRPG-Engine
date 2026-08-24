@@ -71,3 +71,18 @@ Implemented Task 6 in the assigned isolated worktree with focused red/green cove
 - Full demo suite: 83 pass, 0 fail, 227 assertions.
 - `bun run --cwd demo typecheck`: pass.
 - `git diff --check`: pass with only the repository's existing LF-to-CRLF warnings.
+
+## Review Fix Round 3
+
+- Replaced cue-plus-action matching with cue-only classification for unmistakable player directions. `接下来`（except the neutral attributive `接下来的`）、`下一步`、`然后请`、`请你`、`你可以/你能`、`不妨`, and standalone `请...` no longer depend on an enumerated action verb.
+- Added exact regressions for `接下来请观察`、`接下来请阅读`、`接下来请拿起` and `接下来请撬开`, plus coverage for the other directive cues.
+- Preserved the existing numbered/list/`选项` and uncued direct-command checks. Neutral `车票可以证明他的行程` and NPC quoted/reported requests remain accepted after dialogue is removed from command classification.
+
+## Review-Fix-Round-3 Verification
+
+- Focused Guard suite: 14 pass, 0 fail, 39 assertions.
+- Focused Keeper suite: 29 pass, 0 fail, 108 assertions.
+- `bun run --cwd demo keeper:check`: 234 checks passed.
+- Full demo suite: 84 pass, 0 fail, 236 assertions.
+- `bun run --cwd demo typecheck`: pass.
+- `git diff --check`: pass with only the repository's existing LF-to-CRLF warnings.

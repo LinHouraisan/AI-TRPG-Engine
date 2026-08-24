@@ -101,6 +101,28 @@ test("interaction points reject player instructions appended to scene descriptio
   }
 });
 
+test("directive cues reject commands without enumerating the following action", () => {
+  const feedback = "她听见了你的追问";
+  const reaction = "她没有收起桌上的车票";
+  for (const interactionPoint of [
+    "车票仍摊在桌上，接下来请观察车票",
+    "书页仍翻在原处，接下来请阅读那一页",
+    "钥匙就在桌角，接下来请拿起钥匙",
+    "锁孔露在灯下，接下来请撬开柜门",
+    "车票仍摊在桌上，下一步观察车票",
+    "书页仍翻在原处，然后请阅读那一页",
+    "钥匙就在桌角，请你拿起钥匙",
+    "锁孔露在灯下，请撬开柜门",
+  ]) {
+    expect(checkNarrationQuality({
+      text: `${feedback}，${reaction}。${interactionPoint}。`,
+      feedback,
+      reaction,
+      interactionPoints: [interactionPoint],
+    }, "dialogue")).toEqual({ ok: false, reason: "menu_interaction" });
+  }
+});
+
 test("neutral affordances and quoted NPC speech are not player instructions", () => {
   const feedback = "她听见了你的追问";
   const reaction = "她没有收起桌上的车票";
@@ -109,6 +131,7 @@ test("neutral affordances and quoted NPC speech are not player instructions", ()
     "车票仍摊在桌上，票背的蓝墨痕没有被她遮住",
     "她低声说：“接下来请调查那张车票。”",
     "她低声说，接下来请调查那张车票",
+    "她低声说：“接下来请观察那张车票。”",
   ]) {
     expect(checkNarrationQuality({
       text: `${feedback}，${reaction}。${interactionPoint}`,

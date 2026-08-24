@@ -60,7 +60,7 @@ function hasMenuInteraction(text: string, interactionPoints: string[]): boolean 
     if (/^(?:\d+[.、)]|[-*•]|你可以|请选择|选项[：:]?|继续(?:追问|询问|调查|查看|尝试)|(?:追问|询问|调查|查看|尝试|选择|决定))/u.test(narrativePoint)) {
       return true;
     }
-    if (/(?:接下来|请|你可以|你能|不妨)\s*(?:请|你可以|你能|不妨)?\s*(?:先|再|继续)?\s*(?:调查|查看|询问|追问|选择|前往|行动)|然后\s*(?:请|你可以|你能|不妨)?\s*(?:先|再|继续)?\s*(?:调查|查看|询问|追问|选择|前往|行动)/u.test(narrativePoint)) {
+    if (/接下来(?!的)|下一步|然后\s*请|请你|你可以|你能|不妨|(?:^|[，,；;。！？\n])\s*请/u.test(narrativePoint)) {
       return true;
     }
     return /[，,；;]\s*(?:请|你可以|你能|不妨)?\s*(?:先|再|继续)?\s*(?:调查|查看|询问|追问|选择|前往|行动)[^。！？\n]{0,16}[。！？]?\s*$/u.test(narrativePoint);
