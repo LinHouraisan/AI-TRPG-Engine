@@ -24,6 +24,20 @@ const config: KeeperConfig = {
   debugTrace: false,
 };
 
+function narrationReply(params: {
+  text: string;
+  feedback: string;
+  reaction: string;
+  interactionPoint: string;
+}): string {
+  return JSON.stringify({
+    text: params.text,
+    feedback: params.feedback,
+    reaction: params.reaction,
+    interactionPoints: [params.interactionPoint],
+  });
+}
+
 function dialoguePack(): Pack {
   return {
     ...mist,
@@ -108,14 +122,19 @@ test("an NPC opening line is not injected before it is actually spoken", () => {
 });
 
 test("narration receives recent dialogue without another NPC's authored secret", async () => {
-  let prompt = "";
+  const prompts: string[] = [];
   globalThis.fetch = (async (_input, init) => {
     const body = JSON.parse(String(init?.body)) as {
       messages: Array<{ role: string; content: string }>;
     };
-    prompt = body.messages.find((message) => message.role === "user")?.content ?? "";
+    prompts.push(body.messages.find((message) => message.role === "user")?.content ?? "");
     return new Response(JSON.stringify({
-      choices: [{ message: { content: '{"text":"她轻轻点头，等着你继续说下去。"}' } }],
+      choices: [{ message: { content: narrationReply({
+        text: "她轻轻点头，等着你继续说下去。",
+        feedback: "她听见了你的回答。",
+        reaction: "她轻轻点头。",
+        interactionPoint: "等着你继续说下去",
+      }) } }],
     }), { status: 200 });
   }) as typeof fetch;
 
@@ -136,8 +155,10 @@ test("narration receives recent dialogue without another NPC's authored secret",
   });
 
   expect(result.source).toBe("模型");
-  expect(prompt).toContain("你能替我记住一个名字吗？");
-  expect(prompt).not.toContain("列车员许澄必须送满四十八名乘客才能离开");
+  expect(prompts).toHaveLength(2);
+  expect(prompts[1]).toContain("150至350");
+  expect(prompts[1]).toContain("你能替我记住一个名字吗？");
+  expect(prompts[1]).not.toContain("列车员许澄必须送满四十八名乘客才能离开");
 });
 
 test("narration rejects another NPC's secret even when its name is omitted", async () => {
@@ -146,7 +167,12 @@ test("narration rejects another NPC's secret even when its name is omitted", asy
     const body = JSON.parse(String(init?.body)) as { messages: Array<{ role: string; content: string }> };
     prompts.push(body.messages.find((message) => message.role === "user")?.content ?? "");
     return new Response(JSON.stringify({
-      choices: [{ message: { content: '{"text":"她低声说：必须送满四十八名乘客才能离开。"}' } }],
+      choices: [{ message: { content: narrationReply({
+        text: "她低声说：必须送满四十八名乘客才能离开。",
+        feedback: "她听见了你的追问。",
+        reaction: "她压低了声音。",
+        interactionPoint: "必须送满四十八名乘客才能离开",
+      }) } }],
     }), { status: 200 });
   }) as typeof fetch;
 

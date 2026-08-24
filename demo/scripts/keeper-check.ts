@@ -57,6 +57,15 @@ function fakeModel(content: string | null) {
   }) as unknown as typeof fetch;
 }
 
+function structuredNarration(text: string): string {
+  return JSON.stringify({
+    text,
+    feedback: "现场对玩家的动作作出反馈。",
+    reaction: "环境随之发生具体反应。",
+    interactionPoints: [text],
+  });
+}
+
 /**
  * 模拟 Ollama 的 NDJSON 流。pieces 是模型 JSON 的增量碎片。
  * hangUpAfter 表示发出这么多片之后把连接掐断——用来证明半截叙述不会定稿。
@@ -267,7 +276,7 @@ assert(out.source === "模板", "回复不是 JSON 时退回模板");
 
 console.log("\n— 假模型：编造这一刻不存在的人 —");
 // 这一回合只是走进书房，女房东还在楼梯平台，事实里没有她，叙述里也就不许有她。
-fakeModel(JSON.stringify({ text: "女房东就站在你身后，看着你推开书房的门。" }));
+fakeModel(structuredNarration("女房东就站在你身后，看着你推开书房的门。"));
 out = await keeperNarrate({
   config,
   state,
@@ -280,7 +289,7 @@ assert(out.source === "模板", "编造不在场的人时被体检拦下");
 assert(Boolean(out.note?.includes("女房东")), `拦下的理由说得出是谁：${out.note}`);
 
 console.log("\n— 假模型：报出没掷过的点数 —");
-fakeModel(JSON.stringify({ text: "你掷出了 97，锁纹丝不动。" }));
+fakeModel(structuredNarration("你掷出了 97，锁纹丝不动。"));
 out = await keeperNarrate({
   config,
   state,
@@ -298,7 +307,7 @@ assert(routed.intent.kind === "unclear", "不在场的编号一律作废，转�
 
 console.log("\n— 假模型：替玩家把动作做完 —");
 // 这一回合只是撬了一下锁，没有任何东西进背包，「拿起」就不能出口。
-fakeModel(JSON.stringify({ text: "你拿起那本硬壳账本，随手翻开。" }));
+fakeModel(structuredNarration("你拿起那本硬壳账本，随手翻开。"));
 out = await keeperNarrate({
   config,
   state,
@@ -310,7 +319,7 @@ out = await keeperNarrate({
 assert(out.source === "模板", "叙述替玩家做了没发生过的动作，被体检拦下");
 
 console.log("\n— 假模型：一次合格的叙述 —");
-fakeModel(JSON.stringify({ text: "你贴着锁孔听了一会儿，屋子里静得能听见自己的呼吸。" }));
+fakeModel(structuredNarration("你贴着锁孔听了一会儿，屋子里静得能听见自己的呼吸。"));
 out = await keeperNarrate({
   config,
   state,
@@ -331,7 +340,7 @@ const moveFallback = narrate({
   intent: { kind: "move", to: "loc.study" },
 });
 const acceptedText = "你贴着锁孔听了一会儿，屋子里静得能听见自己的呼吸。";
-const acceptedJson = JSON.stringify({ text: acceptedText });
+const acceptedJson = structuredNarration(acceptedText);
 
 console.log("\n— 流式：结构化输出的碎片只抽出叙述，不把 JSON 甩出去 —");
 assert(extractNarrationDraft('{"tex') === undefined, "还没读到 text 键时不给草稿");
@@ -382,7 +391,7 @@ console.log("\n— 流式：中途断线 —");
 
 console.log("\n— 流式：体检不过 —");
 {
-  const invented = JSON.stringify({ text: "女房东就站在你身后，看着你推开书房的门。" });
+  const invented = structuredNarration("女房东就站在你身后，看着你推开书房的门。");
   const blocked = collectStream();
   fakeModelStream({ pieces: chunkString(invented, 4) });
   out = await keeperNarrate({

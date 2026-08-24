@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { initialState } from "../engine/state";
-import { handleFreeTurn } from "./free-turn";
+import { freeTurnNarrationSchema, handleFreeTurn, narrateFreeTurn } from "./free-turn";
 import type { KeeperConfig } from "./config";
 import { loadPackById } from "../engine/pack";
 
@@ -183,4 +183,87 @@ test("Figure 2 followups continue the girl's previous question", async () => {
 
     expect(result.intent.kind).toBe("talk");
   }
+});
+
+test("free-turn narration requires structured quality fields and displays only cohesive text", async () => {
+  const text = "你把问题放轻，像怕惊动玻璃上的雾。女孩先是望向空着的邻座，指尖沿座椅裂纹慢慢停住；车轮碾过接缝时，她才重新看你，确认你并没有催促。她说那个名字像一张被雨泡过的车票，字还在，却没人肯承认见过。她仍在等你说出那个名字，也没有阻止你追问那张车票来自哪里；窗外短暂掠过一盏昏黄站灯，让她的影子在过道里多停了一瞬。";
+  const feedback = "你放轻的问题没有惊动她，她确认你没有催促。";
+  const reaction = "女孩望向空座，随后重新看你。";
+  const interactionPoint = "她仍在等你说出那个名字";
+  const prompts: string[] = [];
+  globalThis.fetch = (async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    prompts.push(body.messages.find((message) => message.role === "system")?.content ?? "");
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        text,
+        feedback,
+        reaction,
+        interactionPoints: [interactionPoint],
+      }) } }],
+    }), { status: 200 });
+  }) as typeof fetch;
+
+  expect(freeTurnNarrationSchema.safeParse({ text }).success).toBe(false);
+  const result = await narrateFreeTurn({
+    config,
+    modelTaskId: "task-structured-narration",
+    state: {
+      ...initialState(),
+      pcAt: "loc.carriage",
+      npcAt: { "npc.girl": "loc.carriage" },
+    },
+    events: [],
+    intent: { kind: "talk", text: "那个名字是什么？" },
+    spoken: "那个名字是什么？",
+    scenarioPack: mist,
+    fallback: "她没有回答。",
+  });
+
+  expect(result.text).toBe(text);
+  expect(result.source).toBe("模型");
+  expect(result).not.toHaveProperty("feedback");
+  expect(result).not.toHaveProperty("reaction");
+  expect(result).not.toHaveProperty("interactionPoints");
+  expect(prompts[0]).toContain("interactionPoints");
+});
+
+test("two semantically invalid narration attempts use the safe fallback", async () => {
+  const prompts: string[] = [];
+  globalThis.fetch = (async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    prompts.push(body.messages.find((message) => message.role === "user")?.content ?? "");
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        text: "她看着你。",
+        feedback: "",
+        reaction: "她没有回答。",
+        interactionPoints: ["你可以继续追问。"],
+      }) } }],
+    }), { status: 200 });
+  }) as typeof fetch;
+
+  const result = await narrateFreeTurn({
+    config,
+    modelTaskId: "task-invalid-narration",
+    state: {
+      ...initialState(),
+      pcAt: "loc.carriage",
+      npcAt: { "npc.girl": "loc.carriage" },
+    },
+    events: [],
+    intent: { kind: "talk", text: "继续问她" },
+    spoken: "继续问她",
+    scenarioPack: mist,
+    fallback: "她没有回答。",
+  });
+
+  expect(prompts).toHaveLength(2);
+  expect(prompts[1]).toContain("叙述结构不完整");
+  expect(prompts[1]).not.toContain("missing_feedback");
+  expect(result).toMatchObject({ text: "她没有回答。", source: "模板" });
 });

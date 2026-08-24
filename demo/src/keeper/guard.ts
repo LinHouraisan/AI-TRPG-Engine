@@ -1,5 +1,6 @@
 import { pack, type Pack } from "@/engine/pack";
 import type { GameEvent } from "@/engine/types";
+import type { NarrationReply } from "./contract";
 
 /**
  * 叙述体检。
@@ -9,8 +10,58 @@ import type { GameEvent } from "@/engine/types";
  * 因为骰子早在提交那一刻就定死了。
  */
 export type GuardVerdict = { ok: true } | { ok: false; reason: string };
+export type NarrationQualityMode = "simple" | "investigation" | "dialogue" | "exploration";
 
 const MAX_LENGTH = 900;
+
+export function checkNarrationQuality(
+  reply: NarrationReply,
+  mode: NarrationQualityMode,
+): GuardVerdict {
+  const text = reply.text.trim();
+  if (!text) return { ok: false, reason: "empty_text" };
+  if (text.length > MAX_LENGTH) return { ok: false, reason: "unsafe_length" };
+  if (hasRepeatedPadding(text)) return { ok: false, reason: "repeated_padding" };
+  if (mode === "simple") return { ok: true };
+
+  if (!normalizeReflection(reply.feedback)) return { ok: false, reason: "missing_feedback" };
+  if (!normalizeReflection(reply.reaction)) return { ok: false, reason: "missing_reaction" };
+  const interactionPoints = reply.interactionPoints
+    .map((point) => point.trim())
+    .filter((point) => normalizeReflection(point));
+  if (interactionPoints.length === 0) {
+    return { ok: false, reason: "missing_interaction_points" };
+  }
+  const cohesive = normalizeReflection(text);
+  if (interactionPoints.some((point) => !cohesive.includes(normalizeReflection(point)))) {
+    return { ok: false, reason: "interaction_not_reflected" };
+  }
+  return { ok: true };
+}
+
+function normalizeReflection(text: string): string {
+  return text.replace(/[\s，。！？、；：“”‘’（）《》…—,.!?;:'"()[\]{}-]/gu, "");
+}
+
+function hasRepeatedPadding(text: string): boolean {
+  const normalized = normalizeReflection(text);
+  if (normalized.length < 40) return false;
+
+  const width = 4;
+  const total = normalized.length - width + 1;
+  const counts = new Map<string, number>();
+  let mostFrequent = 0;
+  for (let index = 0; index < total; index += 1) {
+    const gram = normalized.slice(index, index + width);
+    const count = (counts.get(gram) ?? 0) + 1;
+    counts.set(gram, count);
+    mostFrequent = Math.max(mostFrequent, count);
+  }
+  return (
+    (mostFrequent >= 4 && mostFrequent / total >= 0.08) ||
+    counts.size / total < 0.55
+  );
+}
 
 export function checkNarration(params: {
   text: string;

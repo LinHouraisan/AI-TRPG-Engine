@@ -34,6 +34,9 @@ export const routeReplySchema = z.union([standardRouteReplySchema, investigation
 
 export const narrationReplySchema = z.object({
   text: z.string().min(1),
+  feedback: z.string(),
+  reaction: z.string(),
+  interactionPoints: z.array(z.string()),
 });
 
 export type RouteReply = z.infer<typeof routeReplySchema>;

@@ -14,10 +14,15 @@ import {
   narrationReplySchema,
   routeJsonSchema,
   routeReplySchema,
+  type NarrationReply,
   type RouteReply,
 } from "./contract";
 import { buildContext, buildRouteContext, type ContextUsage } from "./context";
-import { checkNarration } from "./guard";
+import {
+  checkNarration,
+  checkNarrationQuality,
+  type NarrationQualityMode,
+} from "./guard";
 import type { DialogueTurn } from "./dialogue-context";
 
 const NARRATE_SYSTEM = [
@@ -28,8 +33,9 @@ const NARRATE_SYSTEM = [
   "2. 不许报出没有掷出来的数字，也不许判断成败：成败已经由程序定好，写在事实里了。",
   "3. 不许替玩家决定他下一步做什么，也不许替他说话或者动。",
   "4. 【作者写好的句子】必须体现出来，可以调整语气，但事实不能改。",
-  "5. 第二人称，具体、有现场感，不要用列表，不要加引号包住整段。简单动作约100至250字；调查、对话和探索约250至600字；关键剧情最多900字。内容应包含环境反馈、行动后果和可继续互动点，不要为了凑字重复信息。",
-  "只输出 JSON：{\"text\": \"你的叙述\"}",
+  "5. 第二人称，具体、有现场感，不要用列表，不要加引号包住整段。调查、对话和探索以150至350个中文字符为目标；这是软目标，信息不足时宁可写短，也不要重复凑字。关键剧情最多900字。",
+  "6. 先分别起草 feedback（玩家行动的现场反馈）、reaction（NPC或环境的具体反应）和 interactionPoints（一个或多个自然、非菜单式的继续互动点），再把三者写成连贯的 text。interactionPoints 的每项都必须在 text 中明确出现。玩家只会看到 text。",
+  "只输出 JSON：{\"feedback\":\"现场反馈\",\"reaction\":\"NPC或环境反应\",\"interactionPoints\":[\"自然互动点\"],\"text\":\"连贯叙述\"}",
 ].join("\n");
 
 const QUERY_TOPICS: readonly QueryTopic[] = ["inventory", "sheet", "clues", "time", "exits", "recap"];
@@ -109,8 +115,10 @@ export async function keeperNarrate(params: {
   const done = (result: Omit<NarrationResult, "usage">): NarrationResult =>
     finish({ ...result, usage: context.usage });
   const base = [context.text, "", `【玩家这一步】${params.spoken}`].join("\n");
+  const qualityMode = narrationQualityMode(params.intent);
 
   let complaint = "";
+  let lastReason = "";
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const { value, ms } = await askKeeper({
@@ -131,6 +139,13 @@ export async function keeperNarrate(params: {
           : undefined,
       });
 
+      const quality = checkNarrationQuality(value, qualityMode);
+      if (!quality.ok) {
+        lastReason = quality.reason;
+        complaint = qualityComplaint(quality.reason);
+        continue;
+      }
+
       const verdict = checkNarration({
         text: value.text,
         allowedNames: context.allowedNames,
@@ -138,9 +153,19 @@ export async function keeperNarrate(params: {
         events: params.events,
         scenarioPack: params.scenarioPack,
       });
-      if (verdict.ok) return done({ text: value.text.trim(), source: "模型", ms });
+      if (!verdict.ok) {
+        lastReason = verdict.reason;
+        complaint = "叙述包含未经授权的事实或未提交结果";
+        continue;
+      }
 
-      complaint = verdict.reason;
+      if (attempt === 0 && outsideTargetLength(value, qualityMode)) {
+        lastReason = "叙述长度偏离建议范围";
+        complaint = "请在不重复信息的前提下，将叙述调整到约150至350个中文字符";
+        continue;
+      }
+
+      return done({ text: value.text.trim(), source: "模型", ms });
     } catch (error) {
       const reason = error instanceof KeeperError ? error.message : String(error);
       return done({ text: fallback, source: "模板", note: reason });
@@ -150,8 +175,33 @@ export async function keeperNarrate(params: {
   return done({
     text: fallback,
     source: "模板",
-    note: `叙述两次都没过体检：${complaint}`,
+    note: `叙述两次都没过体检：${lastReason || complaint}`,
   });
+}
+
+function narrationQualityMode(intent: Intent): NarrationQualityMode {
+  switch (intent.kind) {
+    case "query":
+      return "simple";
+    case "investigation":
+      return "investigation";
+    case "talk":
+      return "dialogue";
+    default:
+      return "exploration";
+  }
+}
+
+function outsideTargetLength(reply: NarrationReply, mode: NarrationQualityMode): boolean {
+  if (mode === "simple") return false;
+  const length = reply.text.trim().length;
+  return length < 150 || length > 350;
+}
+
+function qualityComplaint(reason: string): string {
+  return reason === "repeated_padding"
+    ? "叙述存在重复填充"
+    : "叙述结构不完整或互动点没有写进正文";
 }
 
 export type RouteResult = {
