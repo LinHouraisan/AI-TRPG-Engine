@@ -39,6 +39,16 @@ export function createCheckpoint(db: Driver, input: { branchId: string; label: s
   db.transaction(() => {
     db.run("INSERT INTO checkpoints (checkpoint_id, branch_id, state_version, event_sequence, snapshot_id, label, kind, created_at) VALUES (?, ?, ?, ?, NULL, ?, 'manual', ?)", [id, input.branchId, head.head_state_version, head.head_sequence, input.label, input.now]);
     db.run("INSERT INTO checkpoint_recaps (checkpoint_id, recap) VALUES (?, ?)", [id, recap]);
+    db.run(
+      `INSERT INTO checkpoint_dialogue_members (checkpoint_id, turn_id, narration_id, ordinal)
+       SELECT ?, t.turn_id, n.narration_id,
+              row_number() OVER (ORDER BY t.created_at, t.turn_id) - 1
+       FROM turns t
+       JOIN narrations n ON n.turn_id = t.turn_id AND n.status = 'final'
+       WHERE t.branch_id = ?
+       ORDER BY t.created_at, t.turn_id`,
+      [id, input.branchId],
+    );
     if (input.purpose) db.run("INSERT INTO checkpoint_test_cases VALUES (?, ?, ?, ?, ?, ?, ?)", [id, input.purpose, JSON.stringify(input.steps ?? []), JSON.stringify(input.expected ?? null), JSON.stringify(input.actual ?? null), input.passed ? 1 : 0, hash]);
   });
   return { checkpointId: id, branchId: input.branchId, stateVersion: head.head_state_version, eventSequence: head.head_sequence, label: input.label, createdAt: input.now, purpose: input.purpose ?? null, passed: input.purpose ? Boolean(input.passed) : null, stateHash: hash, recap };
@@ -55,12 +65,31 @@ export function restoreCheckpointCopy(db: Driver, checkpointId: string, label: s
   db.transaction(() => {
     db.run("INSERT INTO branches VALUES (?, ?, ?, ?, ?, ?, ?, NULL)", [branchId, cp.branch_id, cp.event_sequence, label, cp.event_sequence, cp.state_version, now]);
     db.run("INSERT INTO checkpoint_restore_sources (branch_id, checkpoint_id) VALUES (?, ?)", [branchId, checkpointId]);
-    const turns = db.all<any>("SELECT * FROM turns WHERE branch_id=? AND COALESCE(committed_state_version, base_state_version) <= ? AND created_at <= ? ORDER BY created_at", [cp.branch_id, cp.state_version, cp.created_at]);
+    const turns = db.all<any>(
+      `SELECT DISTINCT t.* FROM turns t
+       WHERE t.branch_id = ? AND (
+         EXISTS (
+           SELECT 1 FROM events e
+           WHERE e.turn_id = t.turn_id AND e.branch_id = ? AND e.sequence <= ?
+         ) OR EXISTS (
+           SELECT 1 FROM checkpoint_dialogue_members m
+           WHERE m.checkpoint_id = ? AND m.turn_id = t.turn_id
+         )
+       )
+       ORDER BY t.created_at, t.turn_id`,
+      [cp.branch_id, cp.branch_id, cp.event_sequence, checkpointId],
+    );
     const turnMap = new Map<string,string>();
     for (const t of turns) { const id=uuidv7(); turnMap.set(t.turn_id,id); db.run(`INSERT INTO turns (turn_id,branch_id,command_id,actor_id,controller_id,input_text,status,base_state_version,committed_state_version,operation_id,failure_code,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, [id,branchId,`restore-${branchId}-${t.command_id}`,t.actor_id,t.controller_id,t.input_text,t.status,t.base_state_version,t.committed_state_version,uuidv7(),t.failure_code,t.created_at,t.updated_at]); }
     const events = db.all<any>("SELECT * FROM events WHERE branch_id=? AND sequence <= ? ORDER BY sequence", [cp.branch_id, cp.event_sequence]);
     for (const e of events) { const turnId=turnMap.get(e.turn_id)!; const payload=JSON.parse(e.payload_json); payload.id=uuidv7(); payload.turnId=turnId; db.run(`INSERT INTO events (event_id,branch_id,sequence,turn_id,event_type,entity_type,entity_id,state_version,schema_version,source_json,audience_json,payload_json,occurred_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, [payload.id,branchId,e.sequence,turnId,e.event_type,e.entity_type,e.entity_id,e.state_version,e.schema_version,e.source_json,e.audience_json,JSON.stringify(payload),e.occurred_at]); }
-    const narrations = db.all<any>("SELECT * FROM narrations WHERE branch_id=? AND based_on_state_version <= ? AND created_at <= ? AND status='final' ORDER BY created_at", [cp.branch_id, cp.state_version, cp.created_at]);
+    const narrations = db.all<any>(
+      `SELECT n.* FROM checkpoint_dialogue_members m
+       JOIN narrations n ON n.narration_id = m.narration_id
+       WHERE m.checkpoint_id = ?
+       ORDER BY m.ordinal`,
+      [checkpointId],
+    );
     for (const n of narrations) {
       const turnId = turnMap.get(n.turn_id);
       if (!turnId) continue;

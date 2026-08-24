@@ -18,6 +18,7 @@ applyInit(db, clock, readFileSync(join(sqlDir, "campaign.sql"), "utf8"), "0001_i
 applyMigration(db, clock, readFileSync(join(sqlDir, "campaign-0003-checkpoint-tests.sql"), "utf8"), "0003_checkpoint_tests");
 applyMigration(db, clock, readFileSync(join(sqlDir, "campaign-0004-investigator.sql"), "utf8"), "0004_investigator");
 applyMigration(db, clock, readFileSync(join(sqlDir, "campaign-0005-checkpoint-recaps.sql"), "utf8"), "0005_checkpoint_recaps");
+applyMigration(db, clock, readFileSync(join(sqlDir, "campaign-0006-checkpoint-dialogue-members.sql"), "utf8"), "0006_checkpoint_dialogue_members");
 db.run("INSERT INTO campaign_metadata VALUES ('camp','test',?,?,1,1)", [clock.nowIso(), clock.nowIso()]);
 db.run("INSERT INTO branches VALUES ('main',NULL,NULL,'主线',0,0,?,NULL)", [clock.nowIso()]);
 db.run(
@@ -75,8 +76,8 @@ function insertTurn(input: {
 insertTurn({ id: "turn-1", player: "查看名单", gm: "名单第四十八格是空的。", stateVersion: 1, createdAt: "2026-08-23T00:01:00.000Z", event: { sequence: 1, summary: "末班车名单第四十八格有异常。", visibility: "public" } });
 insertTurn({ id: "turn-2", player: "询问罗姨", gm: "罗姨说这一格本来有名字。", stateVersion: 1, createdAt: "2026-08-23T00:02:00.000Z" });
 insertTurn({ id: "turn-3", player: "检查票根", gm: "票根沾着海水和煤灰。", stateVersion: 2, createdAt: "2026-08-23T00:03:00.000Z", event: { sequence: 2, summary: "守秘人秘密。", visibility: "secret" } });
-insertTurn({ id: "turn-4", player: "再问一次", gm: "罗姨让你去站台找许澄。", stateVersion: 2, createdAt: "2026-08-23T00:03:30.000Z" });
-insertTurn({ id: "turn-crossing", player: "这辆车要去哪里？", stateVersion: 2, createdAt: "2026-08-23T00:03:45.000Z" });
+insertTurn({ id: "turn-4", player: "再问一次", gm: "罗姨让你去站台找许澄。", stateVersion: 2, createdAt: "2026-08-23T00:04:00.000Z" });
+insertTurn({ id: "turn-crossing", player: "这辆车要去哪里？", stateVersion: 2, createdAt: "2026-08-23T00:04:00.000Z" });
 db.run("UPDATE branches SET head_sequence = 2, head_state_version = 2 WHERE branch_id = 'main'");
 
 const checkpoint = createCheckpoint(db, {
@@ -93,19 +94,28 @@ assert((checkpoint as { recap?: string }).recap?.startsWith("林晚因沈鹭"), 
 assert((checkpoint as { recap?: string }).recap?.includes("末班车名单第四十八格有异常"), "前情包含边界内公开事件");
 assert(!(checkpoint as { recap?: string }).recap?.includes("守秘人秘密"), "前情不泄露秘密事件");
 assert(listCheckpoints(db)[0]?.purpose === "验证 Figure 3 恢复", "测试检查点可查看");
+assert(db.get<{ turn_id: string }>(
+  "SELECT turn_id FROM checkpoint_dialogue_members WHERE checkpoint_id = ? ORDER BY ordinal DESC LIMIT 1",
+  [checkpoint.checkpointId],
+)?.turn_id === "turn-4", "同毫秒内检查点前已完成的对话进入精确成员快照");
 
 db.run(
   `INSERT INTO narrations (
     narration_id, branch_id, turn_id, based_on_state_version, model_task_id,
     prompt_version, text, status, created_at
-  ) VALUES ('narration-crossing', 'main', 'turn-crossing', 2, 'model-crossing', 'test', '这是检查点后才完成的回答。', 'final', '2026-08-23T00:05:00.000Z')`,
+  ) VALUES ('narration-crossing', 'main', 'turn-crossing', 2, 'model-crossing', 'test', '这是检查点后才完成的回答。', 'final', '2026-08-23T00:04:00.000Z')`,
 );
+assert(!db.get(
+  "SELECT 1 FROM checkpoint_dialogue_members WHERE checkpoint_id = ? AND turn_id = 'turn-crossing'",
+  [checkpoint.checkpointId],
+), "同毫秒内检查点后才完成的对话不进入成员快照");
 insertTurn({ id: "turn-later", player: "登上末班车", gm: "车门在身后合拢。", stateVersion: 3, createdAt: "2026-08-23T00:06:00.000Z", event: { sequence: 3, summary: "林晚已经登上末班车。", visibility: "public" } });
 db.run("UPDATE branches SET head_sequence = 3, head_state_version = 3 WHERE branch_id = 'main'");
 const sourceCounts = {
   turns: db.get<{ count: number }>("SELECT count(*) AS count FROM turns WHERE branch_id = 'main'")?.count,
   events: db.get<{ count: number }>("SELECT count(*) AS count FROM events WHERE branch_id = 'main'")?.count,
   narrations: db.get<{ count: number }>("SELECT count(*) AS count FROM narrations WHERE branch_id = 'main'")?.count,
+  members: db.get<{ count: number }>("SELECT count(*) AS count FROM checkpoint_dialogue_members WHERE checkpoint_id = ?", [checkpoint.checkpointId])?.count,
 };
 const boundedSourceHistory = loadBranchHistory(db, "main", {
   stateVersion: checkpoint.stateVersion,
@@ -130,6 +140,7 @@ assert(db.get<{ head_state_version: number }>("SELECT head_state_version FROM br
 assert(db.get<{ count: number }>("SELECT count(*) AS count FROM turns WHERE branch_id = 'main'")?.count === sourceCounts.turns, "来源分支回合不变");
 assert(db.get<{ count: number }>("SELECT count(*) AS count FROM events WHERE branch_id = 'main'")?.count === sourceCounts.events, "来源分支事件不变");
 assert(db.get<{ count: number }>("SELECT count(*) AS count FROM narrations WHERE branch_id = 'main'")?.count === sourceCounts.narrations, "来源分支叙述不变");
+assert(db.get<{ count: number }>("SELECT count(*) AS count FROM checkpoint_dialogue_members WHERE checkpoint_id = ?", [checkpoint.checkpointId])?.count === sourceCounts.members, "检查点对话成员快照不变");
 db.close();
 
 const legacy = openBun(":memory:");
@@ -142,10 +153,26 @@ legacy.run(
   [JSON.stringify({ name: "林晚", lifeHistoryId: "history.archive-correspondent", contentVersion: "0.1.0" }), clock.nowIso()],
 );
 legacy.run("INSERT INTO branch_investigator_bindings VALUES ('legacy-main', 'legacy-profile')");
+legacy.run(
+  `INSERT INTO turns (
+    turn_id, branch_id, command_id, actor_id, controller_id, input_text, status,
+    base_state_version, committed_state_version, operation_id, failure_code, created_at, updated_at
+  ) VALUES ('legacy-turn', 'legacy-main', 'legacy-command', 'pc.linwan', 'player', '旧对话', 'completed', 0, 0, 'legacy-operation', NULL, ?, ?)`,
+  [clock.nowIso(), clock.nowIso()],
+);
+legacy.run(
+  `INSERT INTO narrations (
+    narration_id, branch_id, turn_id, based_on_state_version, model_task_id,
+    prompt_version, text, status, created_at
+  ) VALUES ('legacy-narration', 'legacy-main', 'legacy-turn', 0, 'legacy-model', 'test', '旧回答', 'final', ?)`,
+  [clock.nowIso()],
+);
 legacy.run("INSERT INTO checkpoints VALUES ('legacy-checkpoint', 'legacy-main', 0, 0, NULL, '旧检查点', 'manual', ?)", [clock.nowIso()]);
 applyMigration(legacy, clock, readFileSync(join(sqlDir, "campaign-0005-checkpoint-recaps.sql"), "utf8"), "0005_checkpoint_recaps");
+applyMigration(legacy, clock, readFileSync(join(sqlDir, "campaign-0006-checkpoint-dialogue-members.sql"), "utf8"), "0006_checkpoint_dialogue_members");
 const legacyCheckpoint = listCheckpoints(legacy)[0];
 assert(legacyCheckpoint?.checkpointId === "legacy-checkpoint", "升级不丢失已应用 0003 时创建的检查点");
 assert(legacyCheckpoint.recap.startsWith("林晚因沈鹭"), "0005 为旧检查点回填持久化前情");
+assert(legacy.get<{ turn_id: string }>("SELECT turn_id FROM checkpoint_dialogue_members WHERE checkpoint_id = 'legacy-checkpoint'")?.turn_id === "legacy-turn", "0006 用旧时间边界规则回填旧检查点对话成员");
 legacy.close();
 console.log("检查点复制恢复全部通过。");

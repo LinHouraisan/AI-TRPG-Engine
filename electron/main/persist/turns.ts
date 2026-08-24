@@ -214,6 +214,7 @@ export type BranchHistoryView = {
 export type BranchHistoryUpperBound = { stateVersion: number; eventSequence: number };
 
 type HistoryCheckpoint = {
+  checkpoint_id: string;
   label: string;
   state_version: number;
   event_sequence: number;
@@ -238,7 +239,7 @@ export function loadBranchHistory(
     [branchId],
   );
   const mappedSource = db.get<HistoryCheckpoint>(
-    `SELECT c.label, c.state_version, c.event_sequence, c.created_at, r.recap
+    `SELECT c.checkpoint_id, c.label, c.state_version, c.event_sequence, c.created_at, r.recap
      FROM checkpoint_restore_sources s
      JOIN checkpoints c ON c.checkpoint_id = s.checkpoint_id
      JOIN checkpoint_recaps r ON r.checkpoint_id = c.checkpoint_id
@@ -247,7 +248,7 @@ export function loadBranchHistory(
   );
   const fallbackSource = !mappedSource && branch?.parent_branch_id != null
     ? db.get<HistoryCheckpoint>(
-        `SELECT c.label, c.state_version, c.event_sequence, c.created_at, r.recap
+        `SELECT c.checkpoint_id, c.label, c.state_version, c.event_sequence, c.created_at, r.recap
          FROM checkpoints c JOIN checkpoint_recaps r ON r.checkpoint_id = c.checkpoint_id
          WHERE c.branch_id = ? AND c.event_sequence = ? AND c.created_at <= ?
          ORDER BY c.created_at DESC LIMIT 1`,
@@ -257,7 +258,7 @@ export function loadBranchHistory(
   const source = mappedSource ?? fallbackSource;
   const boundedCheckpoint = !source && upperBound
     ? db.get<HistoryCheckpoint>(
-        `SELECT c.label, c.state_version, c.event_sequence, c.created_at, r.recap
+        `SELECT c.checkpoint_id, c.label, c.state_version, c.event_sequence, c.created_at, r.recap
          FROM checkpoints c JOIN checkpoint_recaps r ON r.checkpoint_id = c.checkpoint_id
          WHERE c.branch_id = ? AND c.state_version = ? AND c.event_sequence = ?
          ORDER BY c.created_at DESC LIMIT 1`,
@@ -267,16 +268,35 @@ export function loadBranchHistory(
   const bound = upperBound ?? (source
     ? { stateVersion: source.state_version, eventSequence: source.event_sequence }
     : { stateVersion: branch?.head_state_version ?? 0, eventSequence: branch?.head_sequence ?? 0 });
-  const createdAt = source?.created_at ?? boundedCheckpoint?.created_at;
-  const recentTurns = db.all<{ turn_id: string; committed_state_version: number | null; input_text: string; text: string }>(
-    `SELECT t.turn_id, t.committed_state_version, t.input_text, n.text
-     FROM turns t JOIN narrations n ON n.turn_id = t.turn_id AND n.status = 'final'
-     WHERE t.branch_id = ?
-       AND COALESCE(t.committed_state_version, t.base_state_version) <= ?
-       AND (? IS NULL OR (t.created_at <= ? AND n.created_at <= ?))
-     ORDER BY t.created_at DESC, t.turn_id DESC LIMIT 3`,
-    [branchId, bound.stateVersion, createdAt ?? null, createdAt ?? null, createdAt ?? null],
-  ).reverse().map((row) => ({ turnId: row.turn_id, stateVersion: row.committed_state_version ?? 0, player: row.input_text, gm: row.text }));
+  const checkpoint = source ?? boundedCheckpoint;
+  const recentRows = checkpoint
+    ? db.all<{ turn_id: string; state_version: number; input_text: string; text: string }>(
+        `SELECT t.turn_id,
+                COALESCE(t.committed_state_version, t.base_state_version) AS state_version,
+                t.input_text, n.text
+         FROM checkpoint_dialogue_members m
+         JOIN turns t ON t.turn_id = m.turn_id
+         JOIN narrations n ON n.narration_id = m.narration_id
+         WHERE m.checkpoint_id = ?
+         ORDER BY m.ordinal DESC LIMIT 3`,
+        [checkpoint.checkpoint_id],
+      )
+    : db.all<{ turn_id: string; state_version: number; input_text: string; text: string }>(
+        `SELECT t.turn_id,
+                COALESCE(t.committed_state_version, t.base_state_version) AS state_version,
+                t.input_text, n.text
+         FROM turns t JOIN narrations n ON n.turn_id = t.turn_id AND n.status = 'final'
+         WHERE t.branch_id = ?
+           AND COALESCE(t.committed_state_version, t.base_state_version) <= ?
+         ORDER BY t.created_at DESC, t.turn_id DESC LIMIT 3`,
+        [branchId, bound.stateVersion],
+      );
+  const recentTurns = recentRows.reverse().map((row) => ({
+    turnId: row.turn_id,
+    stateVersion: row.state_version,
+    player: row.input_text,
+    gm: row.text,
+  }));
   return {
     recap: source?.recap ?? boundedCheckpoint?.recap ?? buildCheckpointRecap(db, branchId, bound.eventSequence),
     recentTurns,

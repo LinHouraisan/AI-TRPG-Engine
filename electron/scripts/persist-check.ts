@@ -59,6 +59,10 @@ const checkpointRecapSql = readFileSync(
   join(import.meta.dir, "../sql/campaign-0005-checkpoint-recaps.sql"),
   "utf8",
 );
+const checkpointDialogueSql = readFileSync(
+  join(import.meta.dir, "../sql/campaign-0006-checkpoint-dialogue-members.sql"),
+  "utf8",
+);
 
 let failed = 0;
 function assert(cond: boolean, label: string): void {
@@ -94,6 +98,7 @@ try {
     { id: "0003_checkpoint_tests", sql: checkpointSql },
     { id: "0004_investigator", sql: investigatorSql },
     { id: "0005_checkpoint_recaps", sql: checkpointRecapSql },
+    { id: "0006_checkpoint_dialogue_members", sql: checkpointDialogueSql },
   ]);
   const bad = campaigns.create("   ");
   assert(!bad.ok && bad.error.code === "IPC_INVALID_REQUEST", "空名字拒收");
@@ -185,6 +190,7 @@ try {
     "checkpoints",
     "checkpoint_recaps",
     "checkpoint_restore_sources",
+    "checkpoint_dialogue_members",
     "memory_entries",
     "memory_cursors",
     "director_frontier",
