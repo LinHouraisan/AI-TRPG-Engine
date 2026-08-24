@@ -94,19 +94,22 @@ export default function App() {
             currentVersion={session.state.version}
             busy={session.busy}
             onRestore={(checkpointId) => session.restoreDesktopCheckpoint(checkpointId)}
+            onRecreate={(checkpointId) => session.recreateDesktopInvestigator(checkpointId)}
           />
           {!desktop ? <KeeperSettings config={session.config} onChange={session.setConfig} /> : null}
           <button
             type="button"
+            disabled={session.busy}
             onClick={() => void session.exportCampaign()}
-            className="min-h-11 shrink-0 rounded border border-line/70 px-2.5 transition hover:border-brass/60 hover:text-brass md:min-h-0 md:px-2.5 md:py-1"
+            className="min-h-11 shrink-0 rounded border border-line/70 px-2.5 transition hover:border-brass/60 hover:text-brass disabled:opacity-40 md:min-h-0 md:px-2.5 md:py-1"
           >
             导出
           </button>
           <button
             type="button"
+            disabled={session.busy}
             onClick={() => filePicker.current?.click()}
-            className="min-h-11 shrink-0 rounded border border-line/70 px-2.5 transition hover:border-brass/60 hover:text-brass md:min-h-0 md:px-2.5 md:py-1"
+            className="min-h-11 shrink-0 rounded border border-line/70 px-2.5 transition hover:border-brass/60 hover:text-brass disabled:opacity-40 md:min-h-0 md:px-2.5 md:py-1"
           >
             导入
           </button>

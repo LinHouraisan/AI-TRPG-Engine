@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { InvestigatorProfile } from "../../../demo/src/character/types";
+import type { GameState } from "../../../demo/src/engine/types";
 import { uuidv7 } from "../../shared/ids";
 import type { Driver } from "./driver";
 
@@ -11,6 +12,12 @@ export type InvestigatorRecord = {
   contentVersion: string;
   createdAt: string;
 };
+
+export function hasInvestigatorPersistence(db: Driver): boolean {
+  return Boolean(db.get<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'investigator_profiles'",
+  ));
+}
 
 export function canonicalProfileJson(profile: InvestigatorProfile): string {
   return JSON.stringify(sortValue(profile));
@@ -91,6 +98,41 @@ export function loadInvestigator(db: Driver, branchId: string): InvestigatorReco
     contentVersion: row.content_version,
     createdAt: row.created_at,
   };
+}
+
+export function isReplayConsistentInvestigator(
+  record: InvestigatorRecord,
+  state: GameState,
+): boolean {
+  if (record.profileJson !== canonicalProfileJson(record.profile)) return false;
+  if (record.profileHash !== hashProfile(record.profile)) return false;
+  if (record.contentVersion !== record.profile.contentVersion) return false;
+  if (state.pcCardHash !== record.profileHash) return false;
+  if (
+    !state.pcName ||
+    !state.pcOccupation ||
+    !state.characteristics ||
+    !state.baseSkills ||
+    !state.occupationPoints ||
+    !state.interestPoints ||
+    !state.lifeHistoryId
+  ) return false;
+
+  const replayedProfile: InvestigatorProfile = {
+    name: state.pcName,
+    occupation: state.pcOccupation,
+    characteristics: state.characteristics,
+    baseSkills: state.baseSkills,
+    occupationPoints: state.occupationPoints,
+    interestPoints: state.interestPoints,
+    skills: state.skills,
+    hp: state.hpMax,
+    san: record.profile.san,
+    sanMax: state.sanMax,
+    lifeHistoryId: state.lifeHistoryId,
+    contentVersion: record.profile.contentVersion,
+  };
+  return canonicalProfileJson(replayedProfile) === record.profileJson;
 }
 
 function sortValue(value: unknown): unknown {

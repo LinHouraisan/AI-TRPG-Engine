@@ -45,3 +45,31 @@ test("a rejected save never exposes its dialogue pair", async () => {
   expect(source.recent("branch")).toEqual([]);
   expect(buildRecentDialogueContext(source.recent("branch"))).not.toContain("询问名字");
 });
+
+test("an immediate follow-up snapshot waits for the preceding successful save", async () => {
+  const source = new PersistedDialogueSource();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const pending = source.persist("branch", firstPair, async () => { await gate; });
+
+  let settled = false;
+  const snapshot = source.snapshot("branch").then((turns) => {
+    settled = true;
+    return turns;
+  });
+  await Promise.resolve();
+  expect(settled).toBe(false);
+
+  release();
+  await pending;
+  expect(await snapshot).toEqual(firstPair);
+});
+
+test("an immediate follow-up snapshot excludes a preceding failed save", async () => {
+  const source = new PersistedDialogueSource();
+  void source.persist("branch", firstPair, async () => {
+    throw new Error("disk full");
+  }).catch(() => undefined);
+
+  expect(await source.snapshot("branch")).toEqual([]);
+});

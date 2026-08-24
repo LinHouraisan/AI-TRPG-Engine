@@ -6,6 +6,7 @@ import { DEFAULT_CONTEXT_BUDGET_CHARS } from "./config";
 import {
   buildNpcDialogueContext,
   buildRecentDialogueContext,
+  disclosableNpcFactIds,
   resolveDialogueNpcId,
   type DialogueTurn,
 } from "./dialogue-context";
@@ -157,7 +158,9 @@ export function buildContext(params: {
   const authored = visibleCurrent.map((event) => event.narration).filter(Boolean);
   const allowedFactIds = new Set(npcId ? publicKnown : state.known);
   if (npcId) {
-    for (const id of scenarioIndex.npc(npcId)?.knownFacts ?? []) allowedFactIds.add(id);
+    for (const id of disclosableNpcFactIds({ npcId, state, scenarioPack })) {
+      allowedFactIds.add(id);
+    }
   }
   for (const event of current) {
     if (event.payload.type === "fact_known") allowedFactIds.add(event.payload.fact);

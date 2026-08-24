@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { validateAllocation } from "../../../demo/src/character/creation";
 import { loadPackById } from "../../../demo/src/engine/pack";
@@ -6,6 +6,7 @@ import type { EventDraft, GameEvent } from "../../../demo/src/engine/types";
 import { sheetDraft } from "../../../demo/src/cards/apply";
 import type {
   CampaignSummary,
+  CampaignBackup,
   CampaignView,
   ConfirmInvestigatorInput,
   ConfirmInvestigatorView,
@@ -33,7 +34,10 @@ import {
 } from "../persist/catalog";
 import type { Driver } from "../persist/driver";
 import { applyInit, applyMigration } from "../persist/migrate";
-import { createCheckpoint } from "../persist/checkpoints";
+import {
+  createCheckpoint,
+  createInvestigatorRecreationBranch,
+} from "../persist/checkpoints";
 import {
   bindInvestigator,
   hashProfile,
@@ -41,6 +45,7 @@ import {
   saveInvestigator,
 } from "../persist/investigator";
 import { appendCommitted } from "../persist/turns";
+import { exportCampaignBackup, importCampaignBackup } from "../persist/backup";
 
 export type OpenDriver = (path: string) => Driver;
 
@@ -369,6 +374,102 @@ export class CampaignService {
       });
     }
     return ok(loadInvestigator(opened.value, catalog.head_branch_id)?.profile ?? null);
+  }
+
+  exportCampaign(campaignId: CampaignId): Result<CampaignBackup> {
+    const opened = this.ensureOpen(campaignId);
+    if (!opened.ok) return opened;
+    const catalog = getCatalog(this.settings, campaignId);
+    if (!catalog) {
+      return fail({
+        code: "IPC_INVALID_REQUEST",
+        messageKey: "campaign.not_found",
+        retryable: false,
+      });
+    }
+    try {
+      return ok(exportCampaignBackup(opened.value, {
+        campaignId,
+        name: catalog.name,
+        headBranchId: catalog.head_branch_id,
+        headStateVersion: catalog.head_state_version,
+      }));
+    } catch {
+      return fail({ code: "BACKUP_EXPORT_FAILED", messageKey: "backup.export_failed", retryable: false });
+    }
+  }
+
+  importCampaign(backup: CampaignBackup): Result<CampaignSummary> {
+    const campaignId = uuidv7();
+    const file = this.paths.campaignFile(campaignId);
+    mkdirSync(dirname(file), { recursive: true });
+    const db = this.openDriver(file);
+    try {
+      applyInit(db, this.clock, this.campaignSql, "0001_init");
+      for (const migration of this.extraMigrations) {
+        applyMigration(db, this.clock, migration.sql, migration.id);
+      }
+      const imported = importCampaignBackup(db, backup, campaignId);
+      db.close();
+      const catalog = this.settings.transaction(() => {
+        insertCatalog(this.settings, {
+          campaignId,
+          name: imported.name,
+          relativePath: this.paths.campaignRelative(campaignId),
+          headBranchId: imported.headBranchId,
+          now: this.clock.nowIso(),
+        });
+        setCatalogBranchHead(
+          this.settings,
+          campaignId,
+          imported.headBranchId,
+          imported.headStateVersion,
+          this.clock.nowIso(),
+        );
+        const inserted = getCatalog(this.settings, asCampaignId(campaignId));
+        if (!inserted) throw new Error("backup.catalog_failed");
+        return inserted;
+      });
+      return ok({
+        campaignId: asCampaignId(catalog.campaign_id),
+        name: catalog.name,
+        health: catalog.health,
+        headBranchId: asBranchId(catalog.head_branch_id),
+        headStateVersion: asStateVersion(catalog.head_state_version),
+        createdAt: catalog.created_at,
+        updatedAt: catalog.updated_at,
+        lastOpenedAt: catalog.last_opened_at,
+      });
+    } catch {
+      try { db.close(); } catch { /* already closed */ }
+      try { rmSync(file, { force: true }); } catch { /* invalid imports stay uncatalogued */ }
+      return fail({ code: "BACKUP_INVALID", messageKey: "backup.invalid", retryable: false });
+    }
+  }
+
+  createInvestigatorRecreation(input: {
+    campaignId: CampaignId;
+    checkpointId: string;
+    label: string;
+  }): Result<{ branchId: string; stateVersion: number }> {
+    const opened = this.ensureOpen(input.campaignId);
+    if (!opened.ok) return opened;
+    try {
+      const recreated = createInvestigatorRecreationBranch(
+        opened.value,
+        input.checkpointId,
+        input.label,
+        this.clock.nowIso(),
+      );
+      this.setBranchHead(input.campaignId, recreated.branchId, recreated.stateVersion);
+      return ok(recreated);
+    } catch {
+      return fail({
+        code: "INVESTIGATOR_RECREATION_REJECTED",
+        messageKey: "investigator.recreation_rejected",
+        retryable: false,
+      });
+    }
   }
 
   setHead(campaignId: CampaignId, version: number): void {

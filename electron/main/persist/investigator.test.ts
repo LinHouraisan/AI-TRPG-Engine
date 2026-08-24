@@ -16,6 +16,8 @@ import {
   saveInvestigator,
 } from "./investigator";
 import { applyInit, applyMigration } from "./migrate";
+import { restoreCheckpointCopy } from "./checkpoints";
+import { loadBranchHistory } from "./turns";
 
 const now = "2026-08-24T00:00:00.000Z";
 const profile: InvestigatorProfile = {
@@ -138,6 +140,9 @@ describe("atomic investigator confirmation", () => {
     expect("campaign:confirmInvestigator" in CHANNELS).toBe(true);
     expect("campaign:getInvestigator" in CHANNELS).toBe(true);
     expect("campaign:applyCharacterCard" in CHANNELS).toBe(false);
+    expect("checkpoint:recreateInvestigator" in CHANNELS).toBe(true);
+    expect("backup:export" in CHANNELS).toBe(true);
+    expect("backup:import" in CHANNELS).toBe(true);
   });
 
   test("confirmation commits the profile and history once", () => {
@@ -168,6 +173,146 @@ describe("atomic investigator confirmation", () => {
       expect(duplicate.ok).toBe(false);
       expect(db?.get<{ count: number }>("SELECT count(*) AS count FROM investigator_profiles")?.count)
         .toBe(1);
+    } finally {
+      fixture.close();
+    }
+  });
+
+  test("confirmation stores the normalized name from shared allocation validation", () => {
+    const fixture = campaignService();
+    try {
+      const created = fixture.service.create("姓名归一化");
+      if (!created.ok) throw new Error("campaign create failed");
+      const confirmed = fixture.service.confirmInvestigator({
+        campaignId: created.value.campaignId,
+        branchId: created.value.headBranchId,
+        allocation: { ...allocation, name: "  林晚  " },
+      });
+
+      expect(confirmed.ok).toBe(true);
+      if (confirmed.ok) expect(confirmed.value.profile.name).toBe("林晚");
+      expect(fixture.service.driver(created.value.campaignId)
+        ?.get<{ profile_json: string }>("SELECT profile_json FROM investigator_profiles")
+        ?.profile_json).toContain('"name":"林晚"');
+    } finally {
+      fixture.close();
+    }
+  });
+
+  test("an ordinary pre-play restore inherits its binding and cannot confirm another profile", () => {
+    const fixture = campaignService();
+    try {
+      const created = fixture.service.create("普通恢复保持绑定");
+      if (!created.ok) throw new Error("campaign create failed");
+      const confirmed = fixture.service.confirmInvestigator({
+        campaignId: created.value.campaignId,
+        branchId: created.value.headBranchId,
+        allocation,
+      });
+      if (!confirmed.ok) throw new Error("investigator confirmation failed");
+      const db = fixture.service.driver(created.value.campaignId);
+      if (!db) throw new Error("campaign not open");
+      const source = loadInvestigator(db, created.value.headBranchId);
+      const restored = restoreCheckpointCopy(
+        db,
+        confirmed.value.checkpointId,
+        "普通恢复副本",
+        now,
+      );
+      fixture.service.setBranchHead(
+        created.value.campaignId,
+        restored.branchId,
+        restored.stateVersion,
+      );
+
+      expect(loadInvestigator(db, restored.branchId)).toEqual(source);
+      const changed = fixture.service.confirmInvestigator({
+        campaignId: created.value.campaignId,
+        branchId: restored.branchId,
+        allocation: { ...allocation, name: "顾弦" },
+      });
+      expect(changed.ok).toBe(false);
+      expect(loadInvestigator(db, created.value.headBranchId)).toEqual(source);
+    } finally {
+      fixture.close();
+    }
+  });
+
+  test("the pre-play recreation operation creates an unbound child that accepts one new profile", () => {
+    const fixture = campaignService();
+    try {
+      const created = fixture.service.create("预开局重建");
+      if (!created.ok) throw new Error("campaign create failed");
+      const confirmed = fixture.service.confirmInvestigator({
+        campaignId: created.value.campaignId,
+        branchId: created.value.headBranchId,
+        allocation,
+      });
+      if (!confirmed.ok) throw new Error("investigator confirmation failed");
+      const db = fixture.service.driver(created.value.campaignId);
+      if (!db) throw new Error("campaign not open");
+      const source = loadInvestigator(db, created.value.headBranchId);
+      const sourceHead = db.get<{ head_sequence: number; head_state_version: number }>(
+        "SELECT head_sequence, head_state_version FROM branches WHERE branch_id = ?",
+        [created.value.headBranchId],
+      );
+      const sourceEvents = db.get<{ count: number }>(
+        "SELECT count(*) AS count FROM events WHERE branch_id = ?",
+        [created.value.headBranchId],
+      )?.count;
+
+      const recreation = fixture.service.createInvestigatorRecreation({
+        campaignId: created.value.campaignId,
+        checkpointId: confirmed.value.checkpointId,
+        label: "重新创建调查员",
+      });
+      expect(recreation.ok).toBe(true);
+      if (!recreation.ok) throw new Error("recreation failed");
+      expect(recreation.value.stateVersion).toBe(0);
+      expect(loadInvestigator(db, recreation.value.branchId)).toBeNull();
+      expect(db.get<{ count: number }>(
+        "SELECT count(*) AS count FROM turns WHERE branch_id = ?",
+        [recreation.value.branchId],
+      )?.count).toBe(0);
+      expect(db.get<{ count: number }>(
+        "SELECT count(*) AS count FROM investigator_recreation_branches WHERE branch_id = ?",
+        [recreation.value.branchId],
+      )?.count).toBe(1);
+
+      const replacement = fixture.service.confirmInvestigator({
+        campaignId: created.value.campaignId,
+        branchId: recreation.value.branchId,
+        allocation: { ...allocation, name: "顾弦" },
+      });
+      expect(replacement.ok).toBe(true);
+      if (!replacement.ok) throw new Error("replacement confirmation failed");
+      expect(replacement.value.profile.name).toBe("顾弦");
+      expect(loadInvestigator(db, created.value.headBranchId)).toEqual(source);
+      expect(db.get<{ head_sequence: number; head_state_version: number }>(
+        "SELECT head_sequence, head_state_version FROM branches WHERE branch_id = ?",
+        [created.value.headBranchId],
+      )).toEqual(sourceHead);
+      expect(db.get<{ count: number }>(
+        "SELECT count(*) AS count FROM events WHERE branch_id = ?",
+        [created.value.headBranchId],
+      )?.count).toBe(sourceEvents);
+      expect(loadInvestigator(db, recreation.value.branchId)?.profileHash).not.toBe(source?.profileHash);
+      expect(db.get<{ count: number }>(
+        "SELECT count(*) AS count FROM branch_investigator_bindings WHERE branch_id = ?",
+        [recreation.value.branchId],
+      )?.count).toBe(1);
+      const recreationHistory = loadBranchHistory(db, recreation.value.branchId);
+      expect(recreationHistory.restoredFrom).toBeNull();
+      expect(recreationHistory.recentTurns).toHaveLength(0);
+      expect(recreationHistory.recap).toContain("顾弦");
+      expect(recreationHistory.recap).not.toContain("林晚");
+
+      const duplicate = fixture.service.confirmInvestigator({
+        campaignId: created.value.campaignId,
+        branchId: recreation.value.branchId,
+        allocation,
+      });
+      expect(duplicate.ok).toBe(false);
     } finally {
       fixture.close();
     }
@@ -267,6 +412,10 @@ function campaignService() {
       {
         id: "0006_checkpoint_dialogue_members",
         sql: readFileSync(join(sqlDir, "campaign-0006-checkpoint-dialogue-members.sql"), "utf8"),
+      },
+      {
+        id: "0007_investigator_recreation",
+        sql: readFileSync(join(sqlDir, "campaign-0007-investigator-recreation.sql"), "utf8"),
       },
     ],
   );

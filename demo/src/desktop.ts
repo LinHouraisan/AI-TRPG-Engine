@@ -32,6 +32,22 @@ export type DesktopBranchHistory = {
   restoredFrom: string | null;
 };
 
+export type DesktopCampaignBackup = {
+  format: "ai-trpg-campaign-backup";
+  formatVersion: 1;
+  checksum: string;
+  body: {
+    sourceCampaignId: string;
+    name: string;
+    headBranchId: string;
+    headStateVersion: number;
+    databaseSchemaVersion: number;
+    domainSchemaVersion: number;
+    migrations: Array<{ migrationId: string; checksum: string }>;
+    tables: Record<string, Array<Record<string, unknown>>>;
+  };
+};
+
 export type OperationEvent =
   | {
       type: "operation.status";
@@ -133,6 +149,11 @@ export interface DesktopApi {
     list(input:{campaignId:string}): Promise<DesktopResult<Array<{checkpointId:string;branchId:string;stateVersion:number;eventSequence:number;label:string;createdAt:string;purpose:string|null;passed:boolean|null;stateHash:string;recap:string}>>>;
     create(input:{campaignId:string;branchId:string;label:string;purpose?:string;steps?:string[];expected?:unknown;actual?:unknown;passed?:boolean}): Promise<DesktopResult<unknown>>;
     restoreCopy(input:{campaignId:string;checkpointId:string;label:string}): Promise<DesktopResult<{branchId:string;stateVersion:number}>>;
+    recreateInvestigator(input:{campaignId:string;checkpointId:string;label:string}): Promise<DesktopResult<{branchId:string;stateVersion:number}>>;
+  };
+  backup: {
+    exportCampaign(input:{campaignId:string}): Promise<DesktopResult<DesktopCampaignBackup>>;
+    importCampaign(input:{backup:DesktopCampaignBackup}): Promise<DesktopResult<DesktopCampaign>>;
   };
   operation: {
     get(input: {

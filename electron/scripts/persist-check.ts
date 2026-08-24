@@ -63,6 +63,10 @@ const checkpointDialogueSql = readFileSync(
   join(import.meta.dir, "../sql/campaign-0006-checkpoint-dialogue-members.sql"),
   "utf8",
 );
+const investigatorRecreationSql = readFileSync(
+  join(import.meta.dir, "../sql/campaign-0007-investigator-recreation.sql"),
+  "utf8",
+);
 
 let failed = 0;
 function assert(cond: boolean, label: string): void {
@@ -99,6 +103,7 @@ try {
     { id: "0004_investigator", sql: investigatorSql },
     { id: "0005_checkpoint_recaps", sql: checkpointRecapSql },
     { id: "0006_checkpoint_dialogue_members", sql: checkpointDialogueSql },
+    { id: "0007_investigator_recreation", sql: investigatorRecreationSql },
   ]);
   const bad = campaigns.create("   ");
   assert(!bad.ok && bad.error.code === "IPC_INVALID_REQUEST", "空名字拒收");
@@ -280,8 +285,13 @@ try {
     clock,
     xorSafeStorage(true),
   );
-  const turns = new TurnService(campaigns, turnCredentials, clock);
-  const fresh = campaigns.create("回合探测");
+  // 这段验证的是通用寄宿公寓内核，不是雾港产品开局；刻意使用未安装调查员
+  // 持久化迁移的低层 legacy schema。雾港的强制绑定门由 turns-opening.test 覆盖。
+  const turnCampaigns = new CampaignService(settings, paths, clock, openBun, campaignSql, [
+    { id: "0002_memory", sql: memorySql },
+  ]);
+  const turns = new TurnService(turnCampaigns, turnCredentials, clock);
+  const fresh = turnCampaigns.create("回合探测");
   assert(fresh.ok, "另开一场做回合探测");
   const live = fresh.ok ? fresh.value : undefined;
   if (live) {
@@ -322,7 +332,7 @@ try {
       );
       const view = turns.get(moved.value.operationId, live.campaignId);
       assert(view.ok && view.value.kind === "committed" && view.value.events.length > 0, "operation.get 带回已提交事件");
-      const db = campaigns.driver(live.campaignId);
+      const db = turnCampaigns.driver(live.campaignId);
       const events = db ? loadGameEvents(db, live.headBranchId) : [];
       assert(events.some((event) => event.payload.type === "moved"), "events 表里有 moved");
       const memCount = db?.get<{ n: number }>("SELECT count(*) AS n FROM memory_entries");
@@ -376,6 +386,7 @@ try {
       assert(againCount?.n === 1, "同一 commandId 不重复写 narration");
     }
   }
+  turnCampaigns.dispose();
 
   const secret = "sk-live-persist-check-plaintext-secret";
   const credFile = join(root, "credentials.json");

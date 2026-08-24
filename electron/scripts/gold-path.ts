@@ -37,6 +37,8 @@ function assert(ok: boolean, label: string): void {
 try {
   const settings = openBun(paths.settingsDb);
   applyInit(settings, clock, settingsSql, "0001_init");
+  // 寄宿公寓金样刻意只装载通用内核迁移，不启用雾港调查员持久化契约。
+  // 雾港产品路径由 mist-harbor-e2e 覆盖，并且必须先绑定可重放的调查员。
   const campaigns = new CampaignService(settings, paths, clock, openBun, campaignSql, [
     { id: "0002_memory", sql: memorySql },
   ]);

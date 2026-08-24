@@ -129,7 +129,7 @@ export function checkNarration(params: {
     for (const fact of scenarioPack.facts) {
       if (allowedFacts.has(fact.id)) continue;
       if (fact.visibility !== "secret" && !npcFacts.has(fact.id)) continue;
-      if (factPhrases(fact.title, scenarioPack).some((phrase) => text.includes(phrase))) {
+      if (factPhrases(fact, scenarioPack).some((phrase) => text.includes(phrase))) {
         return { ok: false, reason: "叙述声称了上下文未授权的事实" };
       }
     }
@@ -170,13 +170,16 @@ export function checkNarration(params: {
   return { ok: true };
 }
 
-function factPhrases(title: string, scenarioPack: Pack): string[] {
-  let withoutEntity = title;
+function factPhrases(fact: Pack["facts"][number], scenarioPack: Pack): string[] {
+  let withoutEntity = fact.title;
   for (const entity of [...scenarioPack.npcs, ...scenarioPack.rooms, ...scenarioPack.items]) {
     withoutEntity = withoutEntity.replaceAll(entity.title, "");
   }
   const stripped = withoutEntity.trim();
-  return stripped.length >= 4 && stripped !== title ? [title, stripped] : [title];
+  const phrases = stripped.length >= 4 && stripped !== fact.title
+    ? [fact.title, stripped, ...fact.guardPhrases]
+    : [fact.title, ...fact.guardPhrases];
+  return [...new Set(phrases)];
 }
 
 /**

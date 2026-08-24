@@ -47,6 +47,7 @@ export type InvestigatorProfile = {
 
 export type AllocationIssue = {
   code:
+    | "NAME_INVALID"
     | "POINTS_INVALID"
     | "OCCUPATION_SKILL_INVALID"
     | "SKILL_UNKNOWN"

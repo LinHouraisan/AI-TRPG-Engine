@@ -42,6 +42,24 @@ export interface CreateCampaignInput {
   name: string;
 }
 
+export type CampaignBackupBody = {
+  sourceCampaignId: string;
+  name: string;
+  headBranchId: string;
+  headStateVersion: number;
+  databaseSchemaVersion: number;
+  domainSchemaVersion: number;
+  migrations: Array<{ migrationId: string; checksum: string }>;
+  tables: Record<string, Array<Record<string, unknown>>>;
+};
+
+export type CampaignBackup = {
+  format: "ai-trpg-campaign-backup";
+  formatVersion: 1;
+  checksum: string;
+  body: CampaignBackupBody;
+};
+
 export type ConfirmInvestigatorInput = {
   campaignId: CampaignId;
   branchId: BranchId;
@@ -238,11 +256,15 @@ export interface DesktopApi {
   };
   content: { list(): Promise<Result<never>> };
   model: { list(): Promise<Result<never>> };
-  backup: { exportCampaign(): Promise<Result<never>> };
+  backup: {
+    exportCampaign(input: { campaignId: CampaignId }): Promise<Result<CampaignBackup>>;
+    importCampaign(input: { backup: CampaignBackup }): Promise<Result<CampaignSummary>>;
+  };
   checkpoint: {
     list(input:{campaignId:CampaignId}): Promise<Result<Array<{checkpointId:string;branchId:string;stateVersion:number;eventSequence:number;label:string;createdAt:string;purpose:string|null;passed:boolean|null;stateHash:string;recap:string}>>>;
     create(input:{campaignId:CampaignId;branchId:BranchId;label:string;purpose?:string;steps?:string[];expected?:unknown;actual?:unknown;passed?:boolean}): Promise<Result<unknown>>;
     restoreCopy(input:{campaignId:CampaignId;checkpointId:string;label:string}): Promise<Result<{branchId:string;stateVersion:number}>>;
+    recreateInvestigator(input:{campaignId:CampaignId;checkpointId:string;label:string}): Promise<Result<{branchId:string;stateVersion:number}>>;
   };
   operation: {
     get(input: { operationId: OperationId; campaignId: CampaignId }): Promise<Result<TurnView>>;
@@ -252,7 +274,7 @@ export interface DesktopApi {
   };
 }
 
-export const API_VERSION: ApiVersion = { major: 1, minor: 0 };
+export const API_VERSION: ApiVersion = { major: 1, minor: 1 };
 
 export const CHANNELS = {
   "app:getVersion": true,
@@ -287,6 +309,9 @@ export const CHANNELS = {
   "checkpoint:list": true,
   "checkpoint:create": true,
   "checkpoint:restoreCopy": true,
+  "checkpoint:recreateInvestigator": true,
+  "backup:export": true,
+  "backup:import": true,
 } as const;
 
 export type Channel = keyof typeof CHANNELS;

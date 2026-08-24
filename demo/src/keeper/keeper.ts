@@ -7,7 +7,7 @@ import {
 } from "@/engine/investigation";
 import { itemsInRoom, npcsInRoom, visibleItemsInRoom } from "@/engine/state";
 import type { GameEvent, GameState, Intent, QueryTopic } from "@/engine/types";
-import { askKeeper, extractNarrationDraft, KeeperError } from "./client";
+import { askKeeper, KeeperError } from "./client";
 import type { KeeperConfig } from "./config";
 import {
   narrationJsonSchema,
@@ -79,9 +79,8 @@ export type NarrationStreamEvent = NarrationDraft | NarrationFinal;
  * 主持人叙述。模型只负责把已经提交的事实讲成人话；
  * 讲错了、超时了、连不上，都退回确定性模板，一场团不会因为模型而卡住。
  *
- * 打开 config.stream 时，onStream 会先收到若干 { kind: "draft" }，
- * 最后一定收到一条 { kind: "final" }。Promise 的返回值就是那条定稿，
- * 与非流式路径在同一输入下应得到相同的 text。
+ * 网络层可以流式收取模型输出，但安全与质量体检完成前不会向界面发送草稿。
+ * onStream 只收到一条 { kind: "final" }，Promise 的返回值就是那条定稿。
  */
 export async function keeperNarrate(params: {
   config: KeeperConfig;
@@ -132,13 +131,7 @@ export async function keeperNarrate(params: {
         maxTokens: 1200,
         signal: params.signal,
         stream: config.stream,
-        onContent: config.stream
-          ? (json) => {
-              const draft = extractNarrationDraft(json);
-              if (!draft) return;
-              params.onStream?.({ kind: "draft", draft });
-            }
-          : undefined,
+        onContent: undefined,
       });
 
       const quality = checkNarrationQuality(value, qualityMode);

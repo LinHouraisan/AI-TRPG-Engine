@@ -29,4 +29,9 @@ export class PersistedDialogueSource {
   async settle(branchId: string): Promise<void> {
     await this.saves.get(branchId)?.catch(() => undefined);
   }
+
+  async snapshot(branchId: string): Promise<DialogueTurn[]> {
+    await this.settle(branchId);
+    return this.recent(branchId);
+  }
 }

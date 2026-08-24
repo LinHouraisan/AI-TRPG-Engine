@@ -19,10 +19,18 @@ export function validateAllocation(
   allocation: InvestigatorAllocation,
 ): { ok: true; profile: InvestigatorProfile } | { ok: false; issues: AllocationIssue[] } {
   const issues: AllocationIssue[] = [];
+  const name = allocation.name.trim();
   const occupationSkills = new Set(rules.occupationSkills);
   const skills = new Set(Object.keys(rules.baseSkills));
   const occupationPoints = validPoints(allocation.occupationPoints, "occupation", issues);
   const interestPoints = validPoints(allocation.interestPoints, "interest", issues);
+
+  if (name.length < 1 || name.length > 80) {
+    issues.push({
+      code: "NAME_INVALID",
+      message: "调查员姓名必须包含 1 至 80 个字符",
+    });
+  }
 
   if (rules.maxSkill !== MAX_SKILL) {
     issues.push({
@@ -78,7 +86,7 @@ export function validateAllocation(
   return {
     ok: true,
     profile: {
-      name: allocation.name,
+      name,
       occupation: rules.occupation,
       characteristics: { ...rules.characteristics },
       baseSkills: { ...rules.baseSkills },

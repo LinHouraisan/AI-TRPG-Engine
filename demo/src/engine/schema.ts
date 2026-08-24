@@ -107,6 +107,7 @@ export const factSchema = z.object({
   id: z.string().startsWith("fact."),
   title: z.string(),
   visibility: z.enum(["public", "secret"]),
+  guardPhrases: z.array(z.string().min(2)).default([]),
 });
 
 export const npcSchema = z.object({
@@ -115,6 +116,10 @@ export const npcSchema = z.object({
   startAt: z.string(),
   line: z.string(),
   knownFacts: z.array(z.string().startsWith("fact.")).default([]),
+  disclosures: z.array(z.object({
+    fact: z.string().startsWith("fact."),
+    when: predicateSchema,
+  })).default([]),
   keeperNote: z.string().optional(),
 });
 

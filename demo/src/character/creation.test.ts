@@ -85,6 +85,32 @@ test("valid allocation returns the complete fixed investigator profile", () => {
   });
 });
 
+test("allocation trims a non-empty investigator name", () => {
+  const result = validateAllocation(rules, {
+    name: "  林晚  ",
+    lifeHistoryId: "history.archive-correspondent",
+    occupationPoints: { 侦查: 55, 聆听: 35, 图书馆使用: 50, 话术: 70, 心理学: 70 },
+    interestPoints: { 侦查: 10, 聆听: 20, 图书馆使用: 20, 话术: 15, 心理学: 10, 开锁: 65 },
+  });
+
+  expect(result.ok).toBe(true);
+  if (result.ok) expect(result.profile.name).toBe("林晚");
+});
+
+test("allocation rejects an empty or whitespace-only investigator name", () => {
+  for (const name of ["", "   ", "\t\n"]) {
+    const result = validateAllocation(rules, {
+      name,
+      lifeHistoryId: "history.archive-correspondent",
+      occupationPoints: { 侦查: 55, 聆听: 35, 图书馆使用: 50, 话术: 70, 心理学: 70 },
+      interestPoints: { 侦查: 10, 聆听: 20, 图书馆使用: 20, 话术: 15, 心理学: 10, 开锁: 65 },
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.issues.map((issue) => issue.code)).toContain("NAME_INVALID");
+  }
+});
+
 test("creation rules reject a configured skill cap other than 90", () => {
   const invalid = validateAllocation(
     { ...rules, maxSkill: 99 as unknown as 90 },

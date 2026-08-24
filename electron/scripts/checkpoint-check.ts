@@ -19,6 +19,7 @@ applyMigration(db, clock, readFileSync(join(sqlDir, "campaign-0003-checkpoint-te
 applyMigration(db, clock, readFileSync(join(sqlDir, "campaign-0004-investigator.sql"), "utf8"), "0004_investigator");
 applyMigration(db, clock, readFileSync(join(sqlDir, "campaign-0005-checkpoint-recaps.sql"), "utf8"), "0005_checkpoint_recaps");
 applyMigration(db, clock, readFileSync(join(sqlDir, "campaign-0006-checkpoint-dialogue-members.sql"), "utf8"), "0006_checkpoint_dialogue_members");
+applyMigration(db, clock, readFileSync(join(sqlDir, "campaign-0007-investigator-recreation.sql"), "utf8"), "0007_investigator_recreation");
 db.run("INSERT INTO campaign_metadata VALUES ('camp','test',?,?,1,1)", [clock.nowIso(), clock.nowIso()]);
 db.run("INSERT INTO branches VALUES ('main',NULL,NULL,'主线',0,0,?,NULL)", [clock.nowIso()]);
 db.run(
@@ -170,6 +171,7 @@ legacy.run(
 legacy.run("INSERT INTO checkpoints VALUES ('legacy-checkpoint', 'legacy-main', 0, 0, NULL, '旧检查点', 'manual', ?)", [clock.nowIso()]);
 applyMigration(legacy, clock, readFileSync(join(sqlDir, "campaign-0005-checkpoint-recaps.sql"), "utf8"), "0005_checkpoint_recaps");
 applyMigration(legacy, clock, readFileSync(join(sqlDir, "campaign-0006-checkpoint-dialogue-members.sql"), "utf8"), "0006_checkpoint_dialogue_members");
+applyMigration(legacy, clock, readFileSync(join(sqlDir, "campaign-0007-investigator-recreation.sql"), "utf8"), "0007_investigator_recreation");
 const legacyCheckpoint = listCheckpoints(legacy)[0];
 assert(legacyCheckpoint?.checkpointId === "legacy-checkpoint", "升级不丢失已应用 0003 时创建的检查点");
 assert(legacyCheckpoint.recap.startsWith("林晚因沈鹭"), "0005 为旧检查点回填持久化前情");

@@ -49,7 +49,11 @@ export function buildNpcDialogueContext(params: {
     return buildRecentDialogueContext(params.recentTurns);
   }
 
-  const ownFacts = npc.knownFacts
+  const ownFacts = disclosableNpcFactIds({
+    npcId: npc.id,
+    state: params.state,
+    scenarioPack,
+  })
     .map((id) => index.fact(id)?.title)
     .filter((title): title is string => Boolean(title));
   const publicFacts = params.state.known
@@ -79,6 +83,26 @@ export function buildNpcDialogueContext(params: {
     relationship ? `【共同关系】${relationship}` : "",
     buildRecentDialogueContext(params.recentTurns),
   ].filter(Boolean).join("\n");
+}
+
+export function disclosableNpcFactIds(params: {
+  npcId: string;
+  state: GameState;
+  scenarioPack?: Pack;
+}): string[] {
+  const scenarioPack = params.scenarioPack ?? pack;
+  const index = indexPack(scenarioPack);
+  const npc = index.npc(params.npcId);
+  if (!npc) return [];
+  const authored = new Set(
+    npc.disclosures
+      .filter((disclosure) => evaluate(disclosure.when, params.state))
+      .map((disclosure) => disclosure.fact),
+  );
+  return npc.knownFacts.filter((id) => {
+    const fact = index.fact(id);
+    return fact?.visibility === "public" || params.state.known.includes(id) || authored.has(id);
+  });
 }
 
 function isVisible(item: Pack["items"][number], state: GameState): boolean {

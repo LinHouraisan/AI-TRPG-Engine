@@ -523,6 +523,19 @@ export function lintPack(pack: Pack): LintIssue[] {
         issues.push({ level: "错误", where: npc.id, message: `NPC 已知事实 ${fact} 不存在` });
       }
     }
+    for (const disclosure of npc.disclosures) {
+      if (!npc.knownFacts.includes(disclosure.fact)) {
+        issues.push({
+          level: "错误",
+          where: npc.id,
+          message: `NPC 披露事实 ${disclosure.fact} 不在其已知事实中`,
+        });
+      }
+      if (!factIds.has(disclosure.fact)) {
+        issues.push({ level: "错误", where: npc.id, message: `NPC 披露事实 ${disclosure.fact} 不存在` });
+      }
+      checkPredicate(disclosure.when, `${npc.id}.disclosures.${disclosure.fact}`, refs, issues);
+    }
   }
 
   for (const history of pack.manifest.creation?.lifeHistories ?? []) {

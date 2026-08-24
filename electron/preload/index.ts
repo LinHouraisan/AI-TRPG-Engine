@@ -56,12 +56,14 @@ const desktopApi: DesktopApi = {
     list: () => invoke("model:list"),
   },
   backup: {
-    exportCampaign: () => invoke("backup:export"),
+    exportCampaign: (input) => invoke("backup:export", input),
+    importCampaign: (input) => invoke("backup:import", input),
   },
   checkpoint: {
     list: (input) => invoke("checkpoint:list", input),
     create: (input) => invoke("checkpoint:create", input),
     restoreCopy: (input) => invoke("checkpoint:restoreCopy", input),
+    recreateInvestigator: (input) => invoke("checkpoint:recreateInvestigator", input),
   },
   operation: {
     get: (input) => invoke("operation:get", input),

@@ -22,8 +22,13 @@ import { withKeeperConfig } from "../model-config";
 import { probeKeeper } from "../../../demo/src/keeper/client";
 import { summarizeModelUsage } from "../model-usage";
 import { createCheckpoint, listCheckpoints, restoreCheckpointCopy } from "../persist/checkpoints";
+import {
+  confirmInvestigatorInputSchema,
+  importCampaignBackupInputSchema,
+} from "../../shared/input-validation";
 
 const MAX_BYTES = 1024 * 1024;
+const MAX_BACKUP_BYTES = 64 * 1024 * 1024;
 
 const nameSchema = z.object({ name: z.string() }).strict();
 const pageSchema = z
@@ -33,21 +38,6 @@ const pageSchema = z
   })
   .strict();
 const idSchema = z.object({ campaignId: z.string().min(1) }).strict();
-const investigatorAllocationSchema = z
-  .object({
-    name: z.string().min(1).max(80),
-    lifeHistoryId: z.string().min(1),
-    occupationPoints: z.record(z.string(), z.number().int().nonnegative()),
-    interestPoints: z.record(z.string(), z.number().int().nonnegative()),
-  })
-  .strict();
-const confirmInvestigatorSchema = z
-  .object({
-    campaignId: z.string().min(1),
-    branchId: z.string().min(1),
-    allocation: investigatorAllocationSchema,
-  })
-  .strict();
 const settingGet = z.object({ key: z.string().min(1) }).strict();
 const settingSet = z.object({ key: z.string().min(1), value: z.unknown() }).strict();
 const setSecretSchema = z
@@ -58,16 +48,13 @@ const setSecretSchema = z
   .strict();
 const secretIdSchema = z.object({ credentialId: z.string().min(1) }).strict();
 
-function tooBig(payload: unknown): boolean {
-  return Buffer.byteLength(JSON.stringify(payload ?? null), "utf8") > MAX_BYTES;
-}
-
 function wrap(
   fn: (payload: unknown, event: IpcMainInvokeEvent) => Result<unknown> | Promise<Result<unknown>>,
+  maxBytes = MAX_BYTES,
 ) {
   return async (event: IpcMainInvokeEvent, payload: unknown): Promise<Result<unknown>> => {
     try {
-      if (tooBig(payload)) {
+      if (Buffer.byteLength(JSON.stringify(payload ?? null), "utf8") > maxBytes) {
         return fail({
           code: "IPC_PAYLOAD_TOO_LARGE",
           messageKey: "ipc.payload_too_large",
@@ -95,8 +82,9 @@ export function registerIpc(
   const handle = (
     channel: string,
     fn: (payload: unknown, event: IpcMainInvokeEvent) => Result<unknown> | Promise<Result<unknown>>,
+    maxBytes = MAX_BYTES,
   ) => {
-    ipcMain.handle(channel, wrap(fn));
+    ipcMain.handle(channel, wrap(fn, maxBytes));
   };
 
   handle("app:getVersion", () => ok(API_VERSION));
@@ -139,7 +127,7 @@ export function registerIpc(
   });
 
   handle("campaign:confirmInvestigator", (payload) => {
-    const parsed = confirmInvestigatorSchema.safeParse(payload);
+    const parsed = confirmInvestigatorInputSchema.safeParse(payload);
     if (!parsed.success) {
       return fail({
         code: "IPC_INVALID_REQUEST",
@@ -494,7 +482,35 @@ export function registerIpc(
     return ok(restored);
   });
 
+  handle("checkpoint:recreateInvestigator", (payload) => {
+    const parsed = z.object({
+      campaignId: z.string().min(1),
+      checkpointId: z.string().min(1),
+      label: z.string().trim().min(1).max(80),
+    }).strict().safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return composition.campaigns.createInvestigatorRecreation({
+      ...parsed.data,
+      campaignId: asCampaignId(parsed.data.campaignId),
+    });
+  });
+
   handle("content:list", () => unavailable());
   handle("model:list", () => unavailable());
-  handle("backup:export", () => unavailable());
+  handle("backup:export", (payload) => {
+    const parsed = idSchema.safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return composition.campaigns.exportCampaign(asCampaignId(parsed.data.campaignId));
+  });
+  handle("backup:import", (payload) => {
+    const parsed = importCampaignBackupInputSchema.safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return composition.campaigns.importCampaign(parsed.data.backup);
+  }, MAX_BACKUP_BYTES);
 }

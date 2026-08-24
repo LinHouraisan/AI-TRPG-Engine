@@ -246,7 +246,14 @@ export function loadBranchHistory(
      WHERE s.branch_id = ?`,
     [branchId],
   );
-  const fallbackSource = !mappedSource && branch?.parent_branch_id != null
+  const hasRecreationTable = Boolean(db.get<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'investigator_recreation_branches'",
+  ));
+  const isInvestigatorRecreation = hasRecreationTable && Boolean(db.get<{ branch_id: string }>(
+    "SELECT branch_id FROM investigator_recreation_branches WHERE branch_id = ?",
+    [branchId],
+  ));
+  const fallbackSource = !mappedSource && !isInvestigatorRecreation && branch?.parent_branch_id != null
     ? db.get<HistoryCheckpoint>(
         `SELECT c.checkpoint_id, c.label, c.state_version, c.event_sequence, c.created_at, r.recap
          FROM checkpoints c JOIN checkpoint_recaps r ON r.checkpoint_id = c.checkpoint_id

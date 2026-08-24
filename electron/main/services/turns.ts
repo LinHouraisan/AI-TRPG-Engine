@@ -38,6 +38,11 @@ import {
 } from "../persist/turns";
 import { loadMemory, saveFrontier, saveMemory } from "../persist/derived";
 import type { CampaignService } from "./campaigns";
+import {
+  hasInvestigatorPersistence,
+  isReplayConsistentInvestigator,
+  loadInvestigator,
+} from "../persist/investigator";
 
 export type TurnView = SharedTurnView & { events: GameEvent[] };
 
@@ -106,16 +111,37 @@ export class TurnService {
         retryable: false,
       });
     }
-    const existing = findTurnByCommand(db, input.branchId, input.commandId);
-    if (existing) {
-      return ok({ operationId: existing.operationId, turnId: existing.turnId });
-    }
     if (catalog.head_branch_id !== input.branchId) {
       return fail({
         code: "TURN_VERSION_CONFLICT",
         messageKey: "turn.branch_mismatch",
         retryable: true,
       });
+    }
+    const log = loadGameEvents(db, input.branchId);
+    const state = replay(initialState(), log);
+    let profile: InvestigatorProfile | null = null;
+    if (hasInvestigatorPersistence(db)) {
+      const bound = loadInvestigator(db, input.branchId);
+      if (!bound) {
+        return fail({
+          code: "INVESTIGATOR_REQUIRED",
+          messageKey: "investigator.required_before_play",
+          retryable: false,
+        });
+      }
+      if (!isReplayConsistentInvestigator(bound, state)) {
+        return fail({
+          code: "INVESTIGATOR_REPLAY_MISMATCH",
+          messageKey: "investigator.replay_mismatch",
+          retryable: false,
+        });
+      }
+      profile = bound.profile;
+    }
+    const existing = findTurnByCommand(db, input.branchId, input.commandId);
+    if (existing) {
+      return ok({ operationId: existing.operationId, turnId: existing.turnId });
     }
     if (catalog.head_state_version !== Number(input.expectedStateVersion)) {
       return fail({
@@ -126,15 +152,10 @@ export class TurnService {
       });
     }
 
-    const log = loadGameEvents(db, input.branchId);
-    const state = replay(initialState(), log);
     const recentTurns = loadRecentDialogueTurns(db, input.branchId);
-    let profile: InvestigatorProfile | null = null;
     let intent = route(text, state);
     let freeTurnTaskId: string | undefined;
     if (intent.kind === "unclear") {
-      const loadedProfile = this.campaigns.getInvestigator(input.campaignId);
-      profile = loadedProfile.ok ? loadedProfile.value : null;
       freeTurnTaskId = newFreeTurnTaskId();
       const configured = withKeeperConfig(this.campaigns.settings, this.credentials, (config) =>
         handleFreeTurn({
@@ -542,9 +563,6 @@ export class TurnService {
           recentTurns: params.recentTurns,
           profile: params.profile,
           fallback,
-          onStream: (event) => {
-            if (event.kind === "draft") batcher.accept(event.draft);
-          },
         }),
         model: config.model,
       }));

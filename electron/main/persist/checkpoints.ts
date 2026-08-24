@@ -98,3 +98,60 @@ export function restoreCheckpointCopy(db: Driver, checkpointId: string, label: s
   });
   return { branchId, stateVersion: cp.state_version };
 }
+
+export function createInvestigatorRecreationBranch(
+  db: Driver,
+  checkpointId: string,
+  label: string,
+  now: string,
+): { branchId: string; stateVersion: 0 } {
+  const checkpoint = db.get<{
+    branch_id: string;
+    state_version: number;
+    event_sequence: number;
+    label: string;
+  }>(
+    "SELECT branch_id, state_version, event_sequence, label FROM checkpoints WHERE checkpoint_id = ?",
+    [checkpointId],
+  );
+  if (!checkpoint) throw new Error("checkpoint.not_found");
+  if (checkpoint.label !== "正式开局前" || checkpoint.state_version !== 1) {
+    throw new Error("investigator.recreation_checkpoint_invalid");
+  }
+  if (!loadInvestigator(db, checkpoint.branch_id)) {
+    throw new Error("investigator.recreation_source_unbound");
+  }
+  const confirmationTurns = db.get<{ count: number }>(
+    `SELECT count(DISTINCT turn_id) AS count
+     FROM events
+     WHERE branch_id = ? AND sequence <= ?`,
+    [checkpoint.branch_id, checkpoint.event_sequence],
+  )?.count ?? 0;
+  const sheets = db.get<{ count: number }>(
+    `SELECT count(*) AS count
+     FROM events
+     WHERE branch_id = ? AND sequence <= ? AND event_type = 'sheet_applied'`,
+    [checkpoint.branch_id, checkpoint.event_sequence],
+  )?.count ?? 0;
+  if (confirmationTurns !== 1 || sheets !== 1) {
+    throw new Error("investigator.recreation_checkpoint_invalid");
+  }
+
+  const branchId = uuidv7();
+  db.transaction(() => {
+    db.run(
+      `INSERT INTO investigator_recreation_branches (
+        branch_id, source_branch_id, checkpoint_id, created_at
+      ) VALUES (?, ?, ?, ?)`,
+      [branchId, checkpoint.branch_id, checkpointId, now],
+    );
+    db.run(
+      `INSERT INTO branches (
+        branch_id, parent_branch_id, fork_sequence, label, head_sequence,
+        head_state_version, created_at, archived_at
+      ) VALUES (?, ?, ?, ?, 0, 0, ?, NULL)`,
+      [branchId, checkpoint.branch_id, checkpoint.event_sequence, label, now],
+    );
+  });
+  return { branchId, stateVersion: 0 };
+}

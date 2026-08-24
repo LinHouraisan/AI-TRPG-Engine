@@ -47,5 +47,16 @@
 - Figure 2 使用真实 DeepSeek 的女孩回答与视觉泄密检查：未执行。
 - Figure 3 前情、三轮对话、无开场白的恢复视图截图：未执行。
 - GUI 内关闭重开、点击“复制并恢复”以及来源分支视觉核对：未执行。
+- GUI 内“重新创建调查员”以及战役备份导出／导入往返：未执行。
 
 在可交互 Windows 桌面上发布前，仍须按“游戏内测试用例”从全新战役完成这一轮人工验收。
+
+## 2026-08-24 最终审查修复自动验证
+
+- Demo 全量单元测试 93/93，Keeper／Demo smoke 228 项；typecheck 与生产构建通过。
+- 调查员开局门禁、不可变绑定、正式开局前重建、严格 IPC、备份往返与篡改拒绝、对话保存竞态、披露权限和流式 UI 隔离回归均通过。
+- Electron `persist:check`、`checkpoint:check`、`content:check`、`demo:e2e` 与 `build:main` 通过；`gold` 连续三次均为 `b6506aeb`。
+- `package:win` 自然完成。`win-unpacked\AI TRPG Engine.exe` 为 205,635,584 bytes，SHA-256 `7F024682109CAF008581D5525DF98A69DCC1799C2B9FBBA48CC057A85FF3F7C1`。
+- `AI TRPG Engine-0.1.0-win-x64.exe` 为 81,738,702 bytes，SHA-256 `70782E5CB1B3224F9DD67420A1923274AC907AD21431F21C68143594FBFB1902`；blockmap 为 87,513 bytes。
+- 隐藏窗口启动烟测得到 4 个响应进程并在隔离用户目录创建战役数据库，随后只结束本次进程并清理目录。隐藏启动没有可用窗口句柄，因此这只是进程级烟测，不是 GUI 或截图认证。
+- 本轮没有可交互 GUI 输入或真实 DeepSeek 凭据权限；人工截图与真实 DeepSeek 项仍保持“未执行”。

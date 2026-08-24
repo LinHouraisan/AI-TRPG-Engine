@@ -32,6 +32,7 @@ import {
   type StoredMessage,
 } from "@/store";
 import { confirmationReducer, initialConfirmationState } from "@/ui/investigator-creation-state";
+import type { DesktopCampaignBackup } from "@/desktop";
 
 export type MessageKind = "play" | "notice";
 
@@ -531,7 +532,7 @@ export function useSession() {
         inflight.current = true;
       }
       const { state, log } = authoritative.current;
-      const recentTurns = branchId ? persistedDialogue.current.recent(branchId) : [];
+      const recentTurns = branchId ? await persistedDialogue.current.snapshot(branchId) : [];
       setBusy(true);
       setNarrationDraft(null);
       const candidateCheck = checkCandidateForIntent({ intent, state, profile: investigatorProfile });
@@ -907,13 +908,14 @@ export function useSession() {
       setStatus("主持人正在听懂你这句话…");
       try {
         const modelTaskId = newFreeTurnTaskId();
+        const recentTurns = branchId ? await persistedDialogue.current.snapshot(branchId) : [];
         const routed = await handleFreeTurn({
           config,
           state: desk.state,
           profile: investigatorProfile,
           currentStateVersion: () => authoritative.current.state.version,
           spoken: text,
-          recentTurns: branchId ? persistedDialogue.current.recent(branchId) : [],
+          recentTurns,
           modelTaskId,
         });
         setStatus(null);
@@ -945,13 +947,14 @@ export function useSession() {
     setNarrationDraft(null);
     setStatus("主持人正在换一种说法…");
     try {
+      const recentTurns = branchId ? await persistedDialogue.current.snapshot(branchId) : [];
       const narration = await keeperNarrate({
         config,
         state: turn.state,
         events: turn.events,
         intent: turn.intent,
         spoken: turn.spoken,
-        recentTurns: branchId ? persistedDialogue.current.recent(branchId) : [],
+        recentTurns,
         profile: investigatorProfile,
         scenarioPack: pack,
         fallback: turn.fallback,
@@ -1079,49 +1082,6 @@ export function useSession() {
     [adopt, branchId, busy, campaignId, messages, refreshBranches],
   );
 
-  /** 导出的是事件记录，不是聊天记录：换一台机器重放，能得到一模一样的状态。 */
-  const exportCampaign = useCallback(async () => {
-    const db = store.current;
-    if (!db || !campaignId) return;
-    const payload = await db.exportCampaign(campaignId);
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${pack.manifest.id}-${new Date().toISOString().slice(0, 10)}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    pushNotice(`已导出这一场：${payload.branches.length} 条分支。`, presented.state.version);
-  }, [campaignId, presented.state.version, pushNotice]);
-
-  const importCampaign = useCallback(
-    async (file: File) => {
-      const db = store.current;
-      if (!db) return;
-      try {
-        const payload = JSON.parse(await file.text()) as ExportPayload;
-        if (payload.campaign.packRef !== pack.ref) {
-          pushNotice(
-            `这份存档用的是资料包 ${payload.campaign.packRef}，当前是 ${pack.ref}，拒绝导入。`,
-            presented.state.version,
-          );
-          return;
-        }
-        const handle = await db.importCampaign(payload);
-        origin.current = handle.initialState;
-        setCampaignId(handle.campaignId);
-        await refreshBranches(handle.campaignId);
-        await switchBranch(handle.branchId);
-      } catch (error) {
-        pushNotice(
-          `导入失败：${error instanceof Error ? error.message : String(error)}`,
-          presented.state.version,
-        );
-      }
-    },
-    [presented.state.version, pushNotice, refreshBranches, switchBranch],
-  );
-
   const adoptDesktopCampaign = useCallback((
     loaded: Awaited<ReturnType<typeof loadDesktopCampaign>>,
     profile: InvestigatorProfile | null,
@@ -1144,6 +1104,83 @@ export function useSession() {
     dispatchCheckPreview({ type: "cleared" });
     return true;
   }, [adopt]);
+
+  /** 导出只包含战役权威数据；桌面设置、模型配置和 API Key 不在战役库中。 */
+  const exportCampaign = useCallback(async () => {
+    if (!campaignId) return;
+    const remote = tryDesktopApi();
+    const db = store.current;
+    let payload: ExportPayload | DesktopCampaignBackup;
+    let branchCount: number;
+    if (remote) {
+      const exported = await remote.backup.exportCampaign({ campaignId });
+      if (!exported.ok) {
+        pushNotice(`导出失败：${exported.error.messageKey}`, presented.state.version);
+        return;
+      }
+      payload = exported.value;
+      branchCount = exported.value.body.tables.branches?.length ?? 0;
+    } else {
+      if (!db) return;
+      payload = await db.exportCampaign(campaignId);
+      branchCount = payload.branches.length;
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${pack.manifest.id}-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    pushNotice(`已导出这一场：${branchCount} 条分支。`, presented.state.version);
+  }, [campaignId, presented.state.version, pushNotice]);
+
+  const importCampaign = useCallback(
+    async (file: File) => {
+      const remote = tryDesktopApi();
+      const db = store.current;
+      try {
+        const parsed = JSON.parse(await file.text()) as ExportPayload | DesktopCampaignBackup;
+        if (remote) {
+          const imported = await remote.backup.importCampaign({
+            backup: parsed as DesktopCampaignBackup,
+          });
+          if (!imported.ok) {
+            pushNotice(`导入失败：${imported.error.messageKey}`, presented.state.version);
+            return;
+          }
+          const loaded = await loadDesktopCampaign(remote, imported.value.campaignId);
+          const profile = await getDesktopInvestigator(remote, imported.value.campaignId);
+          if (!adoptDesktopCampaign(loaded, profile)) {
+            pushNotice("备份已导入，但载入失败；请重新启动后重试。", presented.state.version);
+            return;
+          }
+          pushNotice("战役备份已校验并导入。", loaded?.state.version ?? 0);
+          return;
+        }
+        if (!db) return;
+        const payload = parsed as ExportPayload;
+        if (payload.campaign.packRef !== pack.ref) {
+          pushNotice(
+            `这份存档用的是资料包 ${payload.campaign.packRef}，当前是 ${pack.ref}，拒绝导入。`,
+            presented.state.version,
+          );
+          return;
+        }
+        const handle = await db.importCampaign(payload);
+        origin.current = handle.initialState;
+        setCampaignId(handle.campaignId);
+        await refreshBranches(handle.campaignId);
+        await switchBranch(handle.branchId);
+      } catch (error) {
+        pushNotice(
+          `导入失败：${error instanceof Error ? error.message : String(error)}`,
+          presented.state.version,
+        );
+      }
+    },
+    [adoptDesktopCampaign, presented.state.version, pushNotice, refreshBranches, switchBranch],
+  );
 
   const switchCampaign = useCallback(async (targetCampaignId: string) => {
     const remote = tryDesktopApi();
@@ -1212,6 +1249,37 @@ export function useSession() {
       if (adoptDesktopCampaign(loaded, profile)) return true;
       pushNotice("恢复副本已经创建，但载入失败；请重新启动后重试。", authoritative.current.state.version);
       return false;
+    } finally {
+      setBusy(false);
+      inflight.current = false;
+    }
+  }, [adoptDesktopCampaign, busy, campaignId, pushNotice]);
+
+  const recreateDesktopInvestigator = useCallback(async (checkpointId: string) => {
+    const remote = tryDesktopApi();
+    if (!remote || !campaignId || busy || inflight.current) return false;
+    inflight.current = true;
+    setBusy(true);
+    try {
+      const recreated = await remote.checkpoint.recreateInvestigator({
+        campaignId,
+        checkpointId,
+        label: "重新创建调查员",
+      });
+      if (!recreated.ok) {
+        pushNotice(`重新创建失败：${recreated.error.messageKey}`, authoritative.current.state.version);
+        return false;
+      }
+      const opened = await remote.campaign.open({ campaignId });
+      const loaded = opened.ok
+        ? await loadDesktopBranch(remote, opened.value, recreated.value.branchId)
+        : null;
+      const profile = await getDesktopInvestigator(remote, campaignId);
+      if (profile !== null || !adoptDesktopCampaign(loaded, null)) {
+        pushNotice("重建分支已经创建，但载入失败；请重新启动后重试。", authoritative.current.state.version);
+        return false;
+      }
+      return true;
     } finally {
       setBusy(false);
       inflight.current = false;
@@ -1396,6 +1464,7 @@ export function useSession() {
     switchCampaign,
     deleteCampaign,
     restoreDesktopCheckpoint,
+    recreateDesktopInvestigator,
     confirmInvestigator,
     pushSystem,
   };
