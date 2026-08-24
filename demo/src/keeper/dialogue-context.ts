@@ -76,7 +76,6 @@ export function buildNpcDialogueContext(params: {
     `【NPC 自身已知事实】${ownFacts.join("；") || "无"}`,
     `【双方已公开确认的事实】${publicFacts.join("；") || "无"}`,
     `【当前可感知】${room?.title ?? params.state.pcAt}；在场：${people.join("、") || "无"}；可见物品：${visibleItems.join("、") || "无"}`,
-    `【NPC 公开表现】${npc.line}`,
     relationship ? `【共同关系】${relationship}` : "",
     buildRecentDialogueContext(params.recentTurns),
   ].filter(Boolean).join("\n");

@@ -125,3 +125,16 @@ test("pack lint rejects a life history whose investigation is not authored", () 
   const issues = lintPack(loadPack(source));
   expect(issues.map((issue) => issue.message)).toContain("调查入口 investigation.missing 不存在");
 });
+
+test("pack lint rejects an NPC knownFacts typo", () => {
+  const mist = loadPackById("mist-harbor");
+  const broken = {
+    ...mist,
+    npcs: mist.npcs.map((npc, index) =>
+      index === 0 ? { ...npc, knownFacts: ["fact.missing"] } : npc,
+    ),
+  };
+
+  const issues = lintPack(broken);
+  expect(issues.map((issue) => issue.message)).toContain("NPC 已知事实 fact.missing 不存在");
+});

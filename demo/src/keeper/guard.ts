@@ -17,6 +17,7 @@ export function checkNarration(params: {
   allowedNames: string[];
   events: GameEvent[];
   scenarioPack?: Pack;
+  allowedFactIds?: string[];
 }): GuardVerdict {
   const text = params.text.trim();
 
@@ -35,6 +36,18 @@ export function checkNarration(params: {
     if (allowed.has(name)) continue;
     if (text.includes(name)) {
       return { ok: false, reason: `叙述提到了这一刻不该出现的「${name}」` };
+    }
+  }
+
+  if (params.allowedFactIds) {
+    const allowedFacts = new Set(params.allowedFactIds);
+    const npcFacts = new Set(scenarioPack.npcs.flatMap((npc) => npc.knownFacts));
+    for (const fact of scenarioPack.facts) {
+      if (allowedFacts.has(fact.id)) continue;
+      if (fact.visibility !== "secret" && !npcFacts.has(fact.id)) continue;
+      if (factPhrases(fact.title, scenarioPack).some((phrase) => text.includes(phrase))) {
+        return { ok: false, reason: "叙述声称了上下文未授权的事实" };
+      }
     }
   }
 
@@ -71,6 +84,15 @@ export function checkNarration(params: {
   if (claim) return { ok: false, reason: claim };
 
   return { ok: true };
+}
+
+function factPhrases(title: string, scenarioPack: Pack): string[] {
+  let withoutEntity = title;
+  for (const entity of [...scenarioPack.npcs, ...scenarioPack.rooms, ...scenarioPack.items]) {
+    withoutEntity = withoutEntity.replaceAll(entity.title, "");
+  }
+  const stripped = withoutEntity.trim();
+  return stripped.length >= 4 && stripped !== title ? [title, stripped] : [title];
 }
 
 /**

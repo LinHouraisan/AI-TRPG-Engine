@@ -3,11 +3,13 @@ import type { InvestigatorProfile } from "@/character/types";
 import { initialState } from "@/engine/state";
 import { loadPackById, pack } from "@/engine/pack";
 import { replay } from "@/engine/runtime";
+import type { Message } from "@/session";
 import {
   activeCheckPreviewReducer,
   createOpening,
   createRestoredMessages,
   projectInvestigatorConfirmation,
+  recentDialogueTurns,
 } from "@/session";
 
 const base = initialState();
@@ -103,5 +105,17 @@ test("恢复分支显示前情提要和最近三个完整回合，不显示默�
     "第四轮玩家",
     "第四轮守秘人",
     "已从「手动检查点 v4」创建恢复分支。原检查点仍然保留。",
+  ]);
+});
+
+test("recent dialogue ignores an unmatched player message", () => {
+  const messages: Message[] = [
+    { id: "p1", role: "pl", text: "第一问", stateVersion: 1 },
+    { id: "g1", role: "kp", text: "第一答", stateVersion: 1 },
+    { id: "p2", role: "pl", text: "尚未回答", stateVersion: 1 },
+  ];
+
+  expect(recentDialogueTurns(messages)).toEqual([
+    { player: "第一问", gm: "第一答" },
   ]);
 });

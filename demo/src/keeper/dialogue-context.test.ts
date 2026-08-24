@@ -42,6 +42,7 @@ test("NPC dialogue context keeps only the latest three persisted pairs", () => {
       ...initialState(),
       pcAt: "loc.carriage",
       npcAt: { "npc.girl": "loc.carriage" },
+      known: ["fact.conductor_oath"],
       lifeHistoryId: "history.tide-photographer",
       relationships: { "npc.girl": "女孩觉得你或许真的记得她曾经站在那里。" },
     },
@@ -60,6 +61,7 @@ test("NPC dialogue context keeps only the latest three persisted pairs", () => {
   expect(context).toContain("你能替我记住一个名字吗？");
   expect(context).toContain("女孩觉得你或许真的记得她曾经站在那里。");
   expect(context).toContain("无名女孩真正的名字是许遥");
+  expect(context).not.toContain("列车员许澄必须送满四十八名乘客才能离开");
 });
 
 test("the girl receives neither another NPC's secret nor a narration that claims it", () => {
@@ -78,14 +80,31 @@ test("the girl receives neither another NPC's secret nor a narration that claims
 
   expect(context).not.toContain("列车员许澄必须送满四十八名乘客才能离开");
   expect(checkNarration({
-    text: "女孩告诉你，列车员许澄必须送满四十八名乘客才能离开。",
+    text: "女孩低声说：必须送满四十八名乘客才能离开。",
     allowedNames: ["无名女孩"],
     events: [],
     scenarioPack,
+    allowedFactIds: ["fact.child_name"],
   })).toEqual({
     ok: false,
-    reason: "叙述提到了这一刻不该出现的「列车员许澄」",
+    reason: "叙述声称了上下文未授权的事实",
   });
+});
+
+test("an NPC opening line is not injected before it is actually spoken", () => {
+  const context = buildNpcDialogueContext({
+    npcId: "npc.girl",
+    state: {
+      ...initialState(),
+      pcAt: "loc.carriage",
+      npcAt: { "npc.girl": "loc.carriage" },
+    },
+    recentTurns: [],
+    profile: null,
+    scenarioPack: dialoguePack(),
+  });
+
+  expect(context).not.toContain("你能替我记住一个名字吗？");
 });
 
 test("narration receives recent dialogue without another NPC's authored secret", async () => {
@@ -119,4 +138,35 @@ test("narration receives recent dialogue without another NPC's authored secret",
   expect(result.source).toBe("模型");
   expect(prompt).toContain("你能替我记住一个名字吗？");
   expect(prompt).not.toContain("列车员许澄必须送满四十八名乘客才能离开");
+});
+
+test("narration rejects another NPC's secret even when its name is omitted", async () => {
+  const prompts: string[] = [];
+  globalThis.fetch = (async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { messages: Array<{ role: string; content: string }> };
+    prompts.push(body.messages.find((message) => message.role === "user")?.content ?? "");
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: '{"text":"她低声说：必须送满四十八名乘客才能离开。"}' } }],
+    }), { status: 200 });
+  }) as typeof fetch;
+
+  const result = await keeperNarrate({
+    config,
+    state: {
+      ...initialState(),
+      pcAt: "loc.carriage",
+      npcAt: { "npc.girl": "loc.carriage" },
+    },
+    events: [],
+    intent: { kind: "talk", text: "继续问她" },
+    spoken: "继续问她",
+    recentTurns: [{ player: "询问女孩的名字", gm: "你能替我记住一个名字吗？" }],
+    scenarioPack: dialoguePack(),
+    fallback: "她没有回答。",
+  });
+
+  expect(result.source).toBe("模板");
+  expect(result.note).toContain("未授权的事实");
+  expect(prompts).toHaveLength(2);
+  expect(prompts.every((prompt) => !prompt.includes("必须送满四十八名乘客才能离开"))).toBe(true);
 });

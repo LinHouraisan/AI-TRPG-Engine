@@ -23,6 +23,7 @@ import type { ContextUsage } from "@/keeper/context";
 import type { DialogueTurn } from "@/keeper/dialogue-context";
 import { handleFreeTurn, narrateFreeTurn, newFreeTurnTaskId } from "@/keeper/free-turn";
 import { keeperNarrate, type NarrationStreamEvent } from "@/keeper/keeper";
+import { PersistedDialogueSource } from "@/keeper/persisted-dialogue";
 import {
   openStore,
   type BranchInfo,
@@ -336,6 +337,7 @@ export function useSession() {
   const memoryRef = useRef<MemoryState>(emptyMemory());
   const contextRef = useRef<ContextStore>(emptyContextStore());
   const liveInflight = useRef(false);
+  const persistedDialogue = useRef(new PersistedDialogueSource());
 
   const reveal = useCallback(() => {
     const desk = authoritative.current;
@@ -487,6 +489,7 @@ export function useSession() {
           const restoredMessages = stored
             .map((message, index) => fromStored(message, index))
             .filter((message): message is Message => message != null);
+          persistedDialogue.current.hydrate(handle.branchId, recentDialogueTurns(restoredMessages));
           setMessages(restoredMessages.length > 0 ? restoredMessages : createOpening(restored, profile));
           memoryRef.current = await opened.store.loadMemory(handle.branchId);
           pushNotice(
@@ -511,10 +514,14 @@ export function useSession() {
   useEffect(() => {
     const db = store.current;
     if (!ready || !branchId || !db) return;
-    void db.saveMessages(
+    const stored = messages
+      .map(toStored)
+      .filter((message): message is StoredMessage => message != null);
+    void persistedDialogue.current.persist(
       branchId,
-      messages.map(toStored).filter((message): message is StoredMessage => message != null),
-    );
+      recentDialogueTurns(messages),
+      () => db.saveMessages(branchId, stored),
+    ).catch(() => undefined);
   }, [branchId, messages, ready]);
 
   const act = useCallback(
@@ -524,7 +531,7 @@ export function useSession() {
         inflight.current = true;
       }
       const { state, log } = authoritative.current;
-      const recentTurns = recentDialogueTurns(messages);
+      const recentTurns = branchId ? persistedDialogue.current.recent(branchId) : [];
       setBusy(true);
       setNarrationDraft(null);
       const candidateCheck = checkCandidateForIntent({ intent, state, profile: investigatorProfile });
@@ -882,7 +889,6 @@ export function useSession() {
       rememberUsage,
       reveal,
       investigatorProfile,
-      messages,
     ],
   );
 
@@ -907,7 +913,7 @@ export function useSession() {
           profile: investigatorProfile,
           currentStateVersion: () => authoritative.current.state.version,
           spoken: text,
-          recentTurns: recentDialogueTurns(messages),
+          recentTurns: branchId ? persistedDialogue.current.recent(branchId) : [],
           modelTaskId,
         });
         setStatus(null);
@@ -926,7 +932,7 @@ export function useSession() {
       }
       return false;
     },
-    [act, config, investigatorProfile, messages, pushNotice, reveal],
+    [act, branchId, config, investigatorProfile, pushNotice, reveal],
   );
 
   /** 换一种说法：同一批已提交事件重讲一遍，状态版本和骰子都不动。 */
@@ -945,7 +951,7 @@ export function useSession() {
         events: turn.events,
         intent: turn.intent,
         spoken: turn.spoken,
-        recentTurns: recentDialogueTurns(messages),
+        recentTurns: branchId ? persistedDialogue.current.recent(branchId) : [],
         profile: investigatorProfile,
         scenarioPack: pack,
         fallback: turn.fallback,
@@ -977,7 +983,7 @@ export function useSession() {
       setBusy(false);
       inflight.current = false;
     }
-  }, [config, investigatorProfile, messages, onNarrationStream, pushNotice, rememberUsage]);
+  }, [branchId, config, investigatorProfile, onNarrationStream, pushNotice, rememberUsage]);
 
   /** 切到某条分支：状态一律由那条分支的事件重放得来，不从别处抄。 */
   const switchBranch = useCallback(
@@ -988,6 +994,7 @@ export function useSession() {
       setPending({ label: "切换分支", intent: null, check: null });
       dispatchCheckPreview({ type: "cleared" });
       try {
+        await persistedDialogue.current.settle(target);
         const events = await db.loadEvents(target);
         const stored = await db.loadMessages(target);
         const restored = replay(origin.current, events);
@@ -1000,6 +1007,7 @@ export function useSession() {
         const restoredMessages = stored
           .map((message, index) => fromStored(message, index))
           .filter((message): message is Message => message != null);
+        persistedDialogue.current.hydrate(target, recentDialogueTurns(restoredMessages));
         setMessages(restoredMessages.length > 0 ? restoredMessages : createOpening(restored, profile));
         lastTurn.current = null;
         setLastUsage(null);
@@ -1042,6 +1050,7 @@ export function useSession() {
           target,
           kept.map(toStored).filter((message): message is StoredMessage => message != null),
         );
+        persistedDialogue.current.hydrate(target, recentDialogueTurns(kept));
 
         setBranchId(target);
         adopt({ state: restored, log: events });
@@ -1247,6 +1256,7 @@ export function useSession() {
     });
     setCampaignId(handle.campaignId);
     setBranchId(handle.branchId);
+    persistedDialogue.current.hydrate(handle.branchId, []);
     await refreshBranches(handle.campaignId);
   }, [adopt, adoptDesktopCampaign, busy, refreshBranches]);
 

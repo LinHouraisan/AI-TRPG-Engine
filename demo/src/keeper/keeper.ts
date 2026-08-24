@@ -134,6 +134,7 @@ export async function keeperNarrate(params: {
       const verdict = checkNarration({
         text: value.text,
         allowedNames: context.allowedNames,
+        allowedFactIds: context.allowedFactIds,
         events: params.events,
         scenarioPack: params.scenarioPack,
       });

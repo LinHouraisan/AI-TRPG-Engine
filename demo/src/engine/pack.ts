@@ -518,6 +518,11 @@ export function lintPack(pack: Pack): LintIssue[] {
     if (!roomIds.has(npc.startAt)) {
       issues.push({ level: "错误", where: npc.id, message: `出生点 ${npc.startAt} 不是房间` });
     }
+    for (const fact of npc.knownFacts) {
+      if (!factIds.has(fact)) {
+        issues.push({ level: "错误", where: npc.id, message: `NPC 已知事实 ${fact} 不存在` });
+      }
+    }
   }
 
   for (const history of pack.manifest.creation?.lifeHistories ?? []) {
