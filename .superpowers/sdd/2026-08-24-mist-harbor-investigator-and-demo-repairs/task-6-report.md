@@ -40,3 +40,19 @@ Implemented Task 6 in the assigned isolated worktree with focused red/green cove
 ## Concern
 
 - `demo/src/keeper/dialogue-context.test.ts` and `demo/scripts/keeper-check.ts` are support-fixture updates beyond the five primary Task 6 files; they were required so the stated full Keeper and Task 5 secrecy checks exercise the new required fields rather than stopping at the old schema.
+
+## Review Fixes
+
+- A semantically valid and fully safety-checked first reply that misses only the 150–350 target is now retained as a soft candidate. If the improvement request fails at the network or schema layer, or returns a semantically invalid or unauthorized reply, the first candidate is finalized instead of falling back to the template.
+- The retained-candidate regression covers both short and long candidates against network failure, malformed structure, and an unauthorized fact. Only a second reply that passes the complete quality and safety pipeline can replace the candidate.
+- Rich narration now requires normalized `feedback` and `reaction` clauses to appear in visible `text`, not merely exist in hidden structure fields.
+- Interaction points must be visible scene affordances. Numbered/bulleted entries, `选项`, `你可以...`, and command-like `继续追问`/`查看`/`调查` forms are rejected even when copied into the end of `text`.
+- The prompt now states the exact reflection and non-menu contract. Existing Task 5 secrecy fixtures and Keeper checker fixtures were updated to reach the underlying entity, fact, number, and uncommitted-outcome guards.
+
+## Review-Fix Verification
+
+- Focused Keeper suite: 26 pass, 0 fail, 90 assertions.
+- `bun run --cwd demo keeper:check`: 234 checks passed.
+- Full demo suite: 81 pass, 0 fail, 218 assertions.
+- `bun run --cwd demo typecheck`: pass.
+- `git diff --check`: pass with only the repository's existing LF-to-CRLF warnings.

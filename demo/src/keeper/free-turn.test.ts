@@ -187,8 +187,8 @@ test("Figure 2 followups continue the girl's previous question", async () => {
 
 test("free-turn narration requires structured quality fields and displays only cohesive text", async () => {
   const text = "你把问题放轻，像怕惊动玻璃上的雾。女孩先是望向空着的邻座，指尖沿座椅裂纹慢慢停住；车轮碾过接缝时，她才重新看你，确认你并没有催促。她说那个名字像一张被雨泡过的车票，字还在，却没人肯承认见过。她仍在等你说出那个名字，也没有阻止你追问那张车票来自哪里；窗外短暂掠过一盏昏黄站灯，让她的影子在过道里多停了一瞬。";
-  const feedback = "你放轻的问题没有惊动她，她确认你没有催促。";
-  const reaction = "女孩望向空座，随后重新看你。";
+  const feedback = "你把问题放轻";
+  const reaction = "女孩先是望向空着的邻座";
   const interactionPoint = "她仍在等你说出那个名字";
   const prompts: string[] = [];
   globalThis.fetch = (async (_input, init) => {
@@ -266,4 +266,106 @@ test("two semantically invalid narration attempts use the safe fallback", async 
   expect(prompts[1]).toContain("叙述结构不完整");
   expect(prompts[1]).not.toContain("missing_feedback");
   expect(result).toMatchObject({ text: "她没有回答。", source: "模板" });
+});
+
+test("a safe soft-length candidate survives a failed improvement attempt", async () => {
+  const shortText = "她听见了你的追问，指尖仍压在那张车票上。";
+  const longText = [
+    "她听见了你的追问，却没有立刻回答，只把手掌从结雾的玻璃上慢慢收回。",
+    "车轮越过接缝时，细碎震动沿座椅传来，她的目光也跟着落到膝上的旧车票。",
+    "那张纸已经被潮气泡软，边角卷起，褪色印章只剩一圈模糊的蓝。",
+    "她的指尖仍压在那张车票上，像是在防着过道里的风把它带走。",
+    "窗外没有完整的景物，只有一盏又一盏站灯从雾里浮起，再被黑暗吞回去。",
+    "每当灯光掠过，她都会看一眼票背，确认那里的淡字没有继续消失。",
+    "她没有催你，也没有把票藏起来，只把身体向过道一侧挪开一点。",
+    "临座木板发出轻响，露出靠窗边缘一小片没有被手掌遮住的纸面。",
+    "上面像是写过一个姓氏，墨迹被水痕切开，只留下末尾那道向上的笔锋。",
+    "女孩抬眼观察你的神情，似乎在等你先认出那道笔锋属于哪个字。",
+    "车厢尽头传来门轴轻响，她随即压低肩膀，却依旧没有收回车票。",
+    "票背那片被水洇开的墨痕仍露在她指尖旁，也仍留给你看清的机会。",
+  ].join("");
+  expect(shortText.length).toBeLessThan(150);
+  expect(longText.length).toBeGreaterThan(350);
+  expect(longText.length).toBeLessThanOrEqual(900);
+
+  const candidates = [
+    {
+      text: shortText,
+      feedback: "她听见了你的追问",
+      reaction: "指尖仍压在那张车票上",
+      interactionPoint: "指尖仍压在那张车票上",
+    },
+    {
+      text: longText,
+      feedback: "她听见了你的追问",
+      reaction: "她的指尖仍压在那张车票上",
+      interactionPoint: "票背那片被水洇开的墨痕仍露在她指尖旁",
+    },
+  ];
+  const failures = [
+    {
+      name: "network error",
+      response: () => new Response("boom", { status: 500 }),
+    },
+    {
+      name: "invalid structure",
+      response: () => new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify({
+          text: "她转开视线。",
+          reaction: "她转开视线",
+          interactionPoints: ["视线落在窗外"],
+        }) } }],
+      }), { status: 200 }),
+    },
+    {
+      name: "unauthorized fact",
+      response: () => new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify({
+          text: "她听见你的追问，压低声音说：必须送满四十八名乘客才能离开。票夹仍摊在她面前。",
+          feedback: "她听见你的追问",
+          reaction: "压低声音",
+          interactionPoints: ["票夹仍摊在她面前"],
+        }) } }],
+      }), { status: 200 }),
+    },
+  ];
+
+  for (const candidate of candidates) {
+    for (const failure of failures) {
+      let attempts = 0;
+      globalThis.fetch = (async () => {
+        attempts += 1;
+        if (attempts === 1) {
+          return new Response(JSON.stringify({
+            choices: [{ message: { content: JSON.stringify({
+              text: candidate.text,
+              feedback: candidate.feedback,
+              reaction: candidate.reaction,
+              interactionPoints: [candidate.interactionPoint],
+            }) } }],
+          }), { status: 200 });
+        }
+        return failure.response();
+      }) as unknown as typeof fetch;
+
+      const result = await narrateFreeTurn({
+        config,
+        modelTaskId: `task-soft-candidate-${failure.name}`,
+        state: {
+          ...initialState(),
+          pcAt: "loc.carriage",
+          npcAt: { "npc.girl": "loc.carriage" },
+        },
+        events: [],
+        intent: { kind: "talk", text: "继续问她" },
+        spoken: "继续问她",
+        scenarioPack: mist,
+        fallback: "她没有回答。",
+      });
+
+      expect(attempts, `${candidate.text.length} chars then ${failure.name}`).toBe(2);
+      expect(result.text, `${candidate.text.length} chars then ${failure.name}`).toBe(candidate.text);
+      expect(result.source, `${candidate.text.length} chars then ${failure.name}`).toBe("模型");
+    }
+  }
 });

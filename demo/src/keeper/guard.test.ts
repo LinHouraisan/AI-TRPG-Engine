@@ -42,11 +42,53 @@ test("punctuation-only semantic fields do not count as present", () => {
 
 test("interaction points must be reflected in the cohesive text", () => {
   expect(checkNarrationQuality({
-    text: "她听完后安静地看着你。",
+    text: "她听见了你的问题，却没有移开目光。",
     feedback: "她听见了你的问题。",
-    reaction: "她没有移开目光。",
+    reaction: "没有移开目光。",
     interactionPoints: ["她仍在等你说出那个名字。"],
   }, "dialogue")).toEqual({ ok: false, reason: "interaction_not_reflected" });
+});
+
+test("feedback and reaction must both be reflected in visible text", () => {
+  expect(checkNarrationQuality({
+    text: "她的指尖仍压在那张车票上，票背的字迹露在一旁。",
+    feedback: "她听见了你的追问。",
+    reaction: "她的指尖仍压在那张车票上。",
+    interactionPoints: ["票背的字迹露在一旁"],
+  }, "dialogue")).toEqual({ ok: false, reason: "feedback_not_reflected" });
+  expect(checkNarrationQuality({
+    text: "她听见了你的追问，票背的字迹露在一旁。",
+    feedback: "她听见了你的追问。",
+    reaction: "她的指尖仍压在那张车票上。",
+    interactionPoints: ["票背的字迹露在一旁"],
+  }, "dialogue")).toEqual({ ok: false, reason: "reaction_not_reflected" });
+});
+
+test("interaction points reject menus and copied player instructions", () => {
+  const feedback = "她听见了你的追问";
+  const reaction = "她的指尖仍压在那张车票上";
+  for (const interactionPoint of [
+    "1. 继续追问她",
+    "你可以选择查看车票",
+    "选项：询问那个名字",
+    "继续追问她",
+  ]) {
+    expect(checkNarrationQuality({
+      text: `${feedback}，${reaction}。${interactionPoint}。`,
+      feedback,
+      reaction,
+      interactionPoints: [interactionPoint],
+    }, "dialogue")).toEqual({ ok: false, reason: "menu_interaction" });
+  }
+});
+
+test("a cohesive scene affordance satisfies every rich narration field", () => {
+  expect(checkNarrationQuality({
+    text: "她听见了你的追问，目光落向那张潮湿车票。车票背面的淡蓝字迹仍露在她指尖旁。",
+    feedback: "她听见了你的追问。",
+    reaction: "目光落向那张潮湿车票。",
+    interactionPoints: ["车票背面的淡蓝字迹仍露在她指尖旁"],
+  }, "dialogue")).toEqual({ ok: true });
 });
 
 test("quality does not accept repeated padding", () => {
@@ -68,11 +110,11 @@ test("quality does not accept repeated padding", () => {
 });
 
 test("the 150 to 350 character target is soft, but empty and unsafe text are rejected", () => {
-  const short = "她听见了你的问题，仍在等你说出那个名字。";
+  const short = "她听见了你的问题，没有移开目光，仍在等你说出那个名字。";
   expect(checkNarrationQuality({
     text: short,
     feedback: "她听见了你的问题。",
-    reaction: "她没有移开目光。",
+    reaction: "没有移开目光。",
     interactionPoints: ["仍在等你说出那个名字"],
   }, "dialogue")).toEqual({ ok: true });
   expect(checkNarrationQuality({

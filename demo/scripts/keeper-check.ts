@@ -60,8 +60,8 @@ function fakeModel(content: string | null) {
 function structuredNarration(text: string): string {
   return JSON.stringify({
     text,
-    feedback: "现场对玩家的动作作出反馈。",
-    reaction: "环境随之发生具体反应。",
+    feedback: text,
+    reaction: text,
     interactionPoints: [text],
   });
 }

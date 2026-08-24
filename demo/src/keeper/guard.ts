@@ -24,8 +24,10 @@ export function checkNarrationQuality(
   if (hasRepeatedPadding(text)) return { ok: false, reason: "repeated_padding" };
   if (mode === "simple") return { ok: true };
 
-  if (!normalizeReflection(reply.feedback)) return { ok: false, reason: "missing_feedback" };
-  if (!normalizeReflection(reply.reaction)) return { ok: false, reason: "missing_reaction" };
+  const feedback = normalizeReflection(reply.feedback);
+  const reaction = normalizeReflection(reply.reaction);
+  if (!feedback) return { ok: false, reason: "missing_feedback" };
+  if (!reaction) return { ok: false, reason: "missing_reaction" };
   const interactionPoints = reply.interactionPoints
     .map((point) => point.trim())
     .filter((point) => normalizeReflection(point));
@@ -33,6 +35,11 @@ export function checkNarrationQuality(
     return { ok: false, reason: "missing_interaction_points" };
   }
   const cohesive = normalizeReflection(text);
+  if (!cohesive.includes(feedback)) return { ok: false, reason: "feedback_not_reflected" };
+  if (!cohesive.includes(reaction)) return { ok: false, reason: "reaction_not_reflected" };
+  if (hasMenuInteraction(text, interactionPoints)) {
+    return { ok: false, reason: "menu_interaction" };
+  }
   if (interactionPoints.some((point) => !cohesive.includes(normalizeReflection(point)))) {
     return { ok: false, reason: "interaction_not_reflected" };
   }
@@ -41,6 +48,13 @@ export function checkNarrationQuality(
 
 function normalizeReflection(text: string): string {
   return text.replace(/[\s，。！？、；：“”‘’（）《》…—,.!?;:'"()[\]{}-]/gu, "");
+}
+
+function hasMenuInteraction(text: string, interactionPoints: string[]): boolean {
+  if (/(?:^|\n)\s*(?:\d+[.、)]|[-*•])\s*|你可以选择|选项[：:]/u.test(text)) return true;
+  return interactionPoints.some((point) =>
+    /^(?:\d+[.、)]|[-*•]|你可以|请选择|选项[：:]?|继续(?:追问|询问|调查|查看|尝试)|(?:追问|询问|调查|查看|尝试|选择|决定))/u.test(point),
+  );
 }
 
 function hasRepeatedPadding(text: string): boolean {

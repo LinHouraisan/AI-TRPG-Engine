@@ -130,10 +130,10 @@ test("narration receives recent dialogue without another NPC's authored secret",
     prompts.push(body.messages.find((message) => message.role === "user")?.content ?? "");
     return new Response(JSON.stringify({
       choices: [{ message: { content: narrationReply({
-        text: "她轻轻点头，等着你继续说下去。",
+        text: "她听见了你的回答，轻轻点头，仍等着你继续说下去。",
         feedback: "她听见了你的回答。",
-        reaction: "她轻轻点头。",
-        interactionPoint: "等着你继续说下去",
+        reaction: "轻轻点头。",
+        interactionPoint: "仍等着你继续说下去",
       }) } }],
     }), { status: 200 });
   }) as typeof fetch;
@@ -168,10 +168,10 @@ test("narration rejects another NPC's secret even when its name is omitted", asy
     prompts.push(body.messages.find((message) => message.role === "user")?.content ?? "");
     return new Response(JSON.stringify({
       choices: [{ message: { content: narrationReply({
-        text: "她低声说：必须送满四十八名乘客才能离开。",
+        text: "她听见了你的追问，压低声音说：必须送满四十八名乘客才能离开。她的目光仍停在你脸上。",
         feedback: "她听见了你的追问。",
-        reaction: "她压低了声音。",
-        interactionPoint: "必须送满四十八名乘客才能离开",
+        reaction: "压低声音。",
+        interactionPoint: "她的目光仍停在你脸上",
       }) } }],
     }), { status: 200 });
   }) as typeof fetch;

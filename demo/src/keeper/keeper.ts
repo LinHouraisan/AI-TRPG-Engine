@@ -34,7 +34,8 @@ const NARRATE_SYSTEM = [
   "3. 不许替玩家决定他下一步做什么，也不许替他说话或者动。",
   "4. 【作者写好的句子】必须体现出来，可以调整语气，但事实不能改。",
   "5. 第二人称，具体、有现场感，不要用列表，不要加引号包住整段。调查、对话和探索以150至350个中文字符为目标；这是软目标，信息不足时宁可写短，也不要重复凑字。关键剧情最多900字。",
-  "6. 先分别起草 feedback（玩家行动的现场反馈）、reaction（NPC或环境的具体反应）和 interactionPoints（一个或多个自然、非菜单式的继续互动点），再把三者写成连贯的 text。interactionPoints 的每项都必须在 text 中明确出现。玩家只会看到 text。",
+  "6. 先分别起草 feedback（玩家行动的现场反馈）、reaction（NPC或环境的具体反应）和 interactionPoints（一个或多个自然、非菜单式的继续互动点），再把三者写成连贯的 text。feedback、reaction 和 interactionPoints 的每项都必须作为完整短句明确出现在 text 中；可以调整标点，不能只藏在结构字段里。",
+  "7. interactionPoints 必须描述现场仍可观察或回应的人、物、动作和悬而未决的信息，不得写成菜单或给玩家的指令。不要编号，不要写“选项”“你可以选择”“继续追问”等命令句。玩家只会看到 text。",
   "只输出 JSON：{\"feedback\":\"现场反馈\",\"reaction\":\"NPC或环境反应\",\"interactionPoints\":[\"自然互动点\"],\"text\":\"连贯叙述\"}",
 ].join("\n");
 
@@ -119,6 +120,7 @@ export async function keeperNarrate(params: {
 
   let complaint = "";
   let lastReason = "";
+  let softCandidate: Omit<NarrationResult, "usage"> | undefined;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const { value, ms } = await askKeeper({
@@ -160,6 +162,7 @@ export async function keeperNarrate(params: {
       }
 
       if (attempt === 0 && outsideTargetLength(value, qualityMode)) {
+        softCandidate = { text: value.text.trim(), source: "模型", ms };
         lastReason = "叙述长度偏离建议范围";
         complaint = "请在不重复信息的前提下，将叙述调整到约150至350个中文字符";
         continue;
@@ -168,8 +171,21 @@ export async function keeperNarrate(params: {
       return done({ text: value.text.trim(), source: "模型", ms });
     } catch (error) {
       const reason = error instanceof KeeperError ? error.message : String(error);
+      if (softCandidate) {
+        return done({
+          ...softCandidate,
+          note: "叙述优化未完成，已保留通过安全检查的版本",
+        });
+      }
       return done({ text: fallback, source: "模板", note: reason });
     }
+  }
+
+  if (softCandidate) {
+    return done({
+      ...softCandidate,
+      note: "叙述优化未采用，已保留通过安全检查的版本",
+    });
   }
 
   return done({
