@@ -117,6 +117,14 @@ export type Intent =
   | { kind: "read"; item: string }
   | { kind: "talk"; text: string }
   | { kind: "investigation"; investigationId: string; skill: string; approach: string; stateVersion: number }
+  | {
+      kind: "free_check";
+      mode: "explore" | "social" | "damage";
+      target: string;
+      skill: string;
+      difficulty: CheckResult["difficulty"];
+      approach: string;
+    }
   | { kind: "free_action"; text: string }
   | { kind: "query"; topic: QueryTopic }
   | { kind: "unclear"; text: string };

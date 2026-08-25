@@ -249,10 +249,9 @@ test("narration receives recent dialogue without another NPC's authored secret",
   });
 
   expect(result.source).toBe("模型");
-  expect(prompts).toHaveLength(2);
-  expect(prompts[1]).toContain("150至350");
-  expect(prompts[1]).toContain("你能替我记住一个名字吗？");
-  expect(prompts[1]).not.toContain("列车员许澄必须送满四十八名乘客才能离开");
+  expect(prompts).toHaveLength(1);
+  expect(prompts[0]).toContain("你能替我记住一个名字吗？");
+  expect(prompts[0]).not.toContain("列车员许澄必须送满四十八名乘客才能离开");
 });
 
 test("narration rejects another NPC's secret even when its name is omitted", async () => {

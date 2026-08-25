@@ -232,6 +232,36 @@ export function resolveIntent(params: {
       });
     }
 
+    case "free_check": {
+      const skillValue = state.skills[intent.skill];
+      if (skillValue == null) {
+        return { drafts: [reject(`调查员卡上没有「${intent.skill}」这项技能。`, "rules:no_skill")] };
+      }
+      const roll = rollFor((params.scenarioPack ?? pack).ref, `${turnId}:free:${intent.mode}:${intent.target}`, 100);
+      const check = resolveCheck({
+        skill: intent.skill,
+        skillValue,
+        difficulty: intent.difficulty,
+        roll,
+      });
+      const drafts: EventDraft[] = [{
+        payload: { type: "check_resolved", target: `free.${intent.mode}.${intent.target}`, check, minutes: check.ok ? 3 : 5 },
+        summary: `${intent.approach}：${intent.skill}检定${check.level}。`,
+        cause: `player:free_${intent.mode}`,
+        narration: check.ok
+          ? `你的做法奏效了，现场对「${intent.approach}」给出了明确回应。`
+          : `你认真尝试了「${intent.approach}」，但眼下没有取得预期效果；这次尝试也让现场多了些动静。`,
+      }];
+      if (check.ok && intent.mode === "damage") {
+        drafts.push({
+          payload: { type: "flag_set", flag: `free.damage.${intent.target}`, value: true },
+          summary: `局部场景变化：${intent.target}已被破坏或拆改。`,
+          cause: "player:free_damage",
+        });
+      }
+      return { drafts, check };
+    }
+
     case "free_action":
       // Demo 的最小自由行动：由 GM 承接互动，但不擅自改变权威状态。
       return { drafts: [] };

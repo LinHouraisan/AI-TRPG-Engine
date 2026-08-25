@@ -86,6 +86,75 @@ test("a concrete action toward a present NPC survives an overly strict unclear r
   expect(result.intent).toEqual({ kind: "free_action", text: "打断罗姨工作" });
 });
 
+test("model may request a validated social check against a present NPC", async () => {
+  globalThis.fetch = (async () => new Response(JSON.stringify({
+    choices: [{ message: { content: JSON.stringify({
+      kind: "free_check",
+      mode: "social",
+      target: "npc.clerk",
+      skill: "话术",
+      difficulty: "regular",
+      approach: "说服罗姨交代被刮掉的名单",
+    }) } }],
+  }), { status: 200 })) as unknown as typeof fetch;
+
+  const result = await handleFreeTurn({
+    config,
+    state: {
+      ...initialState(),
+      pcAt: "loc.ticket",
+      npcAt: { "npc.clerk": "loc.ticket" },
+      skills: { ...mist.manifest.investigator.skills },
+    },
+    scenarioPack: mist,
+    spoken: "我试着说服罗姨告诉我名单的秘密",
+    modelTaskId: "task-social-check",
+  });
+
+  expect(result.intent).toEqual({
+    kind: "free_check",
+    mode: "social",
+    target: "npc.clerk",
+    skill: "话术",
+    difficulty: "regular",
+    approach: "说服罗姨交代被刮掉的名单",
+  });
+});
+
+test("model may request a validated destructive check against a visible item", async () => {
+  globalThis.fetch = (async () => new Response(JSON.stringify({
+    choices: [{ message: { content: JSON.stringify({
+      kind: "free_check",
+      mode: "damage",
+      target: "item.emergency_hammer",
+      skill: "侦查",
+      difficulty: "hard",
+      approach: "拆掉紧急锤的固定架",
+    }) } }],
+  }), { status: 200 })) as unknown as typeof fetch;
+
+  const result = await handleFreeTurn({
+    config,
+    state: {
+      ...initialState(),
+      pcAt: "loc.carriage",
+      itemAt: { "item.emergency_hammer": "loc.carriage" },
+      skills: { ...mist.manifest.investigator.skills },
+    },
+    scenarioPack: mist,
+    spoken: "拆掉紧急锤的固定架",
+    modelTaskId: "task-damage-check",
+  });
+
+  expect(result.intent).toMatchObject({
+    kind: "free_check",
+    mode: "damage",
+    target: "item.emergency_hammer",
+    skill: "侦查",
+    difficulty: "hard",
+  });
+});
+
 test("searching for leverage on the conductor selects an authored Spot Hidden check", async () => {
   globalThis.fetch = (async () => new Response(JSON.stringify({
     choices: [{ message: { content: JSON.stringify({
@@ -288,104 +357,31 @@ test("two semantically invalid narration attempts use the safe fallback", async 
   expect(result).toMatchObject({ text: "她没有回答。", source: "模板" });
 });
 
-test("a safe soft-length candidate survives a failed improvement attempt", async () => {
+test("a safe short narration is accepted without a second model call", async () => {
   const shortText = "她听见了你的追问，指尖仍压在那张车票上。";
-  const longText = [
-    "她听见了你的追问，却没有立刻回答，只把手掌从结雾的玻璃上慢慢收回。",
-    "车轮越过接缝时，细碎震动沿座椅传来，她的目光也跟着落到膝上的旧车票。",
-    "那张纸已经被潮气泡软，边角卷起，褪色印章只剩一圈模糊的蓝。",
-    "她的指尖仍压在那张车票上，像是在防着过道里的风把它带走。",
-    "窗外没有完整的景物，只有一盏又一盏站灯从雾里浮起，再被黑暗吞回去。",
-    "每当灯光掠过，她都会看一眼票背，确认那里的淡字没有继续消失。",
-    "她没有催你，也没有把票藏起来，只把身体向过道一侧挪开一点。",
-    "临座木板发出轻响，露出靠窗边缘一小片没有被手掌遮住的纸面。",
-    "上面像是写过一个姓氏，墨迹被水痕切开，只留下末尾那道向上的笔锋。",
-    "女孩抬眼观察你的神情，似乎在等你先认出那道笔锋属于哪个字。",
-    "车厢尽头传来门轴轻响，她随即压低肩膀，却依旧没有收回车票。",
-    "票背那片被水洇开的墨痕仍露在她指尖旁，也仍留给你看清的机会。",
-  ].join("");
-  expect(shortText.length).toBeLessThan(150);
-  expect(longText.length).toBeGreaterThan(350);
-  expect(longText.length).toBeLessThanOrEqual(900);
-
-  const candidates = [
-    {
+  expect(shortText.length).toBeLessThan(220);
+  let attempts = 0;
+  globalThis.fetch = (async () => {
+    attempts += 1;
+    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
       text: shortText,
       feedback: "她听见了你的追问",
       reaction: "指尖仍压在那张车票上",
-      interactionPoint: "指尖仍压在那张车票上",
-    },
-    {
-      text: longText,
-      feedback: "她听见了你的追问",
-      reaction: "她的指尖仍压在那张车票上",
-      interactionPoint: "票背那片被水洇开的墨痕仍露在她指尖旁",
-    },
-  ];
-  const failures = [
-    {
-      name: "network error",
-      response: () => new Response("boom", { status: 500 }),
-    },
-    {
-      name: "invalid structure",
-      response: () => new Response(JSON.stringify({
-        choices: [{ message: { content: JSON.stringify({
-          text: "她转开视线。",
-          reaction: "她转开视线",
-          interactionPoints: ["视线落在窗外"],
-        }) } }],
-      }), { status: 200 }),
-    },
-    {
-      name: "unauthorized fact",
-      response: () => new Response(JSON.stringify({
-        choices: [{ message: { content: JSON.stringify({
-          text: "她听见你的追问，压低声音说：必须送满四十八名乘客才能离开。票夹仍摊在她面前。",
-          feedback: "她听见你的追问",
-          reaction: "压低声音",
-          interactionPoints: ["票夹仍摊在她面前"],
-        }) } }],
-      }), { status: 200 }),
-    },
-  ];
+      interactionPoints: ["指尖仍压在那张车票上"],
+    }) } }] }), { status: 200 });
+  }) as unknown as typeof fetch;
 
-  for (const candidate of candidates) {
-    for (const failure of failures) {
-      let attempts = 0;
-      globalThis.fetch = (async () => {
-        attempts += 1;
-        if (attempts === 1) {
-          return new Response(JSON.stringify({
-            choices: [{ message: { content: JSON.stringify({
-              text: candidate.text,
-              feedback: candidate.feedback,
-              reaction: candidate.reaction,
-              interactionPoints: [candidate.interactionPoint],
-            }) } }],
-          }), { status: 200 });
-        }
-        return failure.response();
-      }) as unknown as typeof fetch;
+  const result = await narrateFreeTurn({
+    config,
+    modelTaskId: "task-one-call-narration",
+    state: { ...initialState(), pcAt: "loc.carriage", npcAt: { "npc.girl": "loc.carriage" } },
+    events: [],
+    intent: { kind: "talk", text: "继续问她" },
+    spoken: "继续问她",
+    scenarioPack: mist,
+    fallback: "她没有回答。",
+  });
 
-      const result = await narrateFreeTurn({
-        config,
-        modelTaskId: `task-soft-candidate-${failure.name}`,
-        state: {
-          ...initialState(),
-          pcAt: "loc.carriage",
-          npcAt: { "npc.girl": "loc.carriage" },
-        },
-        events: [],
-        intent: { kind: "talk", text: "继续问她" },
-        spoken: "继续问她",
-        scenarioPack: mist,
-        fallback: "她没有回答。",
-      });
-
-      expect(attempts, `${candidate.text.length} chars then ${failure.name}`).toBe(2);
-      expect(result.text, `${candidate.text.length} chars then ${failure.name}`).toBe(candidate.text);
-      expect(result.source, `${candidate.text.length} chars then ${failure.name}`).toBe("模型");
-    }
-  }
+  expect(attempts).toBe(1);
+  expect(result).toMatchObject({ text: shortText, source: "模型" });
 });

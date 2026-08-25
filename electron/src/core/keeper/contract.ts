@@ -30,7 +30,20 @@ const investigationRouteReplySchema = z.object({
   approach: z.string().min(1),
 });
 
-export const routeReplySchema = z.union([standardRouteReplySchema, investigationRouteReplySchema]);
+const freeCheckRouteReplySchema = z.object({
+  kind: z.literal("free_check"),
+  mode: z.enum(["explore", "social", "damage"]),
+  target: z.string().min(1),
+  skill: z.string().min(1),
+  difficulty: z.enum(["regular", "hard", "extreme"]),
+  approach: z.string().min(1),
+});
+
+export const routeReplySchema = z.union([
+  standardRouteReplySchema,
+  investigationRouteReplySchema,
+  freeCheckRouteReplySchema,
+]);
 
 export const narrationReplySchema = z.object({
   text: z.string().min(1),

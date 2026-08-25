@@ -45,7 +45,7 @@ export function playTurn(params: {
       kind: "query",
       intent,
       classification,
-      text: answerQuery({ state: params.state, log: params.log, topic: intent.topic }),
+      text: answerQuery({ state: params.state, log: params.log, topic: intent.topic, scenarioPack: params.scenarioPack }),
     };
   }
 
@@ -77,6 +77,7 @@ export function playTurn(params: {
     state: result.state,
     events: result.committed,
     intent,
+    scenarioPack: params.scenarioPack,
   });
   return {
     kind: "committed",

@@ -24,6 +24,17 @@ export function checkCandidateForIntent(params: {
       threshold: thresholdFor(skillValue, lock.difficulty),
     };
   }
+  if (intent.kind === "free_check") {
+    const skillValue = state.skills[intent.skill];
+    if (skillValue == null) return null;
+    return {
+      title: intent.approach,
+      skill: intent.skill,
+      skillValue,
+      difficulty: intent.difficulty,
+      threshold: thresholdFor(skillValue, intent.difficulty),
+    };
+  }
   if (intent.kind !== "investigation" || !profile || intent.stateVersion !== state.version) {
     return null;
   }

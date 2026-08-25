@@ -15,6 +15,7 @@ const TAKE_WORDS = ["拿", "取", "收", "装", "塞", "捡", "带走"];
 const READ_WORDS = ["读", "翻", "阅读", "念"];
 const CONTENT_WORDS = ["里有什么", "里写", "写着什么", "写了什么", "上面写", "内容"];
 const TALK_WORDS = ["问", "说", "聊", "喊", "打招呼", "搭话"];
+const EXPLORE_WORDS = ["搜索", "搜查", "寻找遗漏", "找找遗漏", "检查遗漏", "调查四周", "寻找异常", "找异常", "仔细找", "仔细检查"];
 
 /** 查询规则必须排在「看／去／问」前面，否则「查看背包」会被观察抢走。 */
 const QUERY_RULES: { topic: QueryTopic; words: string[] }[] = [
@@ -141,8 +142,29 @@ export function route(text: string, state: GameState): Intent {
   if (!input) return { kind: "unclear", text };
 
   const room = packIndex.room(state.pcAt);
+  const addressedNpc = pack.npcs.find((npc) => {
+    if (state.npcAt[npc.id] !== state.pcAt) return false;
+    return [npc.title, npc.title.slice(-2)].some((name) => input.includes(name));
+  });
+  if (addressedNpc && hit(input.replaceAll("问题", ""), TALK_WORDS)) {
+    return { kind: "talk", text: input };
+  }
+  if (/^(?:询问|问问|向).+/.test(input) && hit(input.replaceAll("问题", ""), TALK_WORDS)) {
+    return { kind: "talk", text: input };
+  }
   const query = matchQuery(input);
   if (query) return { kind: "query", topic: query };
+
+  if (hit(input, EXPLORE_WORDS)) {
+    return {
+      kind: "free_check",
+      mode: "explore",
+      target: state.pcAt,
+      skill: state.skills["侦查"] != null ? "侦查" : Object.keys(state.skills)[0] ?? "侦查",
+      difficulty: "regular",
+      approach: input,
+    };
+  }
 
   // 移动：目标必须是当前房间的某个出口，或者出口本身的名字（房门、楼梯）。
   if (hit(input, MOVE_WORDS) && room) {

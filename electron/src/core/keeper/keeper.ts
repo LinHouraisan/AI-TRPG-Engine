@@ -33,7 +33,7 @@ const NARRATE_SYSTEM = [
   "2. 不许报出没有掷出来的数字，也不许判断成败：成败已经由程序定好，写在事实里了。",
   "3. 不许替玩家决定他下一步做什么，也不许替他说话或者动。",
   "4. 【作者写好的句子】必须体现出来，可以调整语气，但事实不能改。",
-  "5. 第二人称，具体、有现场感，不要用列表，不要加引号包住整段。调查、对话和探索以150至350个中文字符为目标；这是软目标，信息不足时宁可写短，也不要重复凑字。关键剧情最多900字。",
+  "5. 第二人称，具体、有现场感，不要用列表，不要加引号包住整段。调查、对话、自由检定和探索以220至500个中文字符为目标；优先补足感官细节、NPC动作、行动造成的现场反馈和可继续追查的具体抓手，绝不重复同一条线索凑字。关键剧情最多900字。",
   "6. 先分别起草 feedback（玩家行动的现场反馈）、reaction（NPC或环境的具体反应）和 interactionPoints（一个或多个自然、非菜单式的继续互动点），再把三者写成连贯的 text。feedback、reaction 和 interactionPoints 的每项都必须作为完整短句明确出现在 text 中；可以调整标点，不能只藏在结构字段里。",
   "7. interactionPoints 必须描述现场仍可观察或回应的人、物、动作和悬而未决的信息，不得写成菜单或给玩家的指令。不要编号，不要写“选项”“接下来请调查”“然后前往”“你可以/你能”“不妨查看”“继续追问”等命令句。玩家只会看到 text。",
   "只输出 JSON：{\"feedback\":\"现场反馈\",\"reaction\":\"NPC或环境反应\",\"interactionPoints\":[\"自然互动点\"],\"text\":\"连贯叙述\"}",
@@ -47,6 +47,8 @@ const ROUTE_SYSTEM = [
   "query 用在玩家只是在问自己已经知道的事，例如背包、人物卡、线索、团内时间、出口、刚才发生了什么。此时 target 只能是 inventory、sheet、clues、time、exits、recap 之一，query 不掷骰、也不改状态。",
   "move、observe、unlock、take、read 的 target 必须原样抄用备选清单里的编号。free、talk、unclear 的 target 留空。玩家明确表达了剧本外尝试时选 free，不要仅因清单里没有目标而选 unclear。",
   "玩家的方法明确对应【可用调查入口】时，输出 kind=investigation、原样抄写 investigationId，并从该入口列出的技能中选择 skill；approach 用一句话概括玩家做法。不可见或清单外的调查入口绝不能输出。",
+  "玩家在当前现场进行没有作者专用入口的搜索、交涉或局部破坏，而且结果存在不确定性时，输出 kind=free_check。mode 只能是 explore、social、damage；target 必须是当前场景、在场 NPC 或可见物品的编号；skill 必须来自调查员技能；difficulty 通常用 regular，明显困难才用 hard，极端冒险才用 extreme；approach 概括具体做法。",
+  "普通交谈仍选 talk。只有可能改变对方态度、迫使对方让步或套取信息时才用 social 检定。破坏只限当前可见物品或当前场景，不能用它直接宣布发现秘密、进入不存在的地点或完成结局。",
   "只要有一点拿不准，就返回 unclear，并在 text 里写一句反问玩家的话——猜错比问一句代价大得多。",
   "talk 不需要 target。unclear 时 target 留空。",
   "只输出 JSON。",
@@ -119,7 +121,6 @@ export async function keeperNarrate(params: {
 
   let complaint = "";
   let lastReason = "";
-  let softCandidate: Omit<NarrationResult, "usage"> | undefined;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       const { value, ms } = await askKeeper({
@@ -154,31 +155,11 @@ export async function keeperNarrate(params: {
         continue;
       }
 
-      if (attempt === 0 && outsideTargetLength(value, qualityMode)) {
-        softCandidate = { text: value.text.trim(), source: "模型", ms };
-        lastReason = "叙述长度偏离建议范围";
-        complaint = "请在不重复信息的前提下，将叙述调整到约150至350个中文字符";
-        continue;
-      }
-
       return done({ text: value.text.trim(), source: "模型", ms });
     } catch (error) {
       const reason = error instanceof KeeperError ? error.message : String(error);
-      if (softCandidate) {
-        return done({
-          ...softCandidate,
-          note: "叙述优化未完成，已保留通过安全检查的版本",
-        });
-      }
       return done({ text: fallback, source: "模板", note: reason });
     }
-  }
-
-  if (softCandidate) {
-    return done({
-      ...softCandidate,
-      note: "叙述优化未采用，已保留通过安全检查的版本",
-    });
   }
 
   return done({
@@ -199,12 +180,6 @@ function narrationQualityMode(intent: Intent): NarrationQualityMode {
     default:
       return "exploration";
   }
-}
-
-function outsideTargetLength(reply: NarrationReply, mode: NarrationQualityMode): boolean {
-  if (mode === "simple") return false;
-  const length = reply.text.trim().length;
-  return length < 150 || length > 350;
 }
 
 function qualityComplaint(reason: string): string {
@@ -263,7 +238,9 @@ export async function keeperRoute(params: {
       params.scenarioPack ?? pack,
     );
     if (!intent) {
-      const target = "kind" in value ? value.investigationId : value.target;
+      const target = "kind" in value
+        ? value.kind === "investigation" ? value.investigationId : value.target
+        : value.target;
       return {
         intent: { kind: "unclear", text: "kind" in value ? spoken : value.text || spoken },
         source: "模型",
@@ -288,6 +265,26 @@ function toIntent(
   scenarioPack: Pack,
 ): Intent | undefined {
   if ("kind" in reply) {
+    if (reply.kind === "free_check") {
+      if (state.skills[reply.skill] == null) return undefined;
+      const here = visibleItemsInRoom(state, state.pcAt);
+      const present = npcsInRoom(state, state.pcAt);
+      const targetIsValid = reply.mode === "explore"
+        ? reply.target === state.pcAt || here.includes(reply.target)
+        : reply.mode === "social"
+          ? present.includes(reply.target)
+          : reply.target === state.pcAt || here.includes(reply.target);
+      return targetIsValid
+        ? {
+            kind: "free_check",
+            mode: reply.mode,
+            target: reply.target,
+            skill: reply.skill,
+            difficulty: reply.difficulty,
+            approach: reply.approach,
+          }
+        : undefined;
+    }
     if (!profile) return undefined;
     const investigation = visibleInvestigations(state, profile, scenarioPack)
       .find((candidate) => candidate.id === reply.investigationId);
