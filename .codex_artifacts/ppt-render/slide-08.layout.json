@@ -1,0 +1,1149 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/a1xdgb",
+    "id": "a1xdgb",
+    "slide": 8,
+    "layoutId": "5dec3ec2-417f-4c46-98a3-cef12994e054",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "33278b94-f677-485f-a2c7-042051e6ee44",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#FFFFFF",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "5dec3ec2-417f-4c46-98a3-cef12994e054",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "33278b94-f677-485f-a2c7-042051e6ee44",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "33278b94-f677-485f-a2c7-042051e6ee44",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7e94z2do",
+      "id": "1",
+      "name": "eyebrow-8",
+      "bbox": [
+        72,
+        42,
+        600,
+        26
+      ],
+      "geometry": "rect",
+      "text": "07  个人实践与实习收获",
+      "textPreview": "07  个人实践与实习收获",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#3D8DFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "07  个人实践与实习收获"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "07  个人实践与实习收获",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#3D8DFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "07  个人实践与实习收获",
+              "fontSize": 13,
+              "color": "#3D8DFF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/sfi5s7e9",
+      "id": "2",
+      "name": "title-8",
+      "bbox": [
+        72,
+        80,
+        1136,
+        58
+      ],
+      "geometry": "rect",
+      "text": "独立完成产品，也重新认识了 AI 的工程边界",
+      "textPreview": "独立完成产品，也重新认识了 AI 的工程边界",
+      "resolvedFontSize": 35,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 35,
+        "typeface": "+mn-lt",
+        "color": "#17324D",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "独立完成产品，也重新认识了 AI 的工程边界"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "独立完成产品，也重新认识了 AI 的工程边界",
+          "resolvedTextStyle": {
+            "fontSize": 35,
+            "color": "#17324D",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "独立完成产品，也重新认识了 AI 的工程边界",
+              "fontSize": 35,
+              "color": "#17324D",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tgrm1svu",
+      "id": "3",
+      "name": "rule-8",
+      "bbox": [
+        72,
+        146,
+        1136,
+        2
+      ],
+      "geometry": "rect",
+      "fillColor": "#B8BCC4",
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/uh0nuxwz",
+      "id": "4",
+      "name": "page-8",
+      "bbox": [
+        1160,
+        672,
+        48,
+        20
+      ],
+      "geometry": "rect",
+      "text": "08",
+      "textPreview": "08",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "+mn-lt",
+        "color": "#5B6573",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "08"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "08",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#5B6573",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "08",
+              "fontSize": 12,
+              "color": "#5B6573",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fi9432dk",
+      "id": "5",
+      "name": "work-title",
+      "bbox": [
+        72,
+        190,
+        460,
+        34
+      ],
+      "geometry": "rect",
+      "text": "个人完成的工作",
+      "textPreview": "个人完成的工作",
+      "resolvedFontSize": 23,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 23,
+        "typeface": "+mn-lt",
+        "color": "#17324D",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "个人完成的工作"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "个人完成的工作",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "color": "#17324D",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "个人完成的工作",
+              "fontSize": 23,
+              "color": "#17324D",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/gj25w7e5",
+      "id": "6",
+      "name": "work-panel",
+      "bbox": [
+        72,
+        244,
+        500,
+        330
+      ],
+      "geometry": "rect",
+      "fillColor": "#F1F3F5",
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/hkbm5cvq",
+      "id": "7",
+      "name": "bullet-dot-280-0",
+      "bbox": [
+        104,
+        289,
+        12,
+        12
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#3D8DFF",
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2lknyhwb",
+      "id": "8",
+      "name": "bullet-280-0",
+      "bbox": [
+        132,
+        280,
+        408,
+        62
+      ],
+      "geometry": "rect",
+      "text": "完成产品定位、架构设计与功能拆解",
+      "textPreview": "完成产品定位、架构设计与功能拆解",
+      "resolvedFontSize": 19,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 19,
+        "typeface": "+mn-lt",
+        "color": "#101820",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "完成产品定位、架构设计与功能拆解"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "完成产品定位、架构设计与功能拆解",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "color": "#101820",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "完成产品定位、架构设计与功能拆解",
+              "fontSize": 19,
+              "color": "#101820",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3mto7mdw",
+      "id": "9",
+      "name": "bullet-dot-280-1",
+      "bbox": [
+        104,
+        355,
+        12,
+        12
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#6DCBF4",
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/7q5ofi58",
+      "id": "10",
+      "name": "bullet-280-1",
+      "bbox": [
+        132,
+        346,
+        408,
+        62
+      ],
+      "geometry": "rect",
+      "text": "实现桌面界面、游戏内核与本地数据层",
+      "textPreview": "实现桌面界面、游戏内核与本地数据层",
+      "resolvedFontSize": 19,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 19,
+        "typeface": "+mn-lt",
+        "color": "#101820",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "实现桌面界面、游戏内核与本地数据层"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "实现桌面界面、游戏内核与本地数据层",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "color": "#101820",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "实现桌面界面、游戏内核与本地数据层",
+              "fontSize": 19,
+              "color": "#101820",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6pwn6d4n",
+      "id": "11",
+      "name": "bullet-dot-280-2",
+      "bbox": [
+        104,
+        421,
+        12,
+        12
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#6DCBF4",
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tsn6hsne",
+      "id": "12",
+      "name": "bullet-280-2",
+      "bbox": [
+        132,
+        412,
+        408,
+        62
+      ],
+      "geometry": "rect",
+      "text": "接入模型、内容包、检查点与演示流程",
+      "textPreview": "接入模型、内容包、检查点与演示流程",
+      "resolvedFontSize": 19,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 19,
+        "typeface": "+mn-lt",
+        "color": "#101820",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "接入模型、内容包、检查点与演示流程"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "接入模型、内容包、检查点与演示流程",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "color": "#101820",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "接入模型、内容包、检查点与演示流程",
+              "fontSize": 19,
+              "color": "#101820",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/sre58nmt",
+      "id": "13",
+      "name": "bullet-dot-280-3",
+      "bbox": [
+        104,
+        487,
+        12,
+        12
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#6DCBF4",
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jml4by5c",
+      "id": "14",
+      "name": "bullet-280-3",
+      "bbox": [
+        132,
+        478,
+        408,
+        62
+      ],
+      "geometry": "rect",
+      "text": "通过测试与复盘持续修正产品体验",
+      "textPreview": "通过测试与复盘持续修正产品体验",
+      "resolvedFontSize": 19,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 19,
+        "typeface": "+mn-lt",
+        "color": "#101820",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "通过测试与复盘持续修正产品体验"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "通过测试与复盘持续修正产品体验",
+          "resolvedTextStyle": {
+            "fontSize": 19,
+            "color": "#101820",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "通过测试与复盘持续修正产品体验",
+              "fontSize": 19,
+              "color": "#101820",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ilcn2t4r",
+      "id": "15",
+      "name": "learn-title",
+      "bbox": [
+        674,
+        190,
+        460,
+        34
+      ],
+      "geometry": "rect",
+      "text": "对 AI 的核心认知",
+      "textPreview": "对 AI 的核心认知",
+      "resolvedFontSize": 23,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 23,
+        "typeface": "+mn-lt",
+        "color": "#17324D",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "对 AI 的核心认知"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "对 AI 的核心认知",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "color": "#17324D",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "对 AI 的核心认知",
+              "fontSize": 23,
+              "color": "#17324D",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5onmd8n2",
+      "id": "16",
+      "name": "learn-panel",
+      "bbox": [
+        674,
+        244,
+        534,
+        330
+      ],
+      "geometry": "rect",
+      "fillColor": "#EAF4FF",
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/kne543mh",
+      "id": "17",
+      "name": "bullet-dot-272-0",
+      "bbox": [
+        706,
+        281,
+        12,
+        12
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#3D8DFF",
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/3ipon25g",
+      "id": "18",
+      "name": "bullet-272-0",
+      "bbox": [
+        734,
+        272,
+        438,
+        65
+      ],
+      "geometry": "rect",
+      "text": "模型能力不等于产品可靠性，关键事实要由程序约束",
+      "textPreview": "模型能力不等于产品可靠性，关键事实要由程序约束",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101820",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "模型能力不等于产品可靠性，关键事实要由程序约束"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "模型能力不等于产品可靠性，关键事实要由程序约束",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101820",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "模型能力不等于产品可靠性，关键事实要由程序约束",
+              "fontSize": 18,
+              "color": "#101820",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 19,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2hgnex4v",
+      "id": "19",
+      "name": "bullet-dot-272-1",
+      "bbox": [
+        706,
+        350,
+        12,
+        12
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#6DCBF4",
+      "lineWidth": 0
+    },
+    {
+      "order": 20,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/yd0r61o3",
+      "id": "20",
+      "name": "bullet-272-1",
+      "bbox": [
+        734,
+        341,
+        438,
+        65
+      ],
+      "geometry": "rect",
+      "text": "本地模型需要按任务做参数、提示词与上下文调优",
+      "textPreview": "本地模型需要按任务做参数、提示词与上下文调优",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101820",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "本地模型需要按任务做参数、提示词与上下文调优"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "本地模型需要按任务做参数、提示词与上下文调优",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101820",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "本地模型需要按任务做参数、提示词与上下文调优",
+              "fontSize": 18,
+              "color": "#101820",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 21,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/zet8f6po",
+      "id": "21",
+      "name": "bullet-dot-272-2",
+      "bbox": [
+        706,
+        419,
+        12,
+        12
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#6DCBF4",
+      "lineWidth": 0
+    },
+    {
+      "order": 22,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0f298b69",
+      "id": "22",
+      "name": "bullet-272-2",
+      "bbox": [
+        734,
+        410,
+        438,
+        65
+      ],
+      "geometry": "rect",
+      "text": "针对性适配比盲目追求大模型规模更重要",
+      "textPreview": "针对性适配比盲目追求大模型规模更重要",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101820",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "针对性适配比盲目追求大模型规模更重要"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "针对性适配比盲目追求大模型规模更重要",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101820",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "针对性适配比盲目追求大模型规模更重要",
+              "fontSize": 18,
+              "color": "#101820",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 23,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lgbqhw7u",
+      "id": "23",
+      "name": "bullet-dot-272-3",
+      "bbox": [
+        706,
+        488,
+        12,
+        12
+      ],
+      "geometry": "ellipse",
+      "fillColor": "#6DCBF4",
+      "lineWidth": 0
+    },
+    {
+      "order": 24,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/mhkra1oz",
+      "id": "24",
+      "name": "bullet-272-3",
+      "bbox": [
+        734,
+        479,
+        438,
+        65
+      ],
+      "geometry": "rect",
+      "text": "结构化输出、评测和失败降级决定实际可用性",
+      "textPreview": "结构化输出、评测和失败降级决定实际可用性",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#101820",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "结构化输出、评测和失败降级决定实际可用性"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "结构化输出、评测和失败降级决定实际可用性",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#101820",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "结构化输出、评测和失败降级决定实际可用性",
+              "fontSize": 18,
+              "color": "#101820",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 25,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nit8j6pk",
+      "id": "25",
+      "name": "learn-note",
+      "bbox": [
+        72,
+        612,
+        1136,
+        36
+      ],
+      "geometry": "rect",
+      "text": "最大的收获：从“会调用 AI”，走向“能让 AI 在明确边界内稳定完成任务”。",
+      "textPreview": "最大的收获：从“会调用 AI”，走向“能让 AI 在明确边界内稳定完成任务”。",
+      "resolvedFontSize": 20,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 20,
+        "typeface": "+mn-lt",
+        "color": "#3D8DFF",
+        "bold": true,
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "最大的收获：从“会调用 AI”，走向“能让 AI 在明确边界内稳定完成任务”。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "最大的收获：从“会调用 AI”，走向“能让 AI 在明确边界内稳定完成任务”。",
+          "resolvedTextStyle": {
+            "fontSize": 20,
+            "color": "#3D8DFF",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "最大的收获：从“会调用 AI”，走向“能让 AI 在明确边界内稳定完成任务”。",
+              "fontSize": 20,
+              "color": "#3D8DFF",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

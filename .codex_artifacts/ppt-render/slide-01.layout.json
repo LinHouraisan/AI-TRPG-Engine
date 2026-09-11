@@ -1,0 +1,640 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/8mcbd0",
+    "id": "8mcbd0",
+    "slide": 1,
+    "layoutId": "5dec3ec2-417f-4c46-98a3-cef12994e054",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "33278b94-f677-485f-a2c7-042051e6ee44",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#FFFFFF",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "5dec3ec2-417f-4c46-98a3-cef12994e054",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "33278b94-f677-485f-a2c7-042051e6ee44",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "33278b94-f677-485f-a2c7-042051e6ee44",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/03q58fil",
+      "id": "1",
+      "name": "cover-field",
+      "bbox": [
+        780,
+        0,
+        500,
+        720
+      ],
+      "geometry": "rect",
+      "fillColor": "#EAF4FF",
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/f2h4fah0",
+      "id": "2",
+      "name": "cover-bar",
+      "bbox": [
+        780,
+        0,
+        18,
+        720
+      ],
+      "geometry": "rect",
+      "fillColor": "#3D8DFF",
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/e18n650f",
+      "id": "3",
+      "name": "cover-kicker",
+      "bbox": [
+        72,
+        86,
+        500,
+        30
+      ],
+      "geometry": "rect",
+      "text": "毕业实习项目答辩",
+      "textPreview": "毕业实习项目答辩",
+      "resolvedFontSize": 16,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 16,
+        "typeface": "+mn-lt",
+        "color": "#3D8DFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "毕业实习项目答辩"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "毕业实习项目答辩",
+          "resolvedTextStyle": {
+            "fontSize": 16,
+            "color": "#3D8DFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "毕业实习项目答辩",
+              "fontSize": 16,
+              "color": "#3D8DFF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/p8jml4zi",
+      "id": "4",
+      "name": "cover-title",
+      "bbox": [
+        72,
+        166,
+        640,
+        92
+      ],
+      "geometry": "rect",
+      "text": "AI TRPG Engine",
+      "textPreview": "AI TRPG Engine",
+      "resolvedFontSize": 54,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 54,
+        "typeface": "+mn-lt",
+        "color": "#17324D",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "AI TRPG Engine"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "AI TRPG Engine",
+          "resolvedTextStyle": {
+            "fontSize": 54,
+            "color": "#17324D",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "AI TRPG Engine",
+              "fontSize": 54,
+              "color": "#17324D",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/o7a5czix",
+      "id": "5",
+      "name": "cover-subtitle",
+      "bbox": [
+        72,
+        280,
+        620,
+        52
+      ],
+      "geometry": "rect",
+      "text": "本地优先的 AI 单人跑团桌面引擎",
+      "textPreview": "本地优先的 AI 单人跑团桌面引擎",
+      "resolvedFontSize": 26,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 26,
+        "typeface": "+mn-lt",
+        "color": "#5B6573",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "本地优先的 AI 单人跑团桌面引擎"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "本地优先的 AI 单人跑团桌面引擎",
+          "resolvedTextStyle": {
+            "fontSize": 26,
+            "color": "#5B6573",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "本地优先的 AI 单人跑团桌面引擎",
+              "fontSize": 26,
+              "color": "#5B6573",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/n6h4juhc",
+      "id": "6",
+      "name": "cover-value",
+      "bbox": [
+        72,
+        374,
+        600,
+        46
+      ],
+      "geometry": "rect",
+      "text": "AI 负责理解与叙事，程序负责规则与事实",
+      "textPreview": "AI 负责理解与叙事，程序负责规则与事实",
+      "resolvedFontSize": 22,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 22,
+        "typeface": "+mn-lt",
+        "color": "#101820",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "AI 负责理解与叙事，程序负责规则与事实"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "AI 负责理解与叙事，程序负责规则与事实",
+          "resolvedTextStyle": {
+            "fontSize": 22,
+            "color": "#101820",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "AI 负责理解与叙事，程序负责规则与事实",
+              "fontSize": 22,
+              "color": "#101820",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/258nap0r",
+      "id": "7",
+      "name": "cover-meta",
+      "bbox": [
+        72,
+        510,
+        600,
+        104
+      ],
+      "geometry": "rect",
+      "text": "组号：【待替换：组号】\n组长：【待替换：组长姓名】\n成员：【待替换：全部成员姓名】",
+      "textPreview": "组号：【待替换：组号】 | 组长：【待替换：组长姓名】 | 成员：【待替换：全部成员姓名】",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#C00000",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 3,
+        "lines": [
+          {
+            "index": 1,
+            "text": "组号：【待替换：组号】"
+          },
+          {
+            "index": 2,
+            "text": "组长：【待替换：组长姓名】"
+          },
+          {
+            "index": 3,
+            "text": "成员：【待替换：全部成员姓名】"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "组号：【待替换：组号】",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#C00000",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "组号：【待替换：组号】",
+              "fontSize": 18,
+              "color": "#C00000",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "组长：【待替换：组长姓名】",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#C00000",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "组长：【待替换：组长姓名】",
+              "fontSize": 18,
+              "color": "#C00000",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 3,
+          "text": "成员：【待替换：全部成员姓名】",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#C00000",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "成员：【待替换：全部成员姓名】",
+              "fontSize": 18,
+              "color": "#C00000",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "image",
+      "scope": "slide",
+      "aid": "im/8vy1g7ax",
+      "id": "8",
+      "bbox": [
+        820,
+        218,
+        400,
+        242
+      ],
+      "geometry": "rect",
+      "alt": "AI TRPG Engine 真实运行界面",
+      "contentType": "image/png",
+      "imageFit": "contain",
+      "imageMask": {
+        "geometry": "rect"
+      },
+      "asset": {
+        "assetId": "cff1e904-80d6-4323-afea-f16b2358fcac",
+        "contentType": "image/png",
+        "byteLength": 748007
+      }
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4b650vid",
+      "id": "9",
+      "name": "cover-product-border",
+      "bbox": [
+        820,
+        218,
+        400,
+        242
+      ],
+      "geometry": "rect",
+      "lineColor": "#B8BCC4",
+      "lineWidth": 1
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/e9gnixkn",
+      "id": "10",
+      "name": "cover-product-caption",
+      "bbox": [
+        820,
+        486,
+        400,
+        32
+      ],
+      "geometry": "rect",
+      "text": "V0.1 真实运行界面",
+      "textPreview": "V0.1 真实运行界面",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#17324D",
+        "bold": true,
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "V0.1 真实运行界面"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "V0.1 真实运行界面",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#17324D",
+            "bold": true,
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "V0.1 真实运行界面",
+              "fontSize": 18,
+              "color": "#17324D",
+              "bold": true,
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fap4r2l8",
+      "id": "11",
+      "name": "cover-product-note",
+      "bbox": [
+        820,
+        528,
+        400,
+        28
+      ],
+      "geometry": "rect",
+      "text": "自然语言行动 · 权威状态 · 时间线恢复",
+      "textPreview": "自然语言行动 · 权威状态 · 时间线恢复",
+      "resolvedFontSize": 15,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 15,
+        "typeface": "+mn-lt",
+        "color": "#5B6573",
+        "alignment": "center",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "自然语言行动 · 权威状态 · 时间线恢复"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "自然语言行动 · 权威状态 · 时间线恢复",
+          "resolvedTextStyle": {
+            "fontSize": 15,
+            "color": "#5B6573",
+            "alignment": "center"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "自然语言行动 · 权威状态 · 时间线恢复",
+              "fontSize": 15,
+              "color": "#5B6573",
+              "alignment": "center"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

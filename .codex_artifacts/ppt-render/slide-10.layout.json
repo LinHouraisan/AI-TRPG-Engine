@@ -1,0 +1,494 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/jvg99t",
+    "id": "jvg99t",
+    "slide": 10,
+    "layoutId": "5dec3ec2-417f-4c46-98a3-cef12994e054",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "33278b94-f677-485f-a2c7-042051e6ee44",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#17324D",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "5dec3ec2-417f-4c46-98a3-cef12994e054",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "33278b94-f677-485f-a2c7-042051e6ee44",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "33278b94-f677-485f-a2c7-042051e6ee44",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/pora9kry",
+      "id": "1",
+      "name": "close-kicker",
+      "bbox": [
+        72,
+        62,
+        500,
+        28
+      ],
+      "geometry": "rect",
+      "text": "AI TRPG ENGINE",
+      "textPreview": "AI TRPG ENGINE",
+      "resolvedFontSize": 14,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 14,
+        "typeface": "+mn-lt",
+        "color": "#6DCBF4",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "AI TRPG ENGINE"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "AI TRPG ENGINE",
+          "resolvedTextStyle": {
+            "fontSize": 14,
+            "color": "#6DCBF4",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "AI TRPG ENGINE",
+              "fontSize": 14,
+              "color": "#6DCBF4",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/2l0re5sn",
+      "id": "2",
+      "name": "close-title",
+      "bbox": [
+        72,
+        148,
+        860,
+        150
+      ],
+      "geometry": "rect",
+      "text": "让 AI 成为主持人，\n让程序守住世界的事实",
+      "textPreview": "让 AI 成为主持人， | 让程序守住世界的事实",
+      "resolvedFontSize": 46,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 46,
+        "typeface": "+mn-lt",
+        "color": "#FFFFFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "让 AI 成为主持人，"
+          },
+          {
+            "index": 2,
+            "text": "让程序守住世界的事实"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "让 AI 成为主持人，",
+          "resolvedTextStyle": {
+            "fontSize": 46,
+            "color": "#FFFFFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "让 AI 成为主持人，",
+              "fontSize": 46,
+              "color": "#FFFFFF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        },
+        {
+          "index": 2,
+          "text": "让程序守住世界的事实",
+          "resolvedTextStyle": {
+            "fontSize": 46,
+            "color": "#FFFFFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "让程序守住世界的事实",
+              "fontSize": 46,
+              "color": "#FFFFFF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/nm9s7a98",
+      "id": "3",
+      "name": "close-summary",
+      "bbox": [
+        72,
+        354,
+        1060,
+        48
+      ],
+      "geometry": "rect",
+      "text": "当前成果：完整试玩闭环 · 本地权威状态 · 可替换模型 · 可恢复历史",
+      "textPreview": "当前成果：完整试玩闭环 · 本地权威状态 · 可替换模型 · 可恢复历史",
+      "resolvedFontSize": 23,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 23,
+        "typeface": "+mn-lt",
+        "color": "#FFFFFF",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "当前成果：完整试玩闭环 · 本地权威状态 · 可替换模型 · 可恢复历史"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "当前成果：完整试玩闭环 · 本地权威状态 · 可替换模型 · 可恢复历史",
+          "resolvedTextStyle": {
+            "fontSize": 23,
+            "color": "#FFFFFF",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "当前成果：完整试玩闭环 · 本地权威状态 · 可替换模型 · 可恢复历史",
+              "fontSize": 23,
+              "color": "#FFFFFF",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0jy9cvah",
+      "id": "4",
+      "name": "close-future",
+      "bbox": [
+        72,
+        430,
+        1000,
+        42
+      ],
+      "geometry": "rect",
+      "text": "下一步：增强长期记忆与内容工具，并逐步探索多人协作",
+      "textPreview": "下一步：增强长期记忆与内容工具，并逐步探索多人协作",
+      "resolvedFontSize": 21,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 21,
+        "typeface": "+mn-lt",
+        "color": "#6DCBF4",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "下一步：增强长期记忆与内容工具，并逐步探索多人协作"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "下一步：增强长期记忆与内容工具，并逐步探索多人协作",
+          "resolvedTextStyle": {
+            "fontSize": 21,
+            "color": "#6DCBF4",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "下一步：增强长期记忆与内容工具，并逐步探索多人协作",
+              "fontSize": 21,
+              "color": "#6DCBF4",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/1k7a50r2",
+      "id": "5",
+      "name": "close-rule",
+      "bbox": [
+        72,
+        520,
+        1136,
+        2
+      ],
+      "geometry": "rect",
+      "fillColor": "#58708A",
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/exgra5sb",
+      "id": "6",
+      "name": "close-qa",
+      "bbox": [
+        72,
+        558,
+        300,
+        64
+      ],
+      "geometry": "rect",
+      "text": "Q & A",
+      "textPreview": "Q & A",
+      "resolvedFontSize": 38,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 38,
+        "typeface": "+mn-lt",
+        "color": "#FFFFFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "Q & A"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "Q & A",
+          "resolvedTextStyle": {
+            "fontSize": 38,
+            "color": "#FFFFFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "Q & A",
+              "fontSize": 38,
+              "color": "#FFFFFF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/fips3a9w",
+      "id": "7",
+      "name": "close-thanks",
+      "bbox": [
+        900,
+        580,
+        308,
+        30
+      ],
+      "geometry": "rect",
+      "text": "感谢各位老师指导",
+      "textPreview": "感谢各位老师指导",
+      "resolvedFontSize": 18,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 18,
+        "typeface": "+mn-lt",
+        "color": "#FFFFFF",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "感谢各位老师指导"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "感谢各位老师指导",
+          "resolvedTextStyle": {
+            "fontSize": 18,
+            "color": "#FFFFFF",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "感谢各位老师指导",
+              "fontSize": 18,
+              "color": "#FFFFFF",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

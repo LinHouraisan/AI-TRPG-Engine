@@ -1,0 +1,910 @@
+{
+  "schema": "openai.presentation.layout/v4",
+  "unit": "px",
+  "slide": {
+    "aid": "sl/f7wmj5",
+    "id": "f7wmj5",
+    "slide": 2,
+    "layoutId": "5dec3ec2-417f-4c46-98a3-cef12994e054",
+    "layoutName": "Title Slide",
+    "layoutType": "title",
+    "masterLayoutId": "33278b94-f677-485f-a2c7-042051e6ee44",
+    "masterLayoutName": "Master",
+    "backgroundColor": "#FFFFFF",
+    "frame": {
+      "left": 0,
+      "top": 0,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "theme": {
+    "colorSchemeName": "ChatGPT",
+    "colors": {
+      "accent1": "#156082",
+      "accent2": "#E97132",
+      "accent3": "#196B24",
+      "accent4": "#0F9ED5",
+      "accent5": "#A02B93",
+      "accent6": "#4EA72E",
+      "bg1": "#FFFFFF",
+      "bg2": "#000000",
+      "tx1": "#1F1F1F",
+      "tx2": "#FFFFFF",
+      "dk1": "#000000",
+      "lt1": "#FFFFFF",
+      "dk2": "#0E2841",
+      "lt2": "#E8E8E8",
+      "hlink": "#467886",
+      "folHlink": "#96607D"
+    },
+    "typefaces": [
+      "+mn-lt"
+    ]
+  },
+  "inheritedLayers": [
+    {
+      "scope": "layout",
+      "id": "5dec3ec2-417f-4c46-98a3-cef12994e054",
+      "name": "Title Slide",
+      "type": "title",
+      "parentLayoutId": "33278b94-f677-485f-a2c7-042051e6ee44",
+      "elements": []
+    },
+    {
+      "scope": "master",
+      "id": "33278b94-f677-485f-a2c7-042051e6ee44",
+      "name": "Master",
+      "type": "master",
+      "elements": []
+    }
+  ],
+  "elements": [
+    {
+      "order": 1,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/w76t0f6x",
+      "id": "1",
+      "name": "eyebrow-2",
+      "bbox": [
+        72,
+        42,
+        600,
+        26
+      ],
+      "geometry": "rect",
+      "text": "01  产品场景",
+      "textPreview": "01  产品场景",
+      "resolvedFontSize": 13,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 13,
+        "typeface": "+mn-lt",
+        "color": "#3D8DFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "01  产品场景"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "01  产品场景",
+          "resolvedTextStyle": {
+            "fontSize": 13,
+            "color": "#3D8DFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "01  产品场景",
+              "fontSize": 13,
+              "color": "#3D8DFF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 2,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/v6xcrapc",
+      "id": "2",
+      "name": "title-2",
+      "bbox": [
+        72,
+        80,
+        1136,
+        58
+      ],
+      "geometry": "rect",
+      "text": "我们要解决的不是“聊天”，而是一场能持续的游戏",
+      "textPreview": "我们要解决的不是“聊天”，而是一场能持续的游戏",
+      "resolvedFontSize": 35,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 35,
+        "typeface": "+mn-lt",
+        "color": "#17324D",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "我们要解决的不是“聊天”，而是一场能持续的游戏"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "我们要解决的不是“聊天”，而是一场能持续的游戏",
+          "resolvedTextStyle": {
+            "fontSize": 35,
+            "color": "#17324D",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "我们要解决的不是“聊天”，而是一场能持续的游戏",
+              "fontSize": 35,
+              "color": "#17324D",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 3,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/a5oby5or",
+      "id": "3",
+      "name": "rule-2",
+      "bbox": [
+        72,
+        146,
+        1136,
+        2
+      ],
+      "geometry": "rect",
+      "fillColor": "#B8BCC4",
+      "lineWidth": 0
+    },
+    {
+      "order": 4,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5czuxk7e",
+      "id": "4",
+      "name": "page-2",
+      "bbox": [
+        1160,
+        672,
+        48,
+        20
+      ],
+      "geometry": "rect",
+      "text": "02",
+      "textPreview": "02",
+      "resolvedFontSize": 12,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 12,
+        "typeface": "+mn-lt",
+        "color": "#5B6573",
+        "alignment": "right",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "02"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "02",
+          "resolvedTextStyle": {
+            "fontSize": 12,
+            "color": "#5B6573",
+            "alignment": "right"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "02",
+              "fontSize": 12,
+              "color": "#5B6573",
+              "alignment": "right"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 5,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4bqd4z6t",
+      "id": "5",
+      "name": "box-现实跑团",
+      "bbox": [
+        72,
+        196,
+        340,
+        210
+      ],
+      "geometry": "rect",
+      "fillColor": "#F1F3F5",
+      "lineWidth": 0
+    },
+    {
+      "order": 6,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jahcvup8",
+      "id": "6",
+      "name": "box-accent-现实跑团",
+      "bbox": [
+        72,
+        196,
+        7,
+        210
+      ],
+      "geometry": "rect",
+      "fillColor": "#B8BCC4",
+      "lineWidth": 0
+    },
+    {
+      "order": 7,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/i98v2pon",
+      "id": "7",
+      "name": "box-title-现实跑团",
+      "bbox": [
+        96,
+        214,
+        300,
+        34
+      ],
+      "geometry": "rect",
+      "text": "现实跑团",
+      "textPreview": "现实跑团",
+      "resolvedFontSize": 22,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 22,
+        "typeface": "+mn-lt",
+        "color": "#17324D",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "现实跑团"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "现实跑团",
+          "resolvedTextStyle": {
+            "fontSize": 22,
+            "color": "#17324D",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "现实跑团",
+              "fontSize": 22,
+              "color": "#17324D",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 8,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/lgvul07a",
+      "id": "8",
+      "name": "box-body-现实跑团",
+      "bbox": [
+        96,
+        254,
+        300,
+        140
+      ],
+      "geometry": "rect",
+      "text": "需要主持人、玩家和连续时间安排，组织成本高。",
+      "textPreview": "需要主持人、玩家和连续时间安排，组织成本高。",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#5B6573",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "需要主持人、玩家和连续时间安排，"
+          },
+          {
+            "index": 2,
+            "text": "组织成本高。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "需要主持人、玩家和连续时间安排，组织成本高。",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#5B6573",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "需要主持人、玩家和连续时间安排，组织成本高。",
+              "fontSize": 17,
+              "color": "#5B6573",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 9,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/0fmtsvqp",
+      "id": "9",
+      "name": "box-普通 AI 对话",
+      "bbox": [
+        446,
+        196,
+        340,
+        210
+      ],
+      "geometry": "rect",
+      "fillColor": "#F1F3F5",
+      "lineWidth": 0
+    },
+    {
+      "order": 10,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/i9cr2po7",
+      "id": "10",
+      "name": "box-accent-普通 AI 对话",
+      "bbox": [
+        446,
+        196,
+        7,
+        210
+      ],
+      "geometry": "rect",
+      "fillColor": "#6DCBF4",
+      "lineWidth": 0
+    },
+    {
+      "order": 11,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/jal8vu5s",
+      "id": "11",
+      "name": "box-title-普通 AI 对话",
+      "bbox": [
+        470,
+        214,
+        300,
+        34
+      ],
+      "geometry": "rect",
+      "text": "普通 AI 对话",
+      "textPreview": "普通 AI 对话",
+      "resolvedFontSize": 22,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 22,
+        "typeface": "+mn-lt",
+        "color": "#17324D",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "普通 AI 对话"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "普通 AI 对话",
+          "resolvedTextStyle": {
+            "fontSize": 22,
+            "color": "#17324D",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "普通 AI 对话",
+              "fontSize": 22,
+              "color": "#17324D",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 12,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/4be94z6x",
+      "id": "12",
+      "name": "box-body-普通 AI 对话",
+      "bbox": [
+        470,
+        254,
+        300,
+        140
+      ],
+      "geometry": "rect",
+      "text": "叙事自由，但关键人物、道具和既有结果容易被遗忘或改写。",
+      "textPreview": "叙事自由，但关键人物、道具和既有结果容易被遗忘或改写。",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#5B6573",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "叙事自由，但关键人物、道具和既有"
+          },
+          {
+            "index": 2,
+            "text": "结果容易被遗忘或改写。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "叙事自由，但关键人物、道具和既有结果容易被遗忘或改写。",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#5B6573",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "叙事自由，但关键人物、道具和既有结果容易被遗忘或改写。",
+              "fontSize": 17,
+              "color": "#5B6573",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 13,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/5cnaxkni",
+      "id": "13",
+      "name": "box-AI TRPG Engine",
+      "bbox": [
+        820,
+        196,
+        388,
+        210
+      ],
+      "geometry": "rect",
+      "fillColor": "#F1F3F5",
+      "lineWidth": 0
+    },
+    {
+      "order": 14,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/6dwr6po3",
+      "id": "14",
+      "name": "box-accent-AI TRPG Engine",
+      "bbox": [
+        820,
+        196,
+        7,
+        210
+      ],
+      "geometry": "rect",
+      "fillColor": "#3D8DFF",
+      "lineWidth": 0
+    },
+    {
+      "order": 15,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/re5szu5o",
+      "id": "15",
+      "name": "box-title-AI TRPG Engine",
+      "bbox": [
+        844,
+        214,
+        348,
+        34
+      ],
+      "geometry": "rect",
+      "text": "AI TRPG Engine",
+      "textPreview": "AI TRPG Engine",
+      "resolvedFontSize": 22,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 22,
+        "typeface": "+mn-lt",
+        "color": "#17324D",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "AI TRPG Engine"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "AI TRPG Engine",
+          "resolvedTextStyle": {
+            "fontSize": 22,
+            "color": "#17324D",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "AI TRPG Engine",
+              "fontSize": 22,
+              "color": "#17324D",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 16,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/sfe98z69",
+      "id": "16",
+      "name": "box-body-AI TRPG Engine",
+      "bbox": [
+        844,
+        254,
+        348,
+        140
+      ],
+      "geometry": "rect",
+      "text": "自然语言自由行动，同时用规则、状态和事件维护长期一致性。",
+      "textPreview": "自然语言自由行动，同时用规则、状态和事件维护长期一致性。",
+      "resolvedFontSize": 17,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 17,
+        "typeface": "+mn-lt",
+        "color": "#5B6573",
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 2,
+        "lines": [
+          {
+            "index": 1,
+            "text": "自然语言自由行动，同时用规则、状态和事"
+          },
+          {
+            "index": 2,
+            "text": "件维护长期一致性。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "自然语言自由行动，同时用规则、状态和事件维护长期一致性。",
+          "resolvedTextStyle": {
+            "fontSize": 17,
+            "color": "#5B6573",
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "自然语言自由行动，同时用规则、状态和事件维护长期一致性。",
+              "fontSize": 17,
+              "color": "#5B6573",
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 17,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/tgna14nu",
+      "id": "17",
+      "name": "value",
+      "bbox": [
+        72,
+        478,
+        190,
+        32
+      ],
+      "geometry": "rect",
+      "text": "一句话价值",
+      "textPreview": "一句话价值",
+      "resolvedFontSize": 20,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 20,
+        "typeface": "+mn-lt",
+        "color": "#3D8DFF",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "一句话价值"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "一句话价值",
+          "resolvedTextStyle": {
+            "fontSize": 20,
+            "color": "#3D8DFF",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "一句话价值",
+              "fontSize": 20,
+              "color": "#3D8DFF",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    },
+    {
+      "order": 18,
+      "kind": "shape",
+      "scope": "slide",
+      "aid": "sh/ehwra9of",
+      "id": "18",
+      "name": "value-statement",
+      "bbox": [
+        72,
+        520,
+        1030,
+        54
+      ],
+      "geometry": "rect",
+      "text": "让玩家随时进入一场可保存、可追溯、可恢复的单人跑团。",
+      "textPreview": "让玩家随时进入一场可保存、可追溯、可恢复的单人跑团。",
+      "resolvedFontSize": 30,
+      "resolvedTextStyle": {
+        "anchor": 1,
+        "fontSize": 30,
+        "typeface": "+mn-lt",
+        "color": "#17324D",
+        "bold": true,
+        "alignment": "left",
+        "verticalAlignment": "top",
+        "insets": {
+          "top": 4.8,
+          "right": 9.6,
+          "bottom": 4.8,
+          "left": 9.6
+        }
+      },
+      "textLayout": {
+        "lineCount": 1,
+        "lines": [
+          {
+            "index": 1,
+            "text": "让玩家随时进入一场可保存、可追溯、可恢复的单人跑团。"
+          }
+        ]
+      },
+      "paragraphs": [
+        {
+          "index": 1,
+          "text": "让玩家随时进入一场可保存、可追溯、可恢复的单人跑团。",
+          "resolvedTextStyle": {
+            "fontSize": 30,
+            "color": "#17324D",
+            "bold": true,
+            "alignment": "left"
+          },
+          "runs": [
+            {
+              "index": 1,
+              "text": "让玩家随时进入一场可保存、可追溯、可恢复的单人跑团。",
+              "fontSize": 30,
+              "color": "#17324D",
+              "bold": true,
+              "alignment": "left"
+            }
+          ],
+          "marginLeft": 0
+        }
+      ],
+      "lineWidth": 0
+    }
+  ],
+  "composeRuns": []
+}

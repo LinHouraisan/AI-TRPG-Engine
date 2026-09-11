@@ -1,0 +1,273 @@
+{"kind":"deck","id":"pr/lkfj9p","name":"Deck"}
+{"kind":"layout","layoutId":"33278b94-f677-485f-a2c7-042051e6ee44","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"5dec3ec2-417f-4c46-98a3-cef12994e054","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/8mcbd0","slide":1,"title":"毕业实习项目答辩","textShapes":7}
+{"kind":"shape","id":"sh/03q58fil","slide":1,"name":"cover-field","bbox":[780,0,500,720]}
+{"kind":"shape","id":"sh/f2h4fah0","slide":1,"name":"cover-bar","bbox":[780,0,18,720]}
+{"kind":"textbox","id":"sh/e18n650f","slide":1,"name":"cover-kicker","text":"毕业实习项目答辩","textPreview":"毕业实习项目答辩","textChars":8,"textLines":1,"bbox":[72,86,500,30]}
+{"kind":"textbox","id":"sh/p8jml4zi","slide":1,"name":"cover-title","text":"AI TRPG Engine","textPreview":"AI TRPG Engine","textChars":14,"textLines":1,"bbox":[72,166,640,92]}
+{"kind":"textbox","id":"sh/o7a5czix","slide":1,"name":"cover-subtitle","text":"本地优先的 AI 单人跑团桌面引擎","textPreview":"本地优先的 AI 单人跑团桌面引擎","textChars":17,"textLines":1,"bbox":[72,280,620,52]}
+{"kind":"textbox","id":"sh/n6h4juhc","slide":1,"name":"cover-value","text":"AI 负责理解与叙事，程序负责规则与事实","textPreview":"AI 负责理解与叙事，程序负责规则与事实","textChars":20,"textLines":1,"bbox":[72,374,600,46]}
+{"kind":"textbox","id":"sh/258nap0r","slide":1,"name":"cover-meta","text":"组号：【待替换：组号】\n组长：【待替换：组长姓名】\n成员：【待替换：全部成员姓名】","textPreview":"组号：【待替换：组号】 | 组长：【待替换：组长姓名】 | 成员：【待替换：全部成员姓名】","textChars":41,"textLines":3,"bbox":[72,510,600,104]}
+{"kind":"shape","id":"sh/4b650vid","slide":1,"name":"cover-product-border","bbox":[820,218,400,242]}
+{"kind":"textbox","id":"sh/e9gnixkn","slide":1,"name":"cover-product-caption","text":"V0.1 真实运行界面","textPreview":"V0.1 真实运行界面","textChars":11,"textLines":1,"bbox":[820,486,400,32]}
+{"kind":"textbox","id":"sh/fap4r2l8","slide":1,"name":"cover-product-note","text":"自然语言行动 · 权威状态 · 时间线恢复","textPreview":"自然语言行动 · 权威状态 · 时间线恢复","textChars":21,"textLines":1,"bbox":[820,528,400,28]}
+{"kind":"image","id":"im/8vy1g7ax","slide":1,"name":"","geometry":"rect","alt":"AI TRPG Engine 真实运行界面","bbox":[820,218,400,242]}
+{"kind":"notes","id":"nt/8mcbd0","slide":1,"text":""}
+{"kind":"slide","id":"sl/f7wmj5","slide":2,"title":"01  产品场景","textShapes":11}
+{"kind":"textbox","id":"sh/w76t0f6x","slide":2,"name":"eyebrow-2","text":"01  产品场景","textPreview":"01  产品场景","textChars":8,"textLines":1,"bbox":[72,42,600,26]}
+{"kind":"textbox","id":"sh/v6xcrapc","slide":2,"name":"title-2","text":"我们要解决的不是“聊天”，而是一场能持续的游戏","textPreview":"我们要解决的不是“聊天”，而是一场能持续的游戏","textChars":23,"textLines":1,"bbox":[72,80,1136,58]}
+{"kind":"shape","id":"sh/a5oby5or","slide":2,"name":"rule-2","bbox":[72,146,1136,2]}
+{"kind":"textbox","id":"sh/5czuxk7e","slide":2,"name":"page-2","text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1160,672,48,20]}
+{"kind":"shape","id":"sh/4bqd4z6t","slide":2,"name":"box-现实跑团","bbox":[72,196,340,210]}
+{"kind":"shape","id":"sh/jahcvup8","slide":2,"name":"box-accent-现实跑团","bbox":[72,196,7,210]}
+{"kind":"textbox","id":"sh/i98v2pon","slide":2,"name":"box-title-现实跑团","text":"现实跑团","textPreview":"现实跑团","textChars":4,"textLines":1,"bbox":[96,214,300,34]}
+{"kind":"textbox","id":"sh/lgvul07a","slide":2,"name":"box-body-现实跑团","text":"需要主持人、玩家和连续时间安排，组织成本高。","textPreview":"需要主持人、玩家和连续时间安排，组织成本高。","textChars":22,"textLines":1,"bbox":[96,254,300,140]}
+{"kind":"shape","id":"sh/0fmtsvqp","slide":2,"name":"box-普通 AI 对话","bbox":[446,196,340,210]}
+{"kind":"shape","id":"sh/i9cr2po7","slide":2,"name":"box-accent-普通 AI 对话","bbox":[446,196,7,210]}
+{"kind":"textbox","id":"sh/jal8vu5s","slide":2,"name":"box-title-普通 AI 对话","text":"普通 AI 对话","textPreview":"普通 AI 对话","textChars":8,"textLines":1,"bbox":[470,214,300,34]}
+{"kind":"textbox","id":"sh/4be94z6x","slide":2,"name":"box-body-普通 AI 对话","text":"叙事自由，但关键人物、道具和既有结果容易被遗忘或改写。","textPreview":"叙事自由，但关键人物、道具和既有结果容易被遗忘或改写。","textChars":27,"textLines":1,"bbox":[470,254,300,140]}
+{"kind":"shape","id":"sh/5cnaxkni","slide":2,"name":"box-AI TRPG Engine","bbox":[820,196,388,210]}
+{"kind":"shape","id":"sh/6dwr6po3","slide":2,"name":"box-accent-AI TRPG Engine","bbox":[820,196,7,210]}
+{"kind":"textbox","id":"sh/re5szu5o","slide":2,"name":"box-title-AI TRPG Engine","text":"AI TRPG Engine","textPreview":"AI TRPG Engine","textChars":14,"textLines":1,"bbox":[844,214,348,34]}
+{"kind":"textbox","id":"sh/sfe98z69","slide":2,"name":"box-body-AI TRPG Engine","text":"自然语言自由行动，同时用规则、状态和事件维护长期一致性。","textPreview":"自然语言自由行动，同时用规则、状态和事件维护长期一致性。","textChars":28,"textLines":1,"bbox":[844,254,348,140]}
+{"kind":"textbox","id":"sh/tgna14nu","slide":2,"name":"value","text":"一句话价值","textPreview":"一句话价值","textChars":5,"textLines":1,"bbox":[72,478,190,32]}
+{"kind":"textbox","id":"sh/ehwra9of","slide":2,"name":"value-statement","text":"让玩家随时进入一场可保存、可追溯、可恢复的单人跑团。","textPreview":"让玩家随时进入一场可保存、可追溯、可恢复的单人跑团。","textChars":26,"textLines":1,"bbox":[72,520,1030,54]}
+{"kind":"notes","id":"nt/f7wmj5","slide":2,"text":""}
+{"kind":"slide","id":"sl/ndtid7","slide":3,"title":"02  产品架构","textShapes":16}
+{"kind":"textbox","id":"sh/mdg3itor","slide":3,"name":"eyebrow-3","text":"02  产品架构","textPreview":"02  产品架构","textChars":8,"textLines":1,"bbox":[72,42,600,26]}
+{"kind":"textbox","id":"sh/9g7mt87i","slide":3,"name":"title-3","text":"AI 负责叙事，确定性内核决定什么真正发生","textPreview":"AI 负责叙事，确定性内核决定什么真正发生","textChars":21,"textLines":1,"bbox":[72,80,1136,58]}
+{"kind":"shape","id":"sh/ofylk36x","slide":3,"name":"rule-3","bbox":[72,146,1136,2]}
+{"kind":"textbox","id":"sh/bip4vypo","slide":3,"name":"page-3","text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1160,672,48,20]}
+{"kind":"shape","id":"sh/ahg3mdo3","slide":3,"name":"layer-0","bbox":[72,190,780,76]}
+{"kind":"textbox","id":"sh/xkrmx87e","slide":3,"name":"layer-title-0","text":"玩家交互层","textPreview":"玩家交互层","textChars":5,"textLines":1,"bbox":[98,205,220,36]}
+{"kind":"textbox","id":"sh/wjilo36t","slide":3,"name":"layer-body-0","text":"React 界面 · 人物卡 · 叙事 · 时间线","textPreview":"React 界面 · 人物卡 · 叙事 · 时间线","textChars":25,"textLines":1,"bbox":[330,207,490,34]}
+{"kind":"shape","id":"sh/jm94zipk","slide":3,"name":"layer-1","bbox":[72,290,780,76]}
+{"kind":"textbox","id":"sh/yl03qdoz","slide":3,"name":"layer-title-1","text":"桌面与 AI 协调层","textPreview":"桌面与 AI 协调层","textChars":10,"textLines":1,"bbox":[98,305,220,36]}
+{"kind":"textbox","id":"sh/4rqt8vup","slide":3,"name":"layer-body-1","text":"Electron Main / Preload · Keeper · Model Gateway","textPreview":"Electron Main / Preload · Keeper · Model Gateway","textChars":48,"textLines":1,"bbox":[330,307,490,34]}
+{"kind":"shape","id":"sh/5sza10va","slide":3,"name":"layer-2","bbox":[72,390,780,76]}
+{"kind":"textbox","id":"sh/ipob6lcj","slide":3,"name":"layer-title-2","text":"确定性运行时","textPreview":"确定性运行时","textChars":6,"textLines":1,"bbox":[98,405,220,36]}
+{"kind":"textbox","id":"sh/3qhszqd4","slide":3,"name":"layer-body-2","text":"Turn Router · Rules · RNG · Validator · Events","textPreview":"Turn Router · Rules · RNG · Validator · Events","textChars":46,"textLines":1,"bbox":[330,407,490,34]}
+{"kind":"shape","id":"sh/cvqtcvul","slide":3,"name":"layer-3","bbox":[72,490,780,76]}
+{"kind":"textbox","id":"sh/dwzu50v6","slide":3,"name":"layer-title-3","text":"本地数据层","textPreview":"本地数据层","textChars":5,"textLines":1,"bbox":[98,505,220,36]}
+{"kind":"textbox","id":"sh/qt8ba5cv","slide":3,"name":"layer-body-3","text":"SQLite · Current State · Immutable Event Log · Checkpoint","textPreview":"SQLite · Current State · Immutable Event Log · Checkpoint","textChars":57,"textLines":1,"bbox":[330,507,490,34]}
+{"kind":"textbox","id":"sh/ruhs3adg","slide":3,"name":"arch-rule","text":"核心边界","textPreview":"核心边界","textChars":4,"textLines":1,"bbox":[914,196,230,32]}
+{"kind":"shape","id":"sh/0zatgfux","slide":3,"name":"bullet-dot-252-0","bbox":[914,261,12,12]}
+{"kind":"textbox","id":"sh/10ju9kvi","slide":3,"name":"bullet-252-0","text":"AI 只生成候选和叙事","textPreview":"AI 只生成候选和叙事","textChars":11,"textLines":1,"bbox":[942,252,252,68]}
+{"kind":"shape","id":"sh/9gfatknm","slide":3,"name":"bullet-dot-252-1","bbox":[914,333,12,12]}
+{"kind":"textbox","id":"sh/8f6tkfm1","slide":3,"name":"bullet-252-1","text":"程序校验并原子提交","textPreview":"程序校验并原子提交","textChars":9,"textLines":1,"bbox":[942,324,252,68]}
+{"kind":"shape","id":"sh/nexsra5g","slide":3,"name":"bullet-dot-252-2","bbox":[914,405,12,12]}
+{"kind":"textbox","id":"sh/mdobi54v","slide":3,"name":"bullet-252-2","text":"Renderer 不直连 SQLite","textPreview":"Renderer 不直连 SQLite","textChars":19,"textLines":1,"bbox":[942,396,252,68]}
+{"kind":"shape","id":"sh/xkzaxkni","slide":3,"name":"bullet-dot-252-3","bbox":[914,477,12,12]}
+{"kind":"textbox","id":"sh/wj6tofmx","slide":3,"name":"bullet-252-3","text":"模型可以替换或降级","textPreview":"模型可以替换或降级","textChars":9,"textLines":1,"bbox":[942,468,252,68]}
+{"kind":"notes","id":"nt/ndtid7","slide":3,"text":""}
+{"kind":"slide","id":"sl/3fufjg","slide":4,"title":"03  核心功能","textShapes":12}
+{"kind":"textbox","id":"sh/dgjihoje","slide":4,"name":"eyebrow-4","text":"03  核心功能","textPreview":"03  核心功能","textChars":8,"textLines":1,"bbox":[72,42,600,26]}
+{"kind":"textbox","id":"sh/qdszm90n","slide":4,"name":"title-4","text":"四项核心能力组成完整的单人跑团闭环","textPreview":"四项核心能力组成完整的单人跑团闭环","textChars":17,"textLines":1,"bbox":[72,80,1136,58]}
+{"kind":"shape","id":"sh/re10fe18","slide":4,"name":"rule-4","bbox":[72,146,1136,2]}
+{"kind":"textbox","id":"sh/03uhsjip","slide":4,"name":"page-4","text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1160,672,48,20]}
+{"kind":"shape","id":"sh/143iloja","slide":4,"name":"box-01  创建角色","bbox":[72,192,530,170]}
+{"kind":"shape","id":"sh/ehczqt0z","slide":4,"name":"box-accent-01  创建角色","bbox":[72,192,7,170]}
+{"kind":"textbox","id":"sh/zil0je14","slide":4,"name":"box-title-01  创建角色","text":"01  创建角色","textPreview":"01  创建角色","textChars":8,"textLines":1,"bbox":[96,210,490,34]}
+{"kind":"textbox","id":"sh/o7u1w3i1","slide":4,"name":"box-body-01  创建角色","text":"属性分配、正式人物卡、稳定实体身份","textPreview":"属性分配、正式人物卡、稳定实体身份","textChars":17,"textLines":1,"bbox":[96,250,490,100]}
+{"kind":"shape","id":"sh/98nip8jm","slide":4,"name":"box-02  自由行动","bbox":[630,192,578,170]}
+{"kind":"shape","id":"sh/xkfmd0fe","slide":4,"name":"box-accent-02  自由行动","bbox":[630,192,7,170]}
+{"kind":"textbox","id":"sh/wj654vyt","slide":4,"name":"box-title-02  自由行动","text":"02  自由行动","textPreview":"02  自由行动","textChars":8,"textLines":1,"bbox":[654,210,538,34]}
+{"kind":"textbox","id":"sh/vix4bqx8","slide":4,"name":"box-body-02  自由行动","text":"玩家用自然语言调查、交谈、移动或尝试","textPreview":"玩家用自然语言调查、交谈、移动或尝试","textChars":18,"textLines":1,"bbox":[654,250,538,100]}
+{"kind":"shape","id":"sh/aho32lg3","slide":4,"name":"box-03  检定与叙事","bbox":[72,392,530,170]}
+{"kind":"shape","id":"sh/58zmh0fq","slide":4,"name":"box-accent-03  检定与叙事","bbox":[72,392,7,170]}
+{"kind":"textbox","id":"sh/k7q58vy5","slide":4,"name":"box-title-03  检定与叙事","text":"03  检定与叙事","textPreview":"03  检定与叙事","textChars":9,"textLines":1,"bbox":[96,410,490,34]}
+{"kind":"textbox","id":"sh/j6h4faxk","slide":4,"name":"box-body-03  检定与叙事","text":"系统先裁定并提交，再由 AI 生成主持人反馈","textPreview":"系统先裁定并提交，再由 AI 生成主持人反馈","textChars":22,"textLines":1,"bbox":[96,450,490,100]}
+{"kind":"shape","id":"sh/i58n65gz","slide":4,"name":"box-04  保存与恢复","bbox":[630,392,578,170]}
+{"kind":"shape","id":"sh/lcvm5gf6","slide":4,"name":"box-accent-04  保存与恢复","bbox":[630,392,7,170]}
+{"kind":"textbox","id":"sh/0bmlcbyl","slide":4,"name":"box-title-04  保存与恢复","text":"04  保存与恢复","textPreview":"04  保存与恢复","textChars":9,"textLines":1,"bbox":[654,410,538,34]}
+{"kind":"textbox","id":"sh/cvq5sb6h","slide":4,"name":"box-body-04  保存与恢复","text":"时间线、检查点、分支副本和战役备份","textPreview":"时间线、检查点、分支副本和战役备份","textChars":17,"textLines":1,"bbox":[654,450,538,100]}
+{"kind":"textbox","id":"sh/dwzmlgn2","slide":4,"name":"feature-note","text":"可接入本地模型或用户自己的云端模型密钥","textPreview":"可接入本地模型或用户自己的云端模型密钥","textChars":19,"textLines":1,"bbox":[72,604,1136,34]}
+{"kind":"notes","id":"nt/3fufjg","slide":4,"text":""}
+{"kind":"slide","id":"sl/qp47fk","slide":5,"title":"04  数据库与 API","textShapes":14}
+{"kind":"textbox","id":"sh/3250nutk","slide":5,"name":"eyebrow-5","text":"04  数据库与 API","textPreview":"04  数据库与 API","textChars":12,"textLines":1,"bbox":[72,42,600,26]}
+{"kind":"textbox","id":"sh/43ehwzu5","slide":5,"name":"title-5","text":"状态 + 事件 + 类型化 API，让系统结果可验证","textPreview":"状态 + 事件 + 类型化 API，让系统结果可验证","textChars":26,"textLines":1,"bbox":[72,80,1136,58]}
+{"kind":"shape","id":"sh/p4nip4bq","slide":5,"name":"rule-5","bbox":[72,146,1136,2]}
+{"kind":"textbox","id":"sh/uxwzqpcn","slide":5,"name":"page-5","text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1160,672,48,20]}
+{"kind":"textbox","id":"sh/fy5gjut8","slide":5,"name":"data-title","text":"SQLite 数据设计","textPreview":"SQLite 数据设计","textChars":11,"textLines":1,"bbox":[72,190,480,38]}
+{"kind":"shape","id":"sh/gzehszut","slide":5,"name":"bullet-dot-250-0","bbox":[72,259,12,12]}
+{"kind":"textbox","id":"sh/h0nyl4be","slide":5,"name":"bullet-250-0","text":"Current State：快速读取当前世界","textPreview":"Current State：快速读取当前世界","textChars":22,"textLines":1,"bbox":[100,250,472,62]}
+{"kind":"shape","id":"sh/69czmpcr","slide":5,"name":"bullet-dot-250-1","bbox":[72,325,12,12]}
+{"kind":"textbox","id":"sh/7algfatc","slide":5,"name":"bullet-250-1","text":"Immutable Event Log：追溯变化原因","textPreview":"Immutable Event Log：追溯变化原因","textChars":26,"textLines":1,"bbox":[100,316,472,62]}
+{"kind":"shape","id":"sh/fqx4v6xw","slide":5,"name":"bullet-dot-250-2","bbox":[72,391,12,12]}
+{"kind":"textbox","id":"sh/upo3m1gb","slide":5,"name":"bullet-250-2","text":"Checkpoint：恢复副本而不覆盖历史","textPreview":"Checkpoint：恢复副本而不覆盖历史","textChars":21,"textLines":1,"bbox":[100,382,472,62]}
+{"kind":"shape","id":"sh/hcfmxgfm","slide":5,"name":"bullet-dot-250-3","bbox":[72,457,12,12]}
+{"kind":"textbox","id":"sh/gr6loby1","slide":5,"name":"bullet-250-3","text":"Credential ID：数据库不保存明文密钥","textPreview":"Credential ID：数据库不保存明文密钥","textChars":24,"textLines":1,"bbox":[100,448,472,62]}
+{"kind":"shape","id":"sh/3eh4zqxs","slide":5,"name":"mid-rule","bbox":[620,190,2,390]}
+{"kind":"textbox","id":"sh/2do3qlg7","slide":5,"name":"api-title","text":"类型化桌面 API","textPreview":"类型化桌面 API","textChars":9,"textLines":1,"bbox":[674,190,480,38]}
+{"kind":"shape","id":"sh/pgzm1gfy","slide":5,"name":"bullet-dot-250-0","bbox":[674,259,12,12]}
+{"kind":"textbox","id":"sh/4fqlsvyd","slide":5,"name":"bullet-250-0","text":"campaign:*  战役与人物","textPreview":"campaign:*  战役与人物","textChars":17,"textLines":1,"bbox":[702,250,472,62]}
+{"kind":"shape","id":"sh/jidknmxo","slide":5,"name":"bullet-dot-250-1","bbox":[674,325,12,12]}
+{"kind":"textbox","id":"sh/yh43ehg3","slide":5,"name":"bullet-250-1","text":"turn:* / operation:*  回合与进度","textPreview":"turn:* / operation:*  回合与进度","textChars":27,"textLines":1,"bbox":[702,316,472,62]}
+{"kind":"shape","id":"sh/mdc7mp0r","slide":5,"name":"bullet-dot-250-2","bbox":[674,391,12,12]}
+{"kind":"textbox","id":"sh/nelovuhw","slide":5,"name":"bullet-250-2","text":"timeline:* / checkpoint:*  历史与恢复","textPreview":"timeline:* / checkpoint:*  历史与恢复","textChars":32,"textLines":1,"bbox":[702,382,472,62]}
+{"kind":"shape","id":"sh/ofupozih","slide":5,"name":"bullet-dot-250-3","bbox":[674,457,12,12]}
+{"kind":"textbox","id":"sh/9g36x4z2","slide":5,"name":"bullet-250-3","text":"settings:* / backup:*  模型与备份","textPreview":"settings:* / backup:*  模型与备份","textChars":28,"textLines":1,"bbox":[702,448,472,62]}
+{"kind":"textbox","id":"sh/e9s7ip0f","slide":5,"name":"api-bottom","text":"版本冲突时拒绝提交；叙事失败也不会重复掷骰。","textPreview":"版本冲突时拒绝提交；叙事失败也不会重复掷骰。","textChars":22,"textLines":1,"bbox":[72,610,1136,32]}
+{"kind":"notes","id":"nt/qp47fk","slide":5,"text":""}
+{"kind":"slide","id":"sl/40pl23","slide":6,"title":"05  系统演示","textShapes":26}
+{"kind":"textbox","id":"sh/ryt8nulw","slide":6,"name":"eyebrow-6","text":"05  系统演示","textPreview":"05  系统演示","textChars":8,"textLines":1,"bbox":[72,42,600,26]}
+{"kind":"textbox","id":"sh/sz2pwz21","slide":6,"name":"title-6","text":"两分钟演示：从自然语言行动到可追溯结果","textPreview":"两分钟演示：从自然语言行动到可追溯结果","textChars":19,"textLines":1,"bbox":[72,80,1136,58]}
+{"kind":"shape","id":"sh/d0bqpk3m","slide":6,"name":"rule-6","bbox":[72,146,1136,2]}
+{"kind":"textbox","id":"sh/e1k7ypk7","slide":6,"name":"page-6","text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1160,672,48,20]}
+{"kind":"shape","id":"sh/f2t8ruls","slide":6,"name":"step-num-0","bbox":[72,224,54,54]}
+{"kind":"textbox","id":"sh/03mp0z2d","slide":6,"name":"step-num-text-0","text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[72,233,54,28]}
+{"kind":"textbox","id":"sh/1ovqt43y","slide":6,"name":"step-text-0","text":"打开预置战役","textPreview":"打开预置战役","textChars":6,"textLines":1,"bbox":[46,298,160,70]}
+{"kind":"shape","id":"sh/2p4729kj","slide":6,"name":"step-line-0","bbox":[138,250,146,3]}
+{"kind":"shape","id":"sh/nqd8velo","slide":6,"name":"step-num-1","bbox":[294,224,54,54]}
+{"kind":"textbox","id":"sh/3ax8nut0","slide":6,"name":"step-num-text-1","text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[294,233,54,28]}
+{"kind":"textbox","id":"sh/i9orepcf","slide":6,"name":"step-text-1","text":"查看人物与场景","textPreview":"查看人物与场景","textChars":7,"textLines":1,"bbox":[268,298,160,70]}
+{"kind":"shape","id":"sh/5cfqp4bq","slide":6,"name":"step-line-1","bbox":[360,250,146,3]}
+{"kind":"shape","id":"sh/4b69gzu5","slide":6,"name":"step-num-2","bbox":[516,224,54,54]}
+{"kind":"textbox","id":"sh/v6d8jato","slide":6,"name":"step-num-text-2","text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[516,233,54,28]}
+{"kind":"textbox","id":"sh/u547a5c3","slide":6,"name":"step-text-2","text":"输入调查行动","textPreview":"输入调查行动","textChars":6,"textLines":1,"bbox":[490,298,160,70]}
+{"kind":"shape","id":"sh/h8fqlkbu","slide":6,"name":"step-line-2","bbox":[582,250,146,3]}
+{"kind":"shape","id":"sh/g769cfu9","slide":6,"name":"step-num-3","bbox":[738,224,54,54]}
+{"kind":"textbox","id":"sh/f2h8vets","slide":6,"name":"step-num-text-3","text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[738,233,54,28]}
+{"kind":"textbox","id":"sh/e18rm9cn","slide":6,"name":"step-text-3","text":"触发检定与叙事","textPreview":"触发检定与叙事","textChars":7,"textLines":1,"bbox":[712,298,160,70]}
+{"kind":"shape","id":"sh/axsbedwv","slide":6,"name":"step-line-3","bbox":[804,250,146,3]}
+{"kind":"shape","id":"sh/bylcnid0","slide":6,"name":"step-num-4","bbox":[960,224,54,54]}
+{"kind":"textbox","id":"sh/czutgnel","slide":6,"name":"step-num-text-4","text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[960,233,54,28]}
+{"kind":"textbox","id":"sh/x03upsv6","slide":6,"name":"step-text-4","text":"查看时间线/检查点","textPreview":"查看时间线/检查点","textChars":9,"textLines":1,"bbox":[934,298,160,70]}
+{"kind":"textbox","id":"sh/y1cbidwr","slide":6,"name":"demo-arch-label","text":"一次行动在程序中的真实调用路径","textPreview":"一次行动在程序中的真实调用路径","textChars":15,"textLines":1,"bbox":[72,390,1136,28]}
+{"kind":"shape","id":"sh/z2lcridc","slide":6,"name":"demo-arch-node-0","bbox":[104,432,224,150]}
+{"kind":"shape","id":"sh/k3utknex","slide":6,"name":"demo-arch-accent-0","bbox":[104,432,224,6]}
+{"kind":"textbox","id":"sh/l43utsvi","slide":6,"name":"demo-arch-title-0","text":"玩家界面","textPreview":"玩家界面","textChars":4,"textLines":1,"bbox":[122,456,188,30]}
+{"kind":"textbox","id":"sh/e58b6twn","slide":6,"name":"demo-arch-body-0","text":"React Renderer\n自然语言输入与结果展示","textPreview":"React Renderer | 自然语言输入与结果展示","textChars":26,"textLines":2,"bbox":[120,498,192,64]}
+{"kind":"textbox","id":"sh/f6hsfyd8","slide":6,"name":"demo-arch-arrow-0","text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[336,487,42,40]}
+{"kind":"shape","id":"sh/hk7elwfq","slide":6,"name":"demo-arch-node-1","bbox":[378,432,224,150]}
+{"kind":"shape","id":"sh/wzyxcry5","slide":6,"name":"demo-arch-accent-1","bbox":[378,432,224,6]}
+{"kind":"textbox","id":"sh/vypwjmxk","slide":6,"name":"demo-arch-title-1","text":"桌面桥接","textPreview":"桌面桥接","textChars":4,"textLines":1,"bbox":[396,456,188,30]}
+{"kind":"textbox","id":"sh/uxgvahgz","slide":6,"name":"demo-arch-body-1","text":"Preload / IPC\n输入校验与安全边界","textPreview":"Preload / IPC | 输入校验与安全边界","textChars":23,"textLines":2,"bbox":[394,498,192,64]}
+{"kind":"textbox","id":"sh/5o7epgfm","slide":6,"name":"demo-arch-arrow-1","text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[610,487,42,40]}
+{"kind":"shape","id":"sh/4nyxgby1","slide":6,"name":"demo-arch-node-2","bbox":[652,432,224,150]}
+{"kind":"shape","id":"sh/jmpwn6xg","slide":6,"name":"demo-arch-accent-2","bbox":[652,432,224,6]}
+{"kind":"textbox","id":"sh/ilgfe1gv","slide":6,"name":"demo-arch-title-2","text":"游戏内核","textPreview":"游戏内核","textChars":4,"textLines":1,"bbox":[670,456,188,30]}
+{"kind":"textbox","id":"sh/lsnedcfi","slide":6,"name":"demo-arch-body-2","text":"Router / Rules / RNG\n裁定、校验并提交事件","textPreview":"Router / Rules / RNG | 裁定、校验并提交事件","textChars":31,"textLines":2,"bbox":[668,498,192,64]}
+{"kind":"textbox","id":"sh/kred47yx","slide":6,"name":"demo-arch-arrow-2","text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[884,487,42,40]}
+{"kind":"shape","id":"sh/on2hsfyl","slide":6,"name":"demo-arch-node-3","bbox":[926,432,250,150]}
+{"kind":"shape","id":"sh/povilkzq","slide":6,"name":"demo-arch-accent-3","bbox":[926,432,250,6]}
+{"kind":"textbox","id":"sh/2lkzq50f","slide":6,"name":"demo-arch-title-3","text":"数据与模型","textPreview":"数据与模型","textChars":5,"textLines":1,"bbox":[944,456,214,30]}
+{"kind":"textbox","id":"sh/nmt0jah0","slide":6,"name":"demo-arch-body-3","text":"SQLite 保存权威事实\nKeeper / Provider 生成叙事","textPreview":"SQLite 保存权威事实 | Keeper / Provider 生成叙事","textChars":36,"textLines":2,"bbox":[942,498,218,64]}
+{"kind":"textbox","id":"sh/0j2hofi9","slide":6,"name":"demo-arch-note","text":"硬边界：先裁定并提交事实，再生成正式叙事","textPreview":"硬边界：先裁定并提交事实，再生成正式叙事","textChars":20,"textLines":1,"bbox":[72,606,1136,30]}
+{"kind":"notes","id":"nt/40pl23","slide":6,"text":""}
+{"kind":"slide","id":"sl/lh34nk","slide":7,"title":"06  技术难点","textShapes":29}
+{"kind":"textbox","id":"sh/uh0fq9wj","slide":7,"name":"eyebrow-7","text":"06  技术难点","textPreview":"06  技术难点","textChars":8,"textLines":1,"bbox":[72,42,600,26]}
+{"kind":"textbox","id":"sh/hkby1ova","slide":7,"name":"title-7","text":"技术难点：多线程、多 AI 如何协同而不争夺事实权","textPreview":"技术难点：多线程、多 AI 如何协同而不争夺事实权","textChars":25,"textLines":1,"bbox":[72,80,1136,58]}
+{"kind":"shape","id":"sh/wjixsjup","slide":7,"name":"rule-7","bbox":[72,146,1136,2]}
+{"kind":"textbox","id":"sh/7u9wvud8","slide":7,"name":"page-7","text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1160,672,48,20]}
+{"kind":"textbox","id":"sh/mt0fm9wn","slide":7,"name":"parallel-title","text":"并发带来的问题","textPreview":"并发带来的问题","textChars":7,"textLines":1,"bbox":[72,190,350,34]}
+{"kind":"shape","id":"sh/9wrex4vy","slide":7,"name":"parallel-risk-0","bbox":[72,242,350,96]}
+{"kind":"shape","id":"sh/8vixozed","slide":7,"name":"parallel-risk-accent-0","bbox":[72,242,7,96]}
+{"kind":"textbox","id":"sh/zqpwrudw","slide":7,"name":"parallel-risk-title-0","text":"上下文不同步","textPreview":"上下文不同步","textChars":6,"textLines":1,"bbox":[104,256,294,28]}
+{"kind":"textbox","id":"sh/ypgfipwb","slide":7,"name":"parallel-risk-body-0","text":"后台任务读到旧状态，产生失效建议","textPreview":"后台任务读到旧状态，产生失效建议","textChars":16,"textLines":1,"bbox":[104,295,294,26]}
+{"kind":"shape","id":"sh/0bqd0fmp","slide":7,"name":"parallel-risk-1","bbox":[72,350,350,96]}
+{"kind":"shape","id":"sh/1czu9kna","slide":7,"name":"parallel-risk-accent-1","bbox":[72,350,7,96]}
+{"kind":"textbox","id":"sh/e98vy54z","slide":7,"name":"parallel-risk-title-1","text":"职责容易重叠","textPreview":"职责容易重叠","textChars":6,"textLines":1,"bbox":[104,364,294,28]}
+{"kind":"textbox","id":"sh/fahc7a5k","slide":7,"name":"parallel-risk-body-1","text":"多个 AI 同时推进剧情，结果可能冲突","textPreview":"多个 AI 同时推进剧情，结果可能冲突","textChars":19,"textLines":1,"bbox":[104,403,294,26]}
+{"kind":"shape","id":"sh/s7qdwf6t","slide":7,"name":"parallel-risk-2","bbox":[72,458,350,96]}
+{"kind":"shape","id":"sh/d8zu50ne","slide":7,"name":"parallel-risk-accent-2","bbox":[72,458,7,96]}
+{"kind":"textbox","id":"sh/qlovu5on","slide":7,"name":"parallel-risk-title-2","text":"失败可能扩散","textPreview":"失败可能扩散","textChars":6,"textLines":1,"bbox":[104,472,294,28]}
+{"kind":"textbox","id":"sh/rmxc3a58","slide":7,"name":"parallel-risk-body-2","text":"模型超时或重试，不能阻塞或重复提交","textPreview":"模型超时或重试，不能阻塞或重复提交","textChars":17,"textLines":1,"bbox":[104,511,294,26]}
+{"kind":"textbox","id":"sh/w3ad8zmx","slide":7,"name":"coord-title","text":"按职责拆分的协同架构","textPreview":"按职责拆分的协同架构","textChars":10,"textLines":1,"bbox":[488,190,720,34]}
+{"kind":"shape","id":"sh/x4je14ni","slide":7,"name":"ai-role-0","bbox":[488,242,160,82]}
+{"kind":"shape","id":"sh/lofm50bq","slide":7,"name":"ai-role-accent-0","bbox":[488,242,160,5]}
+{"kind":"textbox","id":"sh/kn6lwva5","slide":7,"name":"ai-role-name-0","text":"GM AI","textPreview":"GM AI","textChars":5,"textLines":1,"bbox":[496,258,144,24]}
+{"kind":"textbox","id":"sh/jmd43atk","slide":7,"name":"ai-role-duty-0","text":"前台主持","textPreview":"前台主持","textChars":4,"textLines":1,"bbox":[496,288,144,22]}
+{"kind":"textbox","id":"sh/yl43u5sz","slide":7,"name":"ai-role-arrow-0","text":"↓","textPreview":"↓","textChars":1,"textLines":1,"bbox":[546,328,44,28]}
+{"kind":"shape","id":"sh/xkvm10be","slide":7,"name":"ai-role-1","bbox":[668,242,160,82]}
+{"kind":"shape","id":"sh/cjmlsvat","slide":7,"name":"ai-role-accent-1","bbox":[668,242,160,5]}
+{"kind":"textbox","id":"sh/bid4zqt8","slide":7,"name":"ai-role-name-1","text":"Director AI","textPreview":"Director AI","textChars":11,"textLines":1,"bbox":[676,258,144,24]}
+{"kind":"textbox","id":"sh/ah43qlsn","slide":7,"name":"ai-role-duty-1","text":"剧情调度","textPreview":"剧情调度","textChars":4,"textLines":1,"bbox":[676,288,144,22]}
+{"kind":"textbox","id":"sh/pgvmxgbi","slide":7,"name":"ai-role-arrow-1","text":"↓","textPreview":"↓","textChars":1,"textLines":1,"bbox":[726,328,44,28]}
+{"kind":"shape","id":"sh/ov2lobax","slide":7,"name":"ai-role-2","bbox":[848,242,160,82]}
+{"kind":"shape","id":"sh/e10jyh8f","slide":7,"name":"ai-role-accent-2","bbox":[848,242,160,5]}
+{"kind":"textbox","id":"sh/fm907m90","slide":7,"name":"ai-role-name-2","text":"Information AI","textPreview":"Information AI","textChars":14,"textLines":1,"bbox":[856,258,144,24]}
+{"kind":"textbox","id":"sh/0ni10rql","slide":7,"name":"ai-role-duty-2","text":"上下文选择","textPreview":"上下文选择","textChars":5,"textLines":1,"bbox":[856,288,144,22]}
+{"kind":"textbox","id":"sh/1ob29wr6","slide":7,"name":"ai-role-arrow-2","text":"↓","textPreview":"↓","textChars":1,"textLines":1,"bbox":[906,328,44,28]}
+{"kind":"shape","id":"sh/qx0juh8j","slide":7,"name":"ai-role-3","bbox":[1028,242,160,82]}
+{"kind":"shape","id":"sh/ry903m94","slide":7,"name":"ai-role-accent-3","bbox":[1028,242,160,5]}
+{"kind":"textbox","id":"sh/szi1w7qp","slide":7,"name":"ai-role-name-3","text":"Memory AI","textPreview":"Memory AI","textChars":9,"textLines":1,"bbox":[1036,258,144,24]}
+{"kind":"textbox","id":"sh/d0ri5cra","slide":7,"name":"ai-role-duty-3","text":"长期整理","textPreview":"长期整理","textChars":4,"textLines":1,"bbox":[1036,288,144,22]}
+{"kind":"textbox","id":"sh/itgjqx8n","slide":7,"name":"ai-role-arrow-3","text":"↓","textPreview":"↓","textChars":1,"textLines":1,"bbox":[1086,328,44,28]}
+{"kind":"shape","id":"sh/3up0z29s","slide":7,"name":"context-runtime","bbox":[540,362,596,68]}
+{"kind":"textbox","id":"sh/vm9gbido","slide":7,"name":"context-runtime-title","text":"Context Broker + Application Runtime","textPreview":"Context Broker + Application Runtime","textChars":36,"textLines":1,"bbox":[560,376,556,26]}
+{"kind":"textbox","id":"sh/ul0f2dc3","slide":7,"name":"context-runtime-body","text":"事件驱动 · 版本化上下文 · 超时与降级","textPreview":"事件驱动 · 版本化上下文 · 超时与降级","textChars":21,"textLines":1,"bbox":[560,404,556,20]}
+{"kind":"textbox","id":"sh/horyd8vu","slide":7,"name":"runtime-arrow","text":"↓","textPreview":"↓","textChars":1,"textLines":1,"bbox":[816,434,44,28]}
+{"kind":"shape","id":"sh/wnix43u9","slide":7,"name":"atomic-commit","bbox":[594,466,488,76]}
+{"kind":"textbox","id":"sh/7i9w7yds","slide":7,"name":"atomic-title","text":"Validator / Atomic Commit","textPreview":"Validator / Atomic Commit","textChars":25,"textLines":1,"bbox":[614,480,448,26]}
+{"kind":"textbox","id":"sh/mhgfytc7","slide":7,"name":"atomic-body","text":"只有程序能够提交 SQLite 权威状态与不可变事件","textPreview":"只有程序能够提交 SQLite 权威状态与不可变事件","textChars":26,"textLines":1,"bbox":[614,510,448,22]}
+{"kind":"textbox","id":"sh/9kry98vi","slide":7,"name":"challenge-result","text":"多 AI 可以并行思考，但事实只允许按版本串行提交。","textPreview":"多 AI 可以并行思考，但事实只允许按版本串行提交。","textChars":26,"textLines":1,"bbox":[72,598,1136,36]}
+{"kind":"notes","id":"nt/lh34nk","slide":7,"text":""}
+{"kind":"slide","id":"sl/a1xdgb","slide":8,"title":"07  个人实践与实习收获","textShapes":14}
+{"kind":"textbox","id":"sh/7e94z2do","slide":8,"name":"eyebrow-8","text":"07  个人实践与实习收获","textPreview":"07  个人实践与实习收获","textChars":13,"textLines":1,"bbox":[72,42,600,26]}
+{"kind":"textbox","id":"sh/sfi5s7e9","slide":8,"name":"title-8","text":"独立完成产品，也重新认识了 AI 的工程边界","textPreview":"独立完成产品，也重新认识了 AI 的工程边界","textChars":22,"textLines":1,"bbox":[72,80,1136,58]}
+{"kind":"shape","id":"sh/tgrm1svu","slide":8,"name":"rule-8","bbox":[72,146,1136,2]}
+{"kind":"textbox","id":"sh/uh0nuxwz","slide":8,"name":"page-8","text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1160,672,48,20]}
+{"kind":"textbox","id":"sh/fi9432dk","slide":8,"name":"work-title","text":"个人完成的工作","textPreview":"个人完成的工作","textChars":7,"textLines":1,"bbox":[72,190,460,34]}
+{"kind":"shape","id":"sh/gj25w7e5","slide":8,"name":"work-panel","bbox":[72,244,500,330]}
+{"kind":"shape","id":"sh/hkbm5cvq","slide":8,"name":"bullet-dot-280-0","bbox":[104,289,12,12]}
+{"kind":"textbox","id":"sh/2lknyhwb","slide":8,"name":"bullet-280-0","text":"完成产品定位、架构设计与功能拆解","textPreview":"完成产品定位、架构设计与功能拆解","textChars":16,"textLines":1,"bbox":[132,280,408,62]}
+{"kind":"shape","id":"sh/3mto7mdw","slide":8,"name":"bullet-dot-280-1","bbox":[104,355,12,12]}
+{"kind":"textbox","id":"sh/7q5ofi58","slide":8,"name":"bullet-280-1","text":"实现桌面界面、游戏内核与本地数据层","textPreview":"实现桌面界面、游戏内核与本地数据层","textChars":17,"textLines":1,"bbox":[132,346,408,62]}
+{"kind":"shape","id":"sh/6pwn6d4n","slide":8,"name":"bullet-dot-280-2","bbox":[104,421,12,12]}
+{"kind":"textbox","id":"sh/tsn6hsne","slide":8,"name":"bullet-280-2","text":"接入模型、内容包、检查点与演示流程","textPreview":"接入模型、内容包、检查点与演示流程","textChars":17,"textLines":1,"bbox":[132,412,408,62]}
+{"kind":"shape","id":"sh/sre58nmt","slide":8,"name":"bullet-dot-280-3","bbox":[104,487,12,12]}
+{"kind":"textbox","id":"sh/jml4by5c","slide":8,"name":"bullet-280-3","text":"通过测试与复盘持续修正产品体验","textPreview":"通过测试与复盘持续修正产品体验","textChars":15,"textLines":1,"bbox":[132,478,408,62]}
+{"kind":"textbox","id":"sh/ilcn2t4r","slide":8,"name":"learn-title","text":"对 AI 的核心认知","textPreview":"对 AI 的核心认知","textChars":10,"textLines":1,"bbox":[674,190,460,34]}
+{"kind":"shape","id":"sh/5onmd8n2","slide":8,"name":"learn-panel","bbox":[674,244,534,330]}
+{"kind":"shape","id":"sh/kne543mh","slide":8,"name":"bullet-dot-272-0","bbox":[706,281,12,12]}
+{"kind":"textbox","id":"sh/3ipon25g","slide":8,"name":"bullet-272-0","text":"模型能力不等于产品可靠性，关键事实要由程序约束","textPreview":"模型能力不等于产品可靠性，关键事实要由程序约束","textChars":23,"textLines":1,"bbox":[734,272,438,65]}
+{"kind":"shape","id":"sh/2hgnex4v","slide":8,"name":"bullet-dot-272-1","bbox":[706,350,12,12]}
+{"kind":"textbox","id":"sh/yd0r61o3","slide":8,"name":"bullet-272-1","text":"本地模型需要按任务做参数、提示词与上下文调优","textPreview":"本地模型需要按任务做参数、提示词与上下文调优","textChars":22,"textLines":1,"bbox":[734,341,438,65]}
+{"kind":"shape","id":"sh/zet8f6po","slide":8,"name":"bullet-dot-272-2","bbox":[706,419,12,12]}
+{"kind":"textbox","id":"sh/0f298b69","slide":8,"name":"bullet-272-2","text":"针对性适配比盲目追求大模型规模更重要","textPreview":"针对性适配比盲目追求大模型规模更重要","textChars":18,"textLines":1,"bbox":[734,410,438,65]}
+{"kind":"shape","id":"sh/lgbqhw7u","slide":8,"name":"bullet-dot-272-3","bbox":[706,488,12,12]}
+{"kind":"textbox","id":"sh/mhkra1oz","slide":8,"name":"bullet-272-3","text":"结构化输出、评测和失败降级决定实际可用性","textPreview":"结构化输出、评测和失败降级决定实际可用性","textChars":20,"textLines":1,"bbox":[734,479,438,65]}
+{"kind":"textbox","id":"sh/nit8j6pk","slide":8,"name":"learn-note","text":"最大的收获：从“会调用 AI”，走向“能让 AI 在明确边界内稳定完成任务”。","textPreview":"最大的收获：从“会调用 AI”，走向“能让 AI 在明确边界内稳定完成任务”。","textChars":39,"textLines":1,"bbox":[72,612,1136,36]}
+{"kind":"notes","id":"nt/a1xdgb","slide":8,"text":""}
+{"kind":"slide","id":"sl/fgbe0v","slide":9,"title":"08  版本演进","textShapes":16}
+{"kind":"textbox","id":"sh/u1ojelgn","slide":9,"name":"eyebrow-9","text":"08  版本演进","textPreview":"08  版本演进","textChars":8,"textLines":1,"bbox":[72,42,600,26]}
+{"kind":"textbox","id":"sh/hof290zy","slide":9,"name":"title-9","text":"从可分发的 V0.1，走向完整的 V1.0","textPreview":"从可分发的 V0.1，走向完整的 V1.0","textChars":21,"textLines":1,"bbox":[72,80,1136,58]}
+{"kind":"shape","id":"sh/g361gvyt","slide":9,"name":"rule-9","bbox":[72,146,1136,2]}
+{"kind":"textbox","id":"sh/7yd036hw","slide":9,"name":"page-9","text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[1160,672,48,20]}
+{"kind":"textbox","id":"sh/mx4ja1gb","slide":9,"name":"v01-label","text":"V0.1  ·  已经完成","textPreview":"V0.1  ·  已经完成","textChars":13,"textLines":1,"bbox":[72,190,500,40]}
+{"kind":"shape","id":"sh/t0fi5gz2","slide":9,"name":"v01-panel","bbox":[72,244,520,330]}
+{"kind":"shape","id":"sh/8zm1cbyh","slide":9,"name":"bullet-dot-276-0","bbox":[104,285,12,12]}
+{"kind":"textbox","id":"sh/zud0z6h0","slide":9,"name":"bullet-276-0","text":"可安装、可独立启动的桌面产品","textPreview":"可安装、可独立启动的桌面产品","textChars":14,"textLines":1,"bbox":[132,276,424,49]}
+{"kind":"shape","id":"sh/yt4j61gf","slide":9,"name":"bullet-dot-276-1","bbox":[104,338,12,12]}
+{"kind":"textbox","id":"sh/k7ex4v21","slide":9,"name":"bullet-276-1","text":"角色创建、战役与自然语言行动","textPreview":"角色创建、战役与自然语言行动","textChars":14,"textLines":1,"bbox":[132,329,424,49]}
+{"kind":"shape","id":"sh/58ned03m","slide":9,"name":"bullet-dot-276-2","bbox":[104,391,12,12]}
+{"kind":"textbox","id":"sh/ilwfi5kb","slide":9,"name":"bullet-276-2","text":"规则检定、AI 叙事与权威状态","textPreview":"规则检定、AI 叙事与权威状态","textChars":15,"textLines":1,"bbox":[132,382,424,49]}
+{"kind":"shape","id":"sh/j65wbqlw","slide":9,"name":"bullet-dot-276-3","bbox":[104,444,12,12]}
+{"kind":"textbox","id":"sh/wjedgv25","slide":9,"name":"bullet-276-3","text":"时间线、检查点和基础恢复","textPreview":"时间线、检查点和基础恢复","textChars":12,"textLines":1,"bbox":[132,435,424,49]}
+{"kind":"shape","id":"sh/xkne903q","slide":9,"name":"bullet-dot-276-4","bbox":[104,497,12,12]}
+{"kind":"textbox","id":"sh/ahwvelkz","slide":9,"name":"bullet-276-4","text":"模型配置与内容基础接入","textPreview":"模型配置与内容基础接入","textChars":11,"textLines":1,"bbox":[132,488,424,49]}
+{"kind":"textbox","id":"sh/vi5w7qlk","slide":9,"name":"v10-label","text":"V1.0  ·  完整产品形态","textPreview":"V1.0  ·  完整产品形态","textChars":15,"textLines":1,"bbox":[674,190,520,40]}
+{"kind":"shape","id":"sh/gfyxcf29","slide":9,"name":"v10-panel","bbox":[674,244,534,330]}
+{"kind":"shape","id":"sh/hgrelk3u","slide":9,"name":"bullet-dot-276-0","bbox":[706,285,12,12]}
+{"kind":"textbox","id":"sh/pk369gr2","slide":9,"name":"bullet-276-0","text":"目标战役长度内的长期一致性","textPreview":"目标战役长度内的长期一致性","textChars":13,"textLines":1,"bbox":[734,276,438,49]}
+{"kind":"shape","id":"sh/4ju5gvqh","slide":9,"name":"bullet-dot-276-1","bbox":[706,338,12,12]}
+{"kind":"textbox","id":"sh/3ilo7q9w","slide":9,"name":"bullet-276-1","text":"文字卡、轻量内容与剧本包兼容","textPreview":"文字卡、轻量内容与剧本包兼容","textChars":14,"textLines":1,"bbox":[734,329,438,49]}
+{"kind":"shape","id":"sh/2hsnel8b","slide":9,"name":"bullet-dot-276-2","bbox":[706,391,12,12]}
+{"kind":"textbox","id":"sh/hgjm5grq","slide":9,"name":"bullet-276-2","text":"Scenario Pack 制作与发布路径","textPreview":"Scenario Pack 制作与发布路径","textChars":21,"textLines":1,"bbox":[734,382,438,49]}
+{"kind":"shape","id":"sh/gfa5cbq5","slide":9,"name":"bullet-dot-276-3","bbox":[706,444,12,12]}
+{"kind":"textbox","id":"sh/fu14369k","slide":9,"name":"bullet-276-3","text":"模型替换、失败降级和成本控制","textPreview":"模型替换、失败降级和成本控制","textChars":14,"textLines":1,"bbox":[734,435,438,49]}
+{"kind":"shape","id":"sh/utsna18f","slide":9,"name":"bullet-dot-276-4","bbox":[706,497,12,12]}
+{"kind":"textbox","id":"sh/tsjm1wru","slide":9,"name":"bullet-276-4","text":"存档回滚、分支、迁移与完整文档","textPreview":"存档回滚、分支、迁移与完整文档","textChars":15,"textLines":1,"bbox":[734,488,438,49]}
+{"kind":"textbox","id":"sh/sra58bq9","slide":9,"name":"version-boundary","text":"V1.0 仍聚焦 AI 主持的单人跑团；多人实时联机与真人 GM 工作台属于远期方向。","textPreview":"V1.0 仍聚焦 AI 主持的单人跑团；多人实时联机与真人 GM 工作台属于远期方向。","textChars":43,"textLines":1,"bbox":[72,616,1136,34]}
+{"kind":"notes","id":"nt/fgbe0v","slide":9,"text":""}
+{"kind":"slide","id":"sl/jvg99t","slide":10,"title":"AI TRPG ENGINE","textShapes":6}
+{"kind":"textbox","id":"sh/pora9kry","slide":10,"name":"close-kicker","text":"AI TRPG ENGINE","textPreview":"AI TRPG ENGINE","textChars":14,"textLines":1,"bbox":[72,62,500,28]}
+{"kind":"textbox","id":"sh/2l0re5sn","slide":10,"name":"close-title","text":"让 AI 成为主持人，\n让程序守住世界的事实","textPreview":"让 AI 成为主持人， | 让程序守住世界的事实","textChars":22,"textLines":2,"bbox":[72,148,860,150]}
+{"kind":"textbox","id":"sh/nm9s7a98","slide":10,"name":"close-summary","text":"当前成果：完整试玩闭环 · 本地权威状态 · 可替换模型 · 可恢复历史","textPreview":"当前成果：完整试玩闭环 · 本地权威状态 · 可替换模型 · 可恢复历史","textChars":36,"textLines":1,"bbox":[72,354,1060,48]}
+{"kind":"textbox","id":"sh/0jy9cvah","slide":10,"name":"close-future","text":"下一步：增强长期记忆与内容工具，并逐步探索多人协作","textPreview":"下一步：增强长期记忆与内容工具，并逐步探索多人协作","textChars":25,"textLines":1,"bbox":[72,430,1000,42]}
+{"kind":"shape","id":"sh/1k7a50r2","slide":10,"name":"close-rule","bbox":[72,520,1136,2]}
+{"kind":"textbox","id":"sh/exgra5sb","slide":10,"name":"close-qa","text":"Q & A","textPreview":"Q & A","textChars":5,"textLines":1,"bbox":[72,558,300,64]}
+{"kind":"textbox","id":"sh/fips3a9w","slide":10,"name":"close-thanks","text":"感谢各位老师指导","textPreview":"感谢各位老师指导","textChars":8,"textLines":1,"bbox":[900,580,308,30]}
+{"kind":"notes","id":"nt/jvg99t","slide":10,"text":""}
