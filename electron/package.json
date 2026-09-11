@@ -28,11 +28,18 @@
     "architecture:check": "bun scripts/architecture-check.ts",
     "keeper:check": "bun scripts/keeper-check.ts",
     "store:check": "bun scripts/store-check.ts",
+    "rag:build": "bun scripts/build-rag.ts",
+    "bench": "bun scripts/bench.ts",
+    "bench:synth": "bun scripts/synth-bench.ts",
+    "lc:test": "bun test src/core/ai/lc",
     "smoke": "bun scripts/pack-lint.ts && bun scripts/smoke.ts && bun scripts/kernel-check.ts && bun scripts/architecture-check.ts && bun scripts/keeper-check.ts"
   },
   "dependencies": {
+    "@langchain/core": "^1.0.0",
+    "@langchain/openai": "^1.0.0",
     "@sqlite.org/sqlite-wasm": "^3.53.0-build1",
     "better-sqlite3": "^12.4.1",
+    "langchain": "^1.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "zod": "^4.4.3"
