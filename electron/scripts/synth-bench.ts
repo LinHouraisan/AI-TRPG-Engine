@@ -8,7 +8,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
-import { defaultConfig } from "@core/keeper/config";
+import { scriptChatConfig } from "./lib/lc-config";
 import { chatModelFrom } from "@core/ai/lc";
 
 type Case = {
@@ -38,7 +38,7 @@ const prompt = ChatPromptTemplate.fromMessages([
 const n = Number(arg("n", "90"));
 const topic = arg("topic", "低魔中世纪黑暗奇幻：灰烬港城与地下遗迹");
 
-const chain = prompt.pipe(chatModelFrom(defaultConfig, { temperature: 1.0 })).pipe(new StringOutputParser());
+const chain = prompt.pipe(chatModelFrom(scriptChatConfig(), { temperature: 1.0 })).pipe(new StringOutputParser());
 const raw = await chain.invoke({ n: String(n), topic });
 
 const start = raw.indexOf("[");

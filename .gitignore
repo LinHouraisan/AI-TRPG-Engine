@@ -27,6 +27,11 @@ electron/release-*/
 .worktrees/
 .superpowers/
 
+# 本地密钥：脚本侧模型配置（LC_*）走 .env，绝不入仓库
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

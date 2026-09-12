@@ -10,8 +10,8 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { StringOutputParser } from "@langchain/core/output_parsers";
-import { defaultConfig } from "@core/keeper/config";
-import { chatModelFrom, embedderFrom, indexFromJson, judgePrompt, narrateTurn } from "@core/ai/lc";
+import { chatModelFrom, indexFromJson, judgePrompt, narrateTurn } from "@core/ai/lc";
+import { scriptChatConfig, scriptEmbedder } from "./lib/lc-config";
 
 type Case = {
   id: string;
@@ -65,7 +65,7 @@ function keywordRecall(answer: string, reference: string): number {
 
 async function judge(item: Case, answer: string): Promise<{ score: number; reason: string }> {
   const chain = judgePrompt
-    .pipe(chatModelFrom(defaultConfig, { temperature: 0.1, maxTokens: 128 }))
+    .pipe(chatModelFrom(config, { temperature: 0.1, maxTokens: 128 }))
     .pipe(new StringOutputParser());
   const raw = await chain.invoke({
     task: `按 ${item.type} 类型给这条 TRPG 引擎回答打分（1-5 整数）`,
@@ -87,6 +87,9 @@ async function judge(item: Case, answer: string): Promise<{ score: number; reaso
 const mode = arg("mode", "base");
 const limit = Number(arg("limit", "0"));
 const dataset = arg("dataset", "data/bench/dataset.jsonl");
+const config = scriptChatConfig();
+/** 报告写到仓库根的 docs/bench/，与其余文档同处一地（脚本 cwd 是 electron/）。 */
+const REPORT_DIR = "../docs/bench";
 
 const useRag = mode !== "base";
 const useLora = mode === "lora";
@@ -101,10 +104,10 @@ const rows: Row[] = [];
 for (const [i, item] of cases.entries()) {
   const started = Date.now();
   const result = await narrateTurn({
-    config: defaultConfig,
+    config,
     input: item.context ? `${item.context}\n${item.question}` : item.question,
     index,
-    embed: index ? embedderFrom(defaultConfig) : undefined,
+    embed: index ? scriptEmbedder() : undefined,
     lora: useLora
       ? { loraModel: process.env.LORA_MODEL ?? "", loraBaseUrl: process.env.LORA_BASE_URL ?? "" }
       : undefined,
@@ -138,13 +141,14 @@ const summary = {
   avgLatencyMs: Math.round(mean(rows.map((row) => row.latencyMs))),
 };
 
-mkdirSync("docs/bench", { recursive: true });
-writeFileSync(`docs/bench/report-${mode}.json`, JSON.stringify({ summary, rows }, null, 2), "utf8");
+mkdirSync(REPORT_DIR, { recursive: true });
+writeFileSync(`${REPORT_DIR}/report-${mode}.json`, JSON.stringify({ summary, rows }, null, 2), "utf8");
 writeFileSync(
-  `docs/bench/report-${mode}.md`,
+  `${REPORT_DIR}/report-${mode}.md`,
   [
     `# Bench 报告（mode=${mode}）`,
     "",
+    `- 模型：${config.model}（${config.baseUrl}）`,
     `- 样本数：${summary.n}`,
     `- 总分（1-5）：**${summary.overall}**`,
     `- 分类型：${Object.entries(summary.byType).map(([k, v]) => `${k}=${v}`).join("，")}`,
@@ -153,4 +157,4 @@ writeFileSync(
   ].join("\n"),
   "utf8",
 );
-console.log(`\n✓ mode=${mode} 总分 ${summary.overall}（${summary.n} 条）→ docs/bench/report-${mode}.md`);
+console.log(`\n✓ mode=${mode} 总分 ${summary.overall}（${summary.n} 条）→ ${REPORT_DIR}/report-${mode}.md`);
