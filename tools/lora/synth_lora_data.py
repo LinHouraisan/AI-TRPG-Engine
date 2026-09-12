@@ -66,10 +66,25 @@ def extract_json_array(text: str) -> list:
 
 
 def load_lore(path: Path, max_chars: int = 4000) -> str:
-    files = sorted([*path.glob("*.md"), *path.glob("*.txt")]) if path.is_dir() else [path]
+    """读语料：目录里找 md/txt，卡包是 JSON 时按字符串字段抽平。"""
+    if path.is_dir():
+        files = sorted([*path.glob("*.md"), *path.glob("*.txt"), *path.glob("*.json")])
+    else:
+        files = [path]
     if not files:
         raise SystemExit(f"找不到语料：{path}")
-    return "\n\n".join(f.read_text(encoding="utf-8") for f in files)[:max_chars]
+    return "\n\n".join(_as_text(f) for f in files)[:max_chars]
+
+
+def _as_text(f: Path) -> str:
+    raw = f.read_text(encoding="utf-8")
+    if f.suffix != ".json":
+        return raw
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return raw
+    return json.dumps(data, ensure_ascii=False, indent=1)
 
 
 def main() -> None:

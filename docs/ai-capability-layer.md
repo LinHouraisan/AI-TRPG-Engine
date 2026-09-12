@@ -20,25 +20,46 @@
 | `electron/src/core/ai/lc/retrieval.ts` | 本地向量索引：建库、检索、JSON 序列化 |
 | `electron/src/core/ai/lc/chains.ts` | `narrateTurn` / `npcTurn` / `resolveWithRules` |
 | `electron/src/core/ai/lc/lc.test.ts` | 离线单测：确定性掷骰、余弦检索、索引往返 |
-| `electron/scripts/build-rag.ts` | 从 `data/lore/*.md` 建索引 → `data/rag-index.json` |
+| `electron/scripts/lib/lc-config.ts` | 脚本侧配置：`.env` → `KeeperConfig`，对话与向量化分开 |
+| `electron/scripts/build-rag.ts` | 从 `content/packs/*/` 建索引 → `data/rag-index.json`（排除 secret） |
 | `electron/scripts/synth-bench.ts` | 用模型合成评测集 → `data/bench/dataset.jsonl` |
 | `electron/scripts/bench.ts` | 跑 base / rag / lora 三档，出对比报告 |
-| `tools/lora/` | LoRA 数据合成（Python）+ LLaMA-Factory 配置 |
+| `tools/local/setup-ollama.ps1` | 本地推理服务一键搭建：装 Ollama、拉模型、生成 `.env` |
+| `tools/lora/` | 数据合成 + 云端训练 / 合并（本机无 NVIDIA 卡，训练只能上云） |
 
 ## 3. 运行
 
 新增依赖：`langchain`、`@langchain/core`、`@langchain/openai`（见 `electron/package.json`）。
+
+### 3.1 起本地模型服务
+
+```powershell
+.\tools\local\setup-ollama.ps1 -WriteEnv
+```
+
+装 Ollama、拉 `qwen2.5:3b-instruct` + `bge-m3`，并写入 `electron/.env`。
+本机无 NVIDIA 显卡，推理走 CPU，不需要 API Key，也不联网。
+
+对话与向量化**分开配置**，因为 DeepSeek 等部分厂商不提供 embeddings 接口：
+
+```
+LC_*         对话
+LC_EMBED_*   向量化
+```
+
+两边都支持 `ollama` 与 `openai_compatible` 两种 protocol，可任意组合
+（例：对话走云端 API、向量化走本地 bge-m3）。
+
+### 3.2 建索引与评测
 
 ```bash
 cd electron
 bun install
 bun test src/core/ai/lc          # 离线单测，不需要模型
 
-# 检索库：先把世界观 / 设定文档放进 data/lore/*.md
-bun run rag:build
+bun run rag:build                # 语料来自 content/packs/*/
 
-# 评测
-bun run bench:synth -- --n 90
+bun run bench:synth -- --n 90    # 合成评测集（必须人工抽检 10%）
 bun run bench -- --mode base
 bun run bench -- --mode rag
 ```
@@ -65,8 +86,11 @@ bun run bench -- --mode rag
 
 ## 6. LoRA 的定位
 
-风格微调：GM 的语气、叙述格式、收尾句式。数据全 AI 合成，Qwen2.5-3B + LLaMA-Factory，单卡 24GB 约 1–3 小时。
-训练完把服务地址填进 `LORA_MODEL` / `LORA_BASE_URL`，`bench --mode lora` 直接对比。
+风格微调：GM 的语气、叙述格式、收尾句式。数据全 AI 合成，Qwen2.5-3B + LLaMA-Factory。
+
+**本机不能训练**——没有 NVIDIA 显卡（AMD 780M 集成显卡，无 CUDA），微调必须租云端 GPU（AutoDL 单卡 24GB 约 ¥1.3–1.9/时，一次训练 15–30 分钟）。
+链路是：本机合成数据 → 云端训练合并 → GGUF 拉回本机 → `ollama create --quantize q4_k_m` → `bench --mode lora` 对比。
+详见 `tools/lora/README.md` 与 `tools/lora/train_autodl.sh`。
 
 800 条合成数据改不了模型能力，只改表达风格——这是预期，不是失败。
 
@@ -75,6 +99,7 @@ bun run bench -- --mode rag
 | 风险 | 处理 |
 | --- | --- |
 | `createAgent` 属 LangChain 1.x，低版本会导入失败 | 依赖锁定 `langchain@^1.0`；0.3.x 环境换 `langchain-classic` 的等价实现 |
-| 本地 bge-m3 未拉取 | `ollama pull bge-m3`；或把 `KeeperConfig.protocol` 设为 `openai_compatible` 走远端 embedding |
+| 本地 CPU 推理慢，bench 可能跑 1 小时以上 | 换 1.5B 模型，或用 `--limit 60` 先验证流程 |
 | 合成评测集质量参差 | 必须人工抽检 10%，否则 bench 数字不可信 |
-| 新增三个依赖 | 未在本机执行 `bun install` / `typecheck`，合入前需本地验证 |
+| 云 GPU 忘关机持续计费 | 装环境与下载务必用「无卡模式」，跑完立即关机 |
+| 全量 `bun test` 有 2 个既有 flaky | `turns-race` / `turns-opening` 并行时为竞态失败，单独重跑全绿，与本次改动无关 |
