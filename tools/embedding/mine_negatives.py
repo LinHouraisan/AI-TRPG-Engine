@@ -96,7 +96,7 @@ def main() -> None:
     docs = load_jsonl_snapshot(args.docs)
     provenance = load_manifest_provenance(manifest_path, expected_seed=args.seed)
     validate_manifest_hash(provenance, args.data, data.sha256)
-    validate_manifest_hash(provenance, args.docs, docs.sha256)
+    validate_manifest_hash(provenance, args.docs, docs.sha256, manifest_name="documents.jsonl")
     documents_by_id = {document["id"]: document for document in docs.rows}
     split_documents, split_document_ids = select_split_documents(data.rows, docs.rows)
 

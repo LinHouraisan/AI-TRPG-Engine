@@ -7,6 +7,7 @@ import sys
 import pytest
 
 import tools.embedding.evaluate as evaluate_module
+import tools.embedding.mine_negatives as mining_module
 from tools.embedding.evaluate import (
     RetrievalMetrics,
     load_jsonl_snapshot,
@@ -196,11 +197,77 @@ def test_manifest_seed_is_actual_provenance_not_a_free_label(tmp_path: Path):
 
 def test_manifest_declared_hash_must_match_loaded_snapshot(tmp_path: Path):
     path = tmp_path / "manifest.json"
-    path.write_text('{"seed":8503,"sha256":{"test.jsonl":"declared"}}', encoding="utf-8")
+    path.write_text('{"seed":8503,"sha256":{"test.jsonl":"' + "a" * 64 + '"}}', encoding="utf-8")
     provenance = load_manifest_provenance(path)
 
     with pytest.raises(ValueError, match="SHA-256"):
-        validate_manifest_hash(provenance, tmp_path / "test.jsonl", "actual")
+        validate_manifest_hash(provenance, tmp_path / "test.jsonl", "b" * 64)
+
+
+@pytest.mark.parametrize(
+    "hashes",
+    [None, [], {"test.jsonl": "not-a-sha256"}, {"test.jsonl": 123}],
+)
+def test_manifest_rejects_invalid_hash_mapping_or_values(tmp_path: Path, hashes):
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps({"seed": 8503, "sha256": hashes}), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="sha256"):
+        load_manifest_provenance(path)
+
+
+def test_manifest_requires_each_hash_for_each_loaded_input(tmp_path: Path):
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps({"seed": 8503, "sha256": {"documents.jsonl": "a" * 64}}), encoding="utf-8")
+    provenance = load_manifest_provenance(path)
+
+    with pytest.raises(ValueError, match="missing"):
+        validate_manifest_hash(provenance, tmp_path / "test.jsonl", "b" * 64)
+
+
+@pytest.mark.parametrize("command", ["evaluate", "mine"])
+@pytest.mark.parametrize("missing_entry", ["test.jsonl", "documents.jsonl"])
+def test_cli_manifest_failure_happens_before_model_loading(tmp_path: Path, monkeypatch, command, missing_entry):
+    data_path = tmp_path / "test.jsonl"
+    docs_path = tmp_path / "documents.jsonl"
+    manifest_path = tmp_path / "manifest.json"
+    data_path.write_text('{"query":"钟几点","positive_id":"clock"}\n', encoding="utf-8")
+    docs_path.write_text('{"id":"clock","text":"十一点"}\n', encoding="utf-8")
+    hashes = {
+        "test.jsonl": hashlib.sha256(data_path.read_bytes()).hexdigest(),
+        "documents.jsonl": hashlib.sha256(docs_path.read_bytes()).hexdigest(),
+    }
+    hashes.pop(missing_entry)
+    manifest_path.write_text(
+        json.dumps({"seed": 8503, "sha256": hashes}),
+        encoding="utf-8",
+    )
+    model_loaded = False
+
+    def forbidden_load_model(_name):
+        nonlocal model_loaded
+        model_loaded = True
+        raise AssertionError("model must not load")
+
+    module = evaluate_module if command == "evaluate" else mining_module
+    monkeypatch.setattr(module, "load_model", forbidden_load_model)
+    arguments = [
+        command,
+        "--data",
+        str(data_path),
+        "--docs",
+        str(docs_path),
+        "--out",
+        str(tmp_path / "output"),
+    ]
+    if command == "evaluate":
+        arguments[1:1] = ["--model", "fake"]
+    monkeypatch.setattr(sys, "argv", arguments)
+
+    with pytest.raises(ValueError, match="missing"):
+        module.main()
+
+    assert model_loaded is False
 
 
 def test_report_pair_rolls_back_existing_targets_when_second_replace_fails(tmp_path: Path, monkeypatch):

@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import shutil
 import tempfile
 import time
@@ -253,18 +254,36 @@ def load_jsonl_snapshot(path: Path) -> JsonlSnapshot:
 def load_manifest_provenance(path: Path, expected_seed: int | None = None) -> ManifestProvenance:
     raw = path.read_bytes()
     payload = json.loads(raw.decode("utf-8"))
-    if not isinstance(payload, dict) or not isinstance(payload.get("seed"), int):
+    if not isinstance(payload, dict) or type(payload.get("seed")) is not int:
         raise ValueError(f"manifest has no integer seed: {path}")
+    hashes = payload.get("sha256")
+    if not isinstance(hashes, dict):
+        raise ValueError(f"manifest sha256 must be a mapping: {path}")
+    if any(
+        not isinstance(name, str)
+        or not isinstance(value, str)
+        or re.fullmatch(r"[0-9a-fA-F]{64}", value) is None
+        for name, value in hashes.items()
+    ):
+        raise ValueError(f"manifest sha256 values must be 64 hexadecimal characters: {path}")
     seed = payload["seed"]
     if expected_seed is not None and seed != expected_seed:
         raise ValueError(f"manifest seed {seed} does not match expected seed {expected_seed}")
     return ManifestProvenance(seed=seed, sha256=hashlib.sha256(raw).hexdigest(), payload=payload)
 
 
-def validate_manifest_hash(provenance: ManifestProvenance, path: Path, actual_hash: str) -> None:
-    declared_hash = provenance.payload.get("sha256", {}).get(path.name)
-    if declared_hash is not None and declared_hash != actual_hash:
-        raise ValueError(f"{path.name} does not match its manifest SHA-256")
+def validate_manifest_hash(
+    provenance: ManifestProvenance,
+    path: Path,
+    actual_hash: str,
+    manifest_name: str | None = None,
+) -> None:
+    name = manifest_name or path.name
+    hashes = provenance.payload["sha256"]
+    if name not in hashes:
+        raise ValueError(f"manifest is missing sha256 entry for {name}")
+    if hashes[name].lower() != actual_hash.lower():
+        raise ValueError(f"{name} does not match its manifest SHA-256")
 
 
 def main() -> None:
@@ -286,7 +305,7 @@ def main() -> None:
     docs = load_jsonl_snapshot(args.docs)
     provenance = load_manifest_provenance(manifest_path, expected_seed=args.seed)
     validate_manifest_hash(provenance, args.data, data.sha256)
-    validate_manifest_hash(provenance, args.docs, docs.sha256)
+    validate_manifest_hash(provenance, args.docs, docs.sha256, manifest_name="documents.jsonl")
     if not data.rows:
         raise ValueError("evaluation set is empty")
     traces = rank_rows(load_model(args.model), data.rows, docs.rows)
