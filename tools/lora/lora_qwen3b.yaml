@@ -5,13 +5,15 @@ model_name_or_path: Qwen/Qwen2.5-3B-Instruct
 
 stage: sft
 do_train: true
+do_eval: true
 finetuning_type: lora
 lora_rank: 16
 lora_alpha: 32
 lora_dropout: 0.05
 lora_target: q_proj,v_proj
 
-dataset: trpg_dm
+dataset: trpg_dm_train
+eval_dataset: trpg_dm_validation
 dataset_dir: data
 template: qwen
 cutoff_len: 1024
@@ -19,6 +21,7 @@ overwrite_cache: true
 preprocessing_num_workers: 4
 
 per_device_train_batch_size: 2
+per_device_eval_batch_size: 2
 gradient_accumulation_steps: 8
 learning_rate: 1.0e-4
 num_train_epochs: 3.0
@@ -26,6 +29,8 @@ lr_scheduler_type: cosine
 warmup_ratio: 0.05
 logging_steps: 10
 save_steps: 100
+eval_strategy: steps
+eval_steps: 100
 
 fp16: true
 output_dir: saves/qwen2.5-3b-lora-trpg

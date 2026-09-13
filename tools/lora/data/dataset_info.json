@@ -1,6 +1,14 @@
 {
-  "trpg_dm": {
-    "file_name": "train.jsonl",
+  "trpg_dm_train": {
+    "file_name": "train.sft.jsonl",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output"
+    }
+  },
+  "trpg_dm_validation": {
+    "file_name": "validation.sft.jsonl",
     "columns": {
       "prompt": "instruction",
       "query": "input",
