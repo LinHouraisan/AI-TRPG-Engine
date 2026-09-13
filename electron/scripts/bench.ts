@@ -11,6 +11,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { chatModelFrom, indexFromJson, judgePrompt, narrateTurn } from "@core/ai/lc";
+import { generationRetrieval } from "./bench-mode";
 import { scriptChatConfig, scriptEmbedder } from "./lib/lc-config";
 
 type Case = {
@@ -106,8 +107,7 @@ for (const [i, item] of cases.entries()) {
   const result = await narrateTurn({
     config,
     input: item.context ? `${item.context}\n${item.question}` : item.question,
-    index,
-    embed: index ? scriptEmbedder() : undefined,
+    ...generationRetrieval(mode, index, scriptEmbedder),
     lora: useLora
       ? { loraModel: process.env.LORA_MODEL ?? "", loraBaseUrl: process.env.LORA_BASE_URL ?? "" }
       : undefined,
