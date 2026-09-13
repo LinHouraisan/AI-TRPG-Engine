@@ -7,14 +7,22 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+import re
 from typing import Callable, Sequence
 from urllib.request import Request, urlopen
 
 
 ACTION_HOOK = "你要怎么做？"
-ILLEGAL_ROLL_PHRASES = ("掷出了", "检定成功", "检定失败")
 MIN_OUTPUT_LENGTH = 60
 MAX_OUTPUT_LENGTH = 220
+_PLAYER = r"(?:你(?:们)?|玩家(?:角色)?|调查员)"
+_RESULT = r"(?:检定(?:成功|失败)|判定(?:通过|成功|失败))"
+_ROLL_DECLARATION = re.compile(
+    rf"{_PLAYER}[^。！？\n]{{0,16}}(?:掷|投)(?:出(?:了)?|得|到)"
+    rf"[^。！？\n]{{0,24}}(?:\d+\s*点|[dD]\s*\d+|{_RESULT})"
+)
+_RESULT_DECLARATION = re.compile(rf"{_PLAYER}[^。！？\n]{{0,16}}{_RESULT}")
+_CONDITIONAL_PREFIX = re.compile(r"(?:若|如果|当|假如|倘若)[^，,；;。！？\n]*$")
 
 
 @dataclass(frozen=True)
@@ -23,6 +31,14 @@ class StyleMetrics:
     action_hook_rate: float
     illegal_roll_rate: float
     length_pass_rate: float
+
+
+def _contains_illegal_roll(output: str) -> bool:
+    for pattern in (_ROLL_DECLARATION, _RESULT_DECLARATION):
+        for match in pattern.finditer(output):
+            if not _CONDITIONAL_PREFIX.search(output[: match.start()]):
+                return True
+    return False
 
 
 def score_outputs(outputs: Sequence[str]) -> StyleMetrics:
@@ -35,10 +51,7 @@ def score_outputs(outputs: Sequence[str]) -> StyleMetrics:
     return StyleMetrics(
         second_person_rate=sum("你" in output for output in normalized) / total,
         action_hook_rate=sum(output.endswith(ACTION_HOOK) for output in normalized) / total,
-        illegal_roll_rate=sum(
-            any(phrase in output for phrase in ILLEGAL_ROLL_PHRASES) for output in normalized
-        )
-        / total,
+        illegal_roll_rate=sum(_contains_illegal_roll(output) for output in normalized) / total,
         length_pass_rate=sum(
             MIN_OUTPUT_LENGTH <= len(output) <= MAX_OUTPUT_LENGTH for output in normalized
         )
@@ -48,6 +61,8 @@ def score_outputs(outputs: Sequence[str]) -> StyleMetrics:
 
 def evaluate_rows(rows: Sequence[dict], generate: Callable[[str], str]) -> dict:
     """生成并评分测试行，同时保留复核所需的原始字段与输出。"""
+    if not rows:
+        raise ValueError("测试数据不能为空")
     samples = []
     for index, row in enumerate(rows, 1):
         prompt = row.get("prompt")

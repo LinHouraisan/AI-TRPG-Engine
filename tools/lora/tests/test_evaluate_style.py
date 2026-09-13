@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import json
+import sys
 
 import pytest
 
-from tools.lora.evaluate_style import evaluate_rows, generate_openai, score_outputs, write_report
+from tools.lora.evaluate_style import (
+    evaluate_rows,
+    generate_openai,
+    main,
+    score_outputs,
+    write_report,
+)
 
 
 def test_score_outputs_reports_deterministic_style_rates():
@@ -28,6 +35,31 @@ def test_score_outputs_returns_zero_rates_for_empty_input():
     assert metrics.action_hook_rate == 0.0
     assert metrics.illegal_roll_rate == 0.0
     assert metrics.length_pass_rate == 0.0
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        "你投出了18点，判定通过。",
+        "你掷出D100，检定失败。",
+        "调查员掷出了07点，检定成功。",
+    ],
+)
+def test_illegal_roll_detects_declared_player_rolls(output):
+    assert score_outputs([output]).illegal_roll_rate == 1.0
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        "若你的侦查检定成功，你会注意到窗框上的划痕。",
+        "如果调查员检定失败，可以改为询问守卫。",
+        "当检定成功时，再向玩家公开墙后的声响。",
+        "守卫把飞刀掷出了窗外，随即转身逃走。",
+    ],
+)
+def test_illegal_roll_ignores_conditional_advice_and_non_player_throws(output):
+    assert score_outputs([output]).illegal_roll_rate == 0.0
 
 
 def test_evaluate_rows_preserves_source_fields_and_raw_output():
@@ -146,3 +178,32 @@ def test_write_report_keeps_raw_outputs_in_json_and_markdown(tmp_path):
     assert written_json["run"]["base_url"] == "http://localhost:8000/v1"
     assert written_json["samples"][0]["output"] == "你看见空房间。你要怎么做？"
     assert "你看见空房间。你要怎么做？" in written_markdown
+
+
+def test_cli_rejects_empty_test_data_without_writing_reports(tmp_path, monkeypatch):
+    data_path = tmp_path / "test.prompts.jsonl"
+    data_path.write_text("", encoding="utf-8")
+    out_prefix = tmp_path / "report-style-empty"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "evaluate_style.py",
+            "--data",
+            str(data_path),
+            "--mode",
+            "base",
+            "--out",
+            str(out_prefix),
+            "--base-url",
+            "http://localhost:8000/v1",
+            "--model",
+            "qwen-test",
+        ],
+    )
+
+    with pytest.raises(ValueError, match="测试数据不能为空"):
+        main()
+
+    assert not out_prefix.with_suffix(".json").exists()
+    assert not out_prefix.with_suffix(".md").exists()
