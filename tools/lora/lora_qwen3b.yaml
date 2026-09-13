@@ -12,7 +12,7 @@ lora_dropout: 0.05
 lora_target: q_proj,v_proj
 
 dataset: trpg_dm
-dataset_dir: tools/lora/data
+dataset_dir: data
 template: qwen
 cutoff_len: 1024
 overwrite_cache: true

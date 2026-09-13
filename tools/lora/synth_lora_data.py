@@ -2,7 +2,7 @@
 
 用法（需先在 .env 或环境里给 OPENAI_API_KEY / OPENAI_BASE_URL）：
     python tools/lora/synth_lora_data.py --total 800 --seeds 40 \
-        --lore electron/data/lore --out tools/lora/data
+        --lore electron/content/packs --out tools/lora/data
 
 输出：train.jsonl + dataset_info.json（LLaMA-Factory 直接可读）
 """
@@ -32,7 +32,7 @@ SAMPLE_PROMPT = """你是 TRPG 数据生成器。
 要求：
 - input 是玩家的一句话行动描述，覆盖探索/战斗/社交/解谜/陷阱/抉择；
 - output 是主持人回复，格式固定：场景描写 → 检定提示（如需）→ "你要怎么做？"；
-- 中文，output 120-280 字，第二人称，冷峻克制。
+- 中文，output 80-160 字，第二人称，冷峻克制。
 
 只输出 JSON 数组，共 {n} 项，每项字段：instruction, input, output。
 instruction 固定为"{instruction}"。"""

@@ -154,7 +154,7 @@ $env:TEST_DATABASE_URL="postgresql+psycopg://trpg:trpg@localhost:5432/trpg"
 
 ## 已知限制与后续扩展
 
-- LoRA 训练及 base/RAG/LoRA 新三档效果数据尚未完成，目前只保留接入和评测钩子。
+- LoRA 数据、训练、合并与本地部署位于 `tools/lora/`；网关只消费 OpenAI-compatible 模型端点，不承担 GPU 训练任务。
 - 当前不支持流式输出、异步任务队列和生产级监控告警。
 - JSON 向量索引适合演示和小数据；数据规模上升后应迁移到专用向量存储。
 - PostgreSQL 配置和测试入口已提供，但是否通过真实集成测试必须以本机/CI 的实际测试记录为准。

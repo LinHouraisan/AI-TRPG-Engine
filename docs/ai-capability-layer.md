@@ -93,13 +93,13 @@ bun run bench -- --mode rag
 
 ## 6. LoRA 的定位
 
-风格微调：GM 的语气、叙述格式、收尾句式。数据全 AI 合成，Qwen2.5-3B + LLaMA-Factory。
+风格微调：GM 的语气、叙述格式、收尾句式。采用人工种子数据 + AI 语料扩展，训练底座为 Qwen2.5-3B，框架为 LLaMA-Factory。
 
 **本机不能训练**——没有 NVIDIA 显卡（AMD 780M 集成显卡，无 CUDA），微调必须租云端 GPU（AutoDL 单卡 24GB 约 ¥1.3–1.9/时，一次训练 15–30 分钟）。
-链路是：本机合成数据 → 云端训练合并 → GGUF 拉回本机 → `ollama create --quantize q4_k_m` → `bench --mode lora` 对比。
+工程链路已经覆盖：本机数据构建 → 云端训练合并 → GGUF 拉回本机 → `ollama create --quantize q4_k_m` → `bench --mode lora` 对比。
 详见 `tools/lora/README.md` 与 `tools/lora/train_autodl.sh`。
 
-800 条合成数据改不了模型能力，只改表达风格——这是预期，不是失败。
+LoRA 子系统定位为风格对齐而非能力增强；仓库内置 20 条人工 smoke set，正式批次可用脚本扩展到 200–800 条。
 
 ## 7. 已知风险
 

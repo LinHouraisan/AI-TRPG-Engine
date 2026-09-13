@@ -1,75 +1,91 @@
-# LoRA 微调（Python 侧）
+# LoRA 领域微调子系统
 
-训练只能在 Python 里做，这一层单独放在 `tools/lora/`，不进 Electron 依赖。
+本目录实现了面向中文 TRPG 主持人风格的 LoRA 微调闭环：训练数据构建、LLaMA-Factory SFT、云端单卡训练、Adapter 合并、本地 Ollama 部署，以及 base/RAG/LoRA 三档评测。训练与 Electron 运行时解耦，桌面应用只通过 OpenAI-compatible 接口选择模型。
 
-**分工：本机负责数据合成与最终部署，GPU 租云端。** 本机没有 NVIDIA 卡，训练跑不动（见下文）。
+## 已实现内容
 
-## 0. 本机装 Ollama（本地推理 + 本地向量化）
+| 文件 | 作用 |
+| --- | --- |
+| `data/train.jsonl` | 20 条人工校对的冷峻叙事种子样例，可直接做 smoke train |
+| `data/dataset_info.json` | LLaMA-Factory Alpaca 数据映射 |
+| `synth_lora_data.py` | 从模组语料扩展 200–800 条 SFT 数据 |
+| `lora_qwen3b.yaml` | Qwen2.5-3B LoRA 训练参数 |
+| `train_autodl.sh` | AutoDL 单卡安装、训练、合并入口 |
+| `merge_lora.py` | 将 Adapter 合并为标准 Hugging Face 模型 |
+| `electron/src/core/ai/lc/provider.ts` | 基座模型与 LoRA 模型动态路由 |
+| `electron/scripts/bench.ts` | base/RAG/LoRA 共用数据集评测 |
+
+仓库不提交模型权重、Adapter、云端缓存和密钥。它们属于可再生成的大文件，不是源代码的一部分。
+
+## 最小可运行版本
+
+提交的 20 条样例用于验证数据格式、训练配置和端到端链路，定位是“风格微调 smoke set”，不是宣称已经得到稳定泛化效果。所有输出遵循统一目标：第二人称、冷峻克制、场景推进、必要时提示检定，并以“你要怎么做？”收尾。
+
+在装有 LLaMA-Factory 的环境中：
+
+```bash
+cd tools/lora
+llamafactory-cli train lora_qwen3b.yaml
+```
+
+配置采用 Qwen2.5-3B-Instruct、LoRA rank 16、`q_proj/v_proj`、3 epoch。20 条数据可以快速验证链路；用于正式风格实验时，先扩展数据规模。
+
+## 扩展训练数据
+
+在仓库根目录设置 OpenAI-compatible 模型服务。密钥只放环境变量，不写入文件：
 
 ```powershell
-winget install Ollama.Ollama        # 或官网下载 OllamaSetup.exe
-ollama pull qwen2.5:3b-instruct     # 对话底座，约 2GB
-ollama pull bge-m3                  # 本地 embedding，约 1.2GB
-ollama serve                        # 默认 11434，提供 OpenAI 兼容的 /v1/chat/completions 与 /v1/embeddings
+$env:OPENAI_API_KEY="使用新生成的密钥"
+$env:OPENAI_BASE_URL="https://api.deepseek.com"
+$env:CHAT_MODEL="deepseek-v4-flash"
+python tools/lora/synth_lora_data.py --total 400 --seeds 40 `
+  --lore electron/content/packs --out tools/lora/data
 ```
 
-对应的 `.env`（在 `electron/.env`）：
+生成脚本会覆盖 `data/train.jsonl` 和 `data/dataset_info.json`。正式训练建议人工抽检至少 10%，重点剔除事实冲突、模型自编骰点、半截句和格式漂移。
 
-```
-LC_PROTOCOL=ollama
-LC_BASE_URL=http://127.0.0.1:11434
-LC_MODEL=qwen2.5:3b-instruct
-LC_EMBED_PROTOCOL=ollama
-LC_EMBED_BASE_URL=http://127.0.0.1:11434
-LC_EMBED_MODEL=bge-m3
-```
+## AutoDL 单卡训练与合并
 
-对话与向量化走同一个本地服务，不需要任何 API Key，也不联网。
-
-## 1. 合成训练数据（全 AI 生成）
+把 `tools/lora` 整个目录上传为 `/root/autodl-tmp/trpg-lora`，然后执行：
 
 ```bash
-export OPENAI_API_KEY=sk-xxx
-export OPENAI_BASE_URL=https://api.deepseek.com/v1   # 任意 OpenAI 兼容接口
-export CHAT_MODEL=deepseek-chat
-
-python tools/lora/synth_lora_data.py --total 800 --seeds 40 \
-    --lore electron/content/packs --out tools/lora/data
+bash train_autodl.sh
 ```
 
-世界观语料来自你已经有的卡包 JSON（secret 事实由 RAG 侧过滤，合成时按语料整体使用）。
-脚本只依赖标准库，不需要装任何包。产出 `tools/lora/data/train.jsonl` 与 `dataset_info.json`。
+脚本会：
 
-## 2. 云端训练（AutoDL / 任意 24GB 单卡）
+1. 安装 LLaMA-Factory；
+2. 根据 `lora_qwen3b.yaml` 训练 Adapter；
+3. 调用 `merge_lora.py` 合并到 `/root/autodl-tmp/merged-3b`。
 
-先在 **无卡模式**（约 0.1 元/时）上传目录、跑通环境，再切 GPU 计费模式：
+先用无卡模式上传文件和下载依赖，切换 GPU 后再运行训练，结束后立即关机。实际耗时取决于数据规模、显卡和镜像缓存，不在文档里预设成绩。
+
+## 本地部署
+
+推荐在云端把合并模型转换为 GGUF，再拉回本机：
 
 ```bash
-bash tools/lora/train_autodl.sh
+ollama create trpg-gm-lora -f Modelfile --quantize q4_k_m
 ```
 
-脚本做三件事：装 LLaMA-Factory → `llamafactory-cli train lora_qwen3b.yaml` → `merge_lora.py` 合并。
-Qwen2.5-3B · 800 条 · 3 epoch 约 150 步，RTX 3090 上约 15–30 分钟，**单次训练成本 1～2 元**。
+Electron 侧无需修改链路代码，只需给评测脚本提供模型名和服务地址：
 
-## 3. 把模型拉回本地
-
-合并产物 `merged-3b` 约 6GB。三条可选路径，按可靠性排序：
-
-| 路径 | 做法 | 代价 |
-| --- | --- | --- |
-| A 合并后导出 GGUF（推荐） | 云端 `llama.cpp/convert_hf_to_gguf.py` 转 f16 GGUF → 拉回本地 → `ollama create mydm -f Modelfile --quantize q4_k_m` | 下载约 6GB |
-| B 云端量化后下载 | 云端再跑 `llama-quantize` 到 Q4_K_M（约 2GB）再下载 | 需编译 llama.cpp，但下载最快 |
-| C 只下载 adapter | 只拉 30MB 的 `adapter_model.safetensors`，本地 llama.cpp 用 `--lora` 挂载 | 依赖 Ollama 对 `ADAPTER` 的支持，版本相关，需验证 |
-
-推荐 A：`ollama create` 自带 `--quantize`，不需要编译任何东西。
-
-## 4. 回 Bench 对比
-
-```bash
-bun run bench -- --mode lora      # .env 里 LC_MODEL 指向合并后的本地模型
+```powershell
+$env:LORA_MODEL="trpg-gm-lora"
+$env:LORA_BASE_URL="http://127.0.0.1:11434/v1"
+bun --cwd electron run bench -- --mode lora
 ```
 
-## 期望管理
+`chatModelFrom()` 会在 LoRA 模型存在时切换端点；RAG 检索和规则 Agent 仍复用原有工程边界。
 
-800 条合成数据训 3B，改的是**表达风格**（语气、格式、节奏），不是推理能力。
-跑不出"总分暴涨"很正常；对比时应重点看 consistency 与风格类主观分项。
+## 评测口径
+
+LoRA 的目标是主持人口吻、结构和节奏，不是增加推理能力。最小验收关注：
+
+- 输出是否保持第二人称和冷峻克制语气；
+- 是否给出可行动的新信息，而不是重复玩家输入；
+- 需要判定时是否提示检定，但不自行编造骰点；
+- 是否以明确行动钩子收尾；
+- 相同评测集下，base/RAG/LoRA 的格式遵循率和一致性差异。
+
+最终效果数字只应来自实际训练后的报告；工程实现本身可以独立验证。

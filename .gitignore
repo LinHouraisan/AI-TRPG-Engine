@@ -13,6 +13,9 @@ dist-ssr
 electron/dist-content/
 electron/release/
 electron/release-*/
+tools/lora/LLaMA-Factory/
+tools/lora/saves/
+tools/lora/merged-*/
 *.local
 .tanstack
 .vite

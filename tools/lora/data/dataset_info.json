@@ -1,0 +1,10 @@
+{
+  "trpg_dm": {
+    "file_name": "train.jsonl",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output"
+    }
+  }
+}
