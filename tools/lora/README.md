@@ -54,21 +54,64 @@ python tools/lora/synth_lora_data.py --total 400 --seeds 40 `
 
 在线生成会覆盖 `data/train.jsonl` 和 `data/dataset_info.json`；正式训练建议人工抽检至少 10%，重点剔除事实冲突、模型自编骰点、半截句和格式漂移。
 
-## AutoDL 单卡训练与合并
+## 云端单卡训练与合并
 
-把 `tools/lora` 整个目录上传为 `/root/autodl-tmp/trpg-lora`，然后执行：
+当前状态：**云端训练尚未运行**。仓库中没有 Adapter、合并模型、训练日志或
+`docs/bench/report-style-*` 报告，也没有可用于简历的训练后指标。下面只是已经过本地数据检查的
+可复现执行入口；只有在 GPU 实例真实运行完成后，才能把产物路径和指标补到文档中。
+
+### 前置条件
+
+- Linux + Bash、Python 3.11、Git 和一张 NVIDIA GPU（目标环境为 24GB 显存单卡）；
+- 能下载或已缓存 `Qwen/Qwen2.5-3B-Instruct`；私有模型凭证只通过云平台或环境变量提供；
+- 安装与当前 CUDA/PyTorch 匹配的 LLaMA-Factory，并记录实际 commit 或版本；
+- 上传完整仓库或至少保留 `tools/lora` 与 `electron/content/packs` 的原相对目录。数据切分脚本需要内容包关系来防止同一场景跨集合泄漏。
+
+脚本不会自动安装依赖、上传产物或推送 Git。推荐先在云平台按官方说明创建独立环境，安装完成后确认：
 
 ```bash
-bash train_autodl.sh
+python --version
+nvidia-smi
+llamafactory-cli --help
 ```
 
-脚本会：
+不要把 API Key、Hugging Face Token 或云平台密钥写进脚本和仓库。
 
-1. 安装 LLaMA-Factory；
-2. 根据 `lora_qwen3b.yaml` 训练 Adapter；
-3. 调用 `merge_lora.py` 合并到 `/root/autodl-tmp/merged-3b`。
+### 执行步骤
 
-先用无卡模式上传文件和下载依赖，切换 GPU 后再运行训练，结束后立即关机。实际耗时取决于数据规模、显卡和镜像缓存，不在文档里预设成绩。
+在仓库根目录先做不需要 GPU 的数据与配置检查。该命令会按固定 seed 重新生成 Task 2 的
+`train.sft.jsonl`、`validation.sft.jsonl`、`test.prompts.jsonl` 和 `manifest.json`，并确认
+`dataset_info.json` 中的训练集、验证集注册与 YAML 一致：
+
+```bash
+bash tools/lora/train_autodl.sh --check-only
+```
+
+切到 GPU 实例并确认前置条件后，运行真实训练：
+
+```bash
+bash tools/lora/train_autodl.sh
+```
+
+脚本依次执行稳定切分、注册校验、`llamafactory-cli train` 和 `merge_lora.py`。默认产物位于：
+
+- Adapter：`tools/lora/saves/qwen2.5-3b-lora-trpg`（来自 YAML 的 `output_dir`）；
+- 合并模型：`tools/lora/merged-qwen2.5-3b-trpg`；
+- 训练日志：`tools/lora/logs/train-<UTC 时间>.log`。
+
+日志会记录 GPU、训练/验证样本数、实际 CLI 路径和 LLaMA-Factory 的训练输出（包括 epoch、loss
+等真实日志字段）。脚本会检查 Adapter 与合并模型的关键文件；目标合并目录已经存在时会拒绝覆盖。
+如需将输出放到数据盘，可在调用时设置 `LORA_MERGED_DIR`、`LORA_LOG_DIR`，但不要改写仓库配置：
+
+```bash
+LORA_MERGED_DIR=/data/models/trpg-style-merged \
+LORA_LOG_DIR=/data/logs/trpg-style \
+bash tools/lora/train_autodl.sh
+```
+
+如果 `model_name_or_path` 改为本地路径，脚本会在训练前检查该路径是否存在；默认 Hugging Face
+仓库 ID 则由 LLaMA-Factory 按其缓存和网络配置解析。训练或合并失败时脚本立即退出，不会把半成品
+当作成功产物。
 
 ## 本地部署
 
@@ -99,6 +142,31 @@ LoRA 的目标是主持人口吻、结构和节奏，不是增加推理能力。
 - 相同评测集下，base/RAG/LoRA 的格式遵循率和一致性差异。
 
 最终效果数字只应来自实际训练后的报告；工程实现本身可以独立验证。
+
+### 训练完成后的三档对比
+
+三档必须使用同一份 `electron/data/bench/dataset.jsonl`、同一裁判模型配置和同一评测参数：
+
+- `base`：基座生成，不注入检索上下文；
+- `rag`：同一基座生成，并注入当前 JSON 向量索引检索结果；
+- `lora`：文风 Adapter/合并模型生成，并沿用与 `rag` 相同的检索边界。
+
+先分别启动实际使用的 OpenAI-compatible 基座与 LoRA 端点，再运行：
+
+```bash
+bun --cwd electron run bench -- --mode base
+bun --cwd electron run bench -- --mode rag
+LORA_MODEL=<实际模型名> LORA_BASE_URL=<实际端点/v1> \
+  bun --cwd electron run bench -- --mode lora
+```
+
+Electron bench 生成 `docs/bench/report-base.*`、`report-rag.*` 和 `report-lora.*`，衡量固定题集上的
+知识、规则、连贯性与检索表现。不要把 `rag` 相对 `base` 的变化写成 LoRA 收益，也不要把裁判分数
+等同于确定性格式指标。任一端点调用失败都应先修复并重跑，不保留空回答形成的报告。
+
+文风的确定性对比另用下节命令在 `test.prompts.jsonl` 上运行 base 与 LoRA，生成
+`report-style-base.*` 和 `report-style-lora.*`。这两组报告与训练日志、数据 manifest 一起构成
+可审计证据；只有全部来自真实运行，才可以据此填写简历数字。
 
 ### 确定性文风指标
 
