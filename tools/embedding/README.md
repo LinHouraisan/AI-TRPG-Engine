@@ -91,3 +91,32 @@ Python 或 `tee` 任一失败都会以非零状态退出。
 训练脚本只允许模型下载产生的常规网络访问，不读取或记录 API Key。云端运行
 后应保留 `training.log` 和模型目录，再用 `evaluate.py` 在固定测试集上生成真实
 base/tuned 报告；无论是否提升都如实留档。
+
+## 可选 Embeddings 服务
+
+训练产物可以独立暴露为 OpenAI-compatible Embeddings 端点；这不会修改应用当前
+默认 provider，也不包含自动切换逻辑。调用方仍应保留原有 embedding 服务作为
+失败回退。
+
+```bash
+python tools/embedding/serve.py \
+  --model-path tools/embedding/saves/bge-small-zh-trpg \
+  --served-model-name bge-small-zh-trpg \
+  --host 127.0.0.1 \
+  --port 8001
+```
+
+也可以使用 `TRPG_EMBEDDING_MODEL_PATH`、`TRPG_EMBEDDING_SERVED_MODEL`、
+`TRPG_EMBEDDING_HOST` 和 `TRPG_EMBEDDING_PORT` 环境变量。模型只在服务启动时
+加载一次；编码工作在线程中执行，并用最小锁串行保护模型 `encode` 调用。加载或
+推理失败时 `/v1/embeddings` 返回不含本地路径、异常堆栈和请求头的通用 503。
+
+请求示例：
+
+```json
+{"model":"bge-small-zh-trpg","input":["铜钟停在几点？","钥匙有什么作用？"]}
+```
+
+服务固定返回自身配置的 `served-model-name`，不会采用调用者传入的名称伪装实际
+模型。由于 SentenceTransformer 不提供 OpenAI token 计数，响应中的
+`prompt_tokens` 与 `total_tokens` 均明确返回 0。
