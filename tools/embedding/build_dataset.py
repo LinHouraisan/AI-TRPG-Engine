@@ -52,7 +52,7 @@ def _document_text(kind: str, title: str, record: dict[str, Any]) -> str:
     return f"类型：{kind}\n名称：{title}\n字段：{details}"
 
 
-def load_documents(packs_dir: Path, excluded_dir: Path | None = None) -> list[Document]:
+def _load_documents_and_routes(packs_dir: Path, excluded_dir: Path | None = None) -> tuple[list[Document], set[str]]:
     documents: list[Document] = []
     room_records: dict[tuple[str, str], dict[str, Any]] = {}
     excluded = excluded_dir.resolve() if excluded_dir else None
@@ -92,20 +92,25 @@ def load_documents(packs_dir: Path, excluded_dir: Path | None = None) -> list[Do
             via = str(exit_info.get("via") or "").strip()
             route = f"可从{source}{f'经由{via}' if via else ''}到达"
             incoming_routes.setdefault((pack, destination_id), []).append(route)
+    route_document_ids = {f"{pack}:room:{room_id}" for pack, room_id in incoming_routes}
     return [
         replace(document, text=f"{document.text}\n到达方式：{'；'.join(incoming_routes[key])}")
         if (key := (document.pack, document.id.rsplit(":", 1)[-1])) in incoming_routes
         else document
         for document in documents
-    ]
+    ], route_document_ids
 
 
-def _queries(document: Document) -> list[str]:
+def load_documents(packs_dir: Path, excluded_dir: Path | None = None) -> list[Document]:
+    return _load_documents_and_routes(packs_dir, excluded_dir)[0]
+
+
+def _queries(document: Document, route_document_ids: set[str]) -> list[str]:
     templates = {
         "npc": [f"{document.title}知道什么？"],
         "room": [
             f"{document.title}有什么异常？",
-            *([f"如何到达{document.title}？"] if "到达方式：" in document.text else []),
+            *([f"如何到达{document.title}？"] if document.id in route_document_ids else []),
         ],
         "fact": [f"{document.title}意味着什么？"],
         "item": [f"{document.title}有什么作用？"],
@@ -124,7 +129,7 @@ def _sha256(path: Path) -> str:
 
 
 def build_dataset(packs_dir: Path, output_dir: Path, seed: int = 8503) -> dict[str, int]:
-    documents = load_documents(packs_dir, output_dir)
+    documents, route_document_ids = _load_documents_and_routes(packs_dir, output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     _write_jsonl(output_dir / "documents.jsonl", [asdict(document) for document in documents])
 
@@ -137,7 +142,7 @@ def build_dataset(packs_dir: Path, output_dir: Path, seed: int = 8503) -> dict[s
         split = split_name(f"{positive.pack}:{positive.id}")
         candidates = [document for document in documents_by_split[split] if document.id != positive.id]
         negative = rng.choice(candidates) if candidates else None
-        for query in _queries(positive):
+        for query in _queries(positive, route_document_ids):
             row = training_row(query, positive, negative)
             rows_by_split[split].append(row)
 

@@ -164,3 +164,15 @@ def test_one_way_route_query_uses_destination_with_incoming_route(tmp_path: Path
     route_row = next(row for row in all_rows(tmp_path / "out") if row["query"] == "如何到达地下室？")
     assert route_row["positive_id"].endswith("loc.cellar")
     assert "可从门厅经由铁门到达" in route_row["positive"]
+
+
+def test_authored_route_phrase_does_not_create_route_query(tmp_path: Path):
+    write_pack(
+        tmp_path,
+        facts=[],
+        rooms=[{"id": "loc.attic", "title": "阁楼", "intro": "到达方式：未知"}],
+    )
+
+    build_dataset(tmp_path, tmp_path / "out", seed=7)
+
+    assert "如何到达阁楼？" not in {row["query"] for row in all_rows(tmp_path / "out")}
