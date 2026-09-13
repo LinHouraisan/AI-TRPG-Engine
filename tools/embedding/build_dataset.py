@@ -4,7 +4,7 @@ import argparse
 import hashlib
 import json
 import random
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -47,26 +47,14 @@ def _load_json(path: Path) -> list[dict[str, Any]]:
     return data
 
 
-def _strings(value: Any) -> list[str]:
-    if isinstance(value, str):
-        return [value.strip()] if value.strip() else []
-    if isinstance(value, list):
-        return [text for item in value for text in _strings(item)]
-    if isinstance(value, dict):
-        return [text for item in value.values() for text in _strings(item)]
-    return []
-
-
 def _document_text(kind: str, title: str, record: dict[str, Any]) -> str:
-    details = [text for key, value in record.items() if key not in {"id", "title"} for text in _strings(value)]
-    lines = [f"类型：{kind}", f"名称：{title}"]
-    if details:
-        lines.append("内容：" + "；".join(details))
-    return "\n".join(lines)
+    details = json.dumps(record, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return f"类型：{kind}\n名称：{title}\n字段：{details}"
 
 
 def load_documents(packs_dir: Path, excluded_dir: Path | None = None) -> list[Document]:
     documents: list[Document] = []
+    room_records: dict[tuple[str, str], dict[str, Any]] = {}
     excluded = excluded_dir.resolve() if excluded_dir else None
     for pack_dir in sorted(path for path in packs_dir.iterdir() if path.is_dir() and path.resolve() != excluded):
         if (pack_dir / "documents.jsonl").exists():
@@ -76,6 +64,8 @@ def load_documents(packs_dir: Path, excluded_dir: Path | None = None) -> list[Do
             for index, record in enumerate(_load_json(path), 1):
                 title = str(record.get("title") or record.get("name") or record.get("id") or f"{kind} {index}").strip()
                 record_id = str(record.get("id") or f"{kind}.{index}").strip()
+                if kind == "room" and record.get("id"):
+                    room_records[(pack_dir.name, record_id)] = record
                 documents.append(
                     Document(
                         id=f"{pack_dir.name}:{kind}:{record_id}",
@@ -85,13 +75,38 @@ def load_documents(packs_dir: Path, excluded_dir: Path | None = None) -> list[Do
                         text=_document_text(kind, title, record),
                     )
                 )
-    return documents
+    room_titles = {
+        (document.pack, document.id.rsplit(":", 1)[-1]): document.title
+        for document in documents
+        if document.kind == "room"
+    }
+    incoming_routes: dict[tuple[str, str], list[str]] = {}
+    for (pack, source_id), record in room_records.items():
+        for exit_info in record.get("exits", []):
+            if not isinstance(exit_info, dict):
+                continue
+            destination_id = str(exit_info.get("to") or "")
+            if (pack, destination_id) not in room_titles:
+                continue
+            source = room_titles[(pack, source_id)]
+            via = str(exit_info.get("via") or "").strip()
+            route = f"可从{source}{f'经由{via}' if via else ''}到达"
+            incoming_routes.setdefault((pack, destination_id), []).append(route)
+    return [
+        replace(document, text=f"{document.text}\n到达方式：{'；'.join(incoming_routes[key])}")
+        if (key := (document.pack, document.id.rsplit(":", 1)[-1])) in incoming_routes
+        else document
+        for document in documents
+    ]
 
 
 def _queries(document: Document) -> list[str]:
     templates = {
         "npc": [f"{document.title}知道什么？"],
-        "room": [f"{document.title}有什么异常？", f"如何到达{document.title}？"],
+        "room": [
+            f"{document.title}有什么异常？",
+            *([f"如何到达{document.title}？"] if "到达方式：" in document.text else []),
+        ],
         "fact": [f"{document.title}意味着什么？"],
         "item": [f"{document.title}有什么作用？"],
     }
@@ -115,12 +130,16 @@ def build_dataset(packs_dir: Path, output_dir: Path, seed: int = 8503) -> dict[s
 
     rng = random.Random(seed)
     rows_by_split = {"train": [], "validation": [], "test": []}
+    documents_by_split = {split: [] for split in rows_by_split}
+    for document in documents:
+        documents_by_split[split_name(f"{document.pack}:{document.id}")].append(document)
     for positive in documents:
-        candidates = [document for document in documents if document.id != positive.id]
+        split = split_name(f"{positive.pack}:{positive.id}")
+        candidates = [document for document in documents_by_split[split] if document.id != positive.id]
         negative = rng.choice(candidates) if candidates else None
         for query in _queries(positive):
             row = training_row(query, positive, negative)
-            rows_by_split[split_name(row["group"])].append(row)
+            rows_by_split[split].append(row)
 
     for split, rows in rows_by_split.items():
         _write_jsonl(output_dir / f"{split}.jsonl", rows)
