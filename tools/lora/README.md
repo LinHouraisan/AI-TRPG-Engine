@@ -6,7 +6,8 @@
 
 | 文件 | 作用 |
 | --- | --- |
-| `data/train.jsonl` | 20 条人工校对的冷峻叙事种子样例，可直接做 smoke train |
+| `data/seeds.jsonl` | 20 条人工校对的冷峻叙事种子，离线扩展时始终保留 |
+| `data/train.jsonl` | 人工种子与合成样本合并后的训练集，可直接做 smoke train |
 | `data/dataset_info.json` | LLaMA-Factory Alpaca 数据映射 |
 | `synth_lora_data.py` | 从模组语料扩展 200–800 条 SFT 数据 |
 | `lora_qwen3b.yaml` | Qwen2.5-3B LoRA 训练参数 |
@@ -32,7 +33,16 @@ llamafactory-cli train lora_qwen3b.yaml
 
 ## 扩展训练数据
 
-在仓库根目录设置 OpenAI-compatible 模型服务。密钥只放环境变量，不写入文件：
+默认的离线扩展不需要 API 或密钥；它只组合内容包中已公开的房间、NPC 台词、物品描述和事实。秘密事实仅写入 `meta.visibility: "keeper"` 的样本，普通玩家样本不会包含它们。每条模板样本都有 `meta.source: "synthetic-template"`，人工种子则标记为 `human-authored`。
+
+```powershell
+python tools/lora/synth_lora_data.py --offline --total 400 --seed 8503 `
+  --lore electron/content/packs --out tools/lora/data
+```
+
+该命令会保留 20 条 `seeds.jsonl` 人工种子，并向 `train.jsonl` 追加 400 条确定性的模板样本；`dataset_info.json` 的 `sources` 字段会分别记录两类来源和数量。输出会拒绝空字段、重复回复、60–220 字范围外的回复、非固定行动钩子结尾，以及替玩家宣告骰点或检定成败的措辞。
+
+如需让外部模型补充更多候选数据，仍可在仓库根目录设置 OpenAI-compatible 模型服务。密钥只放环境变量，不写入文件：
 
 ```powershell
 $env:OPENAI_API_KEY="使用新生成的密钥"
@@ -42,7 +52,7 @@ python tools/lora/synth_lora_data.py --total 400 --seeds 40 `
   --lore electron/content/packs --out tools/lora/data
 ```
 
-生成脚本会覆盖 `data/train.jsonl` 和 `data/dataset_info.json`。正式训练建议人工抽检至少 10%，重点剔除事实冲突、模型自编骰点、半截句和格式漂移。
+在线生成会覆盖 `data/train.jsonl` 和 `data/dataset_info.json`；正式训练建议人工抽检至少 10%，重点剔除事实冲突、模型自编骰点、半截句和格式漂移。
 
 ## AutoDL 单卡训练与合并
 
