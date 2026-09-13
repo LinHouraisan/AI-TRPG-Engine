@@ -10,6 +10,50 @@ import random
 
 SPLIT_RATIOS = (0.8, 0.1, 0.1)
 SFT_FIELDS = ("instruction", "input", "output")
+ENTITY_FAMILY_GROUPS = {
+    "boarding-house:room:loc.hall": "boarding-house:scene:hall-clock",
+    "boarding-house:item:item.desk_lock": "boarding-house:scene:study-lock",
+    "boarding-house:fact:fact.lock_scratched": "boarding-house:scene:study-lock",
+    "boarding-house:room:loc.study": "boarding-house:scene:study-lock",
+    "boarding-house:npc:npc.landlady": "boarding-house:scene:landing-landlady",
+    "boarding-house:room:loc.landing": "boarding-house:scene:landing-landlady",
+    "photo-studio:item:item.book": "photo-studio:scene:shop-ledger",
+    "photo-studio:fact:fact.name_torn": "photo-studio:scene:shop-ledger",
+    "photo-studio:npc:npc.meimei": "photo-studio:scene:shop-ledger",
+    "photo-studio:room:loc.shop": "photo-studio:scene:shop-ledger",
+    "photo-studio:item:item.cabinet_lock": "photo-studio:scene:darkroom-lock",
+    "photo-studio:fact:fact.lock_picked_before": "photo-studio:scene:darkroom-lock",
+    "photo-studio:room:loc.darkroom": "photo-studio:scene:darkroom-lock",
+    "mist-harbor:item:item.ticket48": "mist-harbor:scene:concourse-tickets",
+    "mist-harbor:item:item.watch": "mist-harbor:scene:concourse-tickets",
+    "mist-harbor:fact:fact.ticket_48": "mist-harbor:scene:concourse-tickets",
+    "mist-harbor:fact:fact.clock_loop": "mist-harbor:scene:concourse-tickets",
+    "mist-harbor:room:loc.concourse": "mist-harbor:scene:concourse-tickets",
+    "mist-harbor:item:item.roster": "mist-harbor:scene:ticket-roster",
+    "mist-harbor:fact:fact.roster_gap": "mist-harbor:scene:ticket-roster",
+    "mist-harbor:npc:npc.clerk": "mist-harbor:scene:ticket-roster",
+    "mist-harbor:investigation:investigation.station-ledger": "mist-harbor:scene:ticket-roster",
+    "mist-harbor:room:loc.ticket": "mist-harbor:scene:ticket-roster",
+    "mist-harbor:item:item.photo": "mist-harbor:scene:luggage-photo",
+    "mist-harbor:fact:fact.photo_six": "mist-harbor:scene:luggage-photo",
+    "mist-harbor:investigation:investigation.tide-photographer": "mist-harbor:scene:luggage-photo",
+    "mist-harbor:room:loc.luggage": "mist-harbor:scene:luggage-photo",
+    "mist-harbor:item:item.emergency_hammer": "mist-harbor:scene:carriage",
+    "mist-harbor:room:loc.carriage": "mist-harbor:scene:carriage",
+    "mist-harbor:investigation:investigation.conductor-leverage": "mist-harbor:scene:platform",
+    "mist-harbor:room:loc.platform": "mist-harbor:scene:platform",
+    "mist-harbor:investigation:investigation.archive-correspondent": "mist-harbor:scene:baggage-archive",
+    "mist-harbor:room:loc.baggage-car": "mist-harbor:scene:baggage-archive",
+    "mist-harbor:item:item.clipping": "mist-harbor:scene:reporter-old-line",
+    "mist-harbor:fact:fact.reporter_note": "mist-harbor:scene:reporter-old-line",
+    "mist-harbor:npc:npc.reporter": "mist-harbor:scene:reporter-old-line",
+    "mist-harbor:investigation:investigation.old-line-reporter": "mist-harbor:scene:reporter-old-line",
+    "mist-harbor:room:loc.dining": "mist-harbor:scene:reporter-old-line",
+    "mist-harbor:item:item.map": "mist-harbor:scene:cab-old-line",
+    "mist-harbor:fact:fact.old_line": "mist-harbor:scene:cab-old-line",
+    "mist-harbor:room:loc.cab": "mist-harbor:scene:cab-old-line",
+    "mist-harbor:room:loc.terminus": "mist-harbor:scene:terminus",
+}
 
 
 def _group_for(row: dict, index: int) -> str:
@@ -28,6 +72,20 @@ def _validate_row(row: dict, index: int) -> None:
     for field in SFT_FIELDS:
         if not isinstance(row.get(field), str) or not row[field].strip():
             raise ValueError(f"第 {index} 行的 {field} 不能为空")
+    if (row.get("meta") or {}).get("visibility") != "player":
+        raise ValueError(f"第 {index} 行的 meta.visibility 必须为 player")
+
+
+def _family_group_for(row: dict, index: int) -> str:
+    meta = row.get("meta") or {}
+    if meta.get("family_group"):
+        return str(meta["family_group"])
+    entity_group = ":".join(str(meta.get(key, "")) for key in ("pack", "kind", "entity_id"))
+    if entity_group in ENTITY_FAMILY_GROUPS:
+        return ENTITY_FAMILY_GROUPS[entity_group]
+    if all(meta.get(key) for key in ("pack", "kind", "entity_id")):
+        return f"{meta['pack']}:entity:{meta['entity_id']}"
+    return _group_for(row, index)
 
 
 def _split_counts(group_count: int) -> tuple[int, int]:
@@ -59,7 +117,7 @@ def split_dataset(rows: list[dict], out_dir: Path, seed: int = 8503) -> dict:
     grouped: dict[str, list[dict]] = defaultdict(list)
     for index, row in enumerate(rows, 1):
         _validate_row(row, index)
-        grouped[_group_for(row, index)].append(row)
+        grouped[_family_group_for(row, index)].append(row)
     if not grouped:
         raise ValueError("没有可切分的候选数据")
 
@@ -87,7 +145,7 @@ def split_dataset(rows: list[dict], out_dir: Path, seed: int = 8503) -> dict:
                 "prompt": f"{row['instruction']}\n\n{row['input']}",
                 "reference_output": row["output"],
                 "source": (row.get("meta") or {}).get("source", "unknown"),
-                "group": _group_for(row, index),
+                "group": _family_group_for(row, index),
             }
             for index, row in enumerate(split_rows["test"], 1)
         ],
@@ -98,7 +156,9 @@ def split_dataset(rows: list[dict], out_dir: Path, seed: int = 8503) -> dict:
         "splits": {
             name: {
                 "rows": len(split_rows[name]),
-                "groups": sorted({_group_for(row, index) for index, row in enumerate(split_rows[name], 1)}),
+                "groups": sorted(
+                    {_family_group_for(row, index) for index, row in enumerate(split_rows[name], 1)}
+                ),
                 "sources": _source_counts(split_rows[name]),
             }
             for name in split_rows
@@ -116,11 +176,13 @@ def _read_jsonl(path: Path) -> list[dict]:
 
 def load_candidate_rows(candidate_path: Path, seed_path: Path) -> list[dict]:
     """读取候选数据，并补回尚未包含在候选文件中的人工种子。"""
-    rows = _read_jsonl(candidate_path)
-    known = {(row.get("instruction"), row.get("input"), row.get("output")) for row in rows}
+    rows = [{**row, "meta": dict(row.get("meta") or {})} for row in _read_jsonl(candidate_path)]
+    known = {(row.get("instruction"), row.get("input"), row.get("output")): row for row in rows}
     for index, seed in enumerate(_read_jsonl(seed_path), 1):
         identity = (seed.get("instruction"), seed.get("input"), seed.get("output"))
+        seed_meta = seed.get("meta") or {}
         if identity in known:
+            known[identity]["meta"].update(seed_meta)
             continue
         rows.append(
             {
@@ -129,10 +191,11 @@ def load_candidate_rows(candidate_path: Path, seed_path: Path) -> list[dict]:
                     "source": "human-authored",
                     "visibility": "player",
                     "group": f"seed:human:{index}",
+                    **seed_meta,
                 },
             }
         )
-        known.add(identity)
+        known[identity] = rows[-1]
     return rows
 
 
