@@ -16,6 +16,8 @@ electron/release-*/
 tools/lora/LLaMA-Factory/
 tools/lora/saves/
 tools/lora/merged-*/
+tools/embedding/data/*
+!tools/embedding/data/.gitkeep
 *.local
 .tanstack
 .vite
