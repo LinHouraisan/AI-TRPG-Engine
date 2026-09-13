@@ -99,3 +99,26 @@ LoRA 的目标是主持人口吻、结构和节奏，不是增加推理能力。
 - 相同评测集下，base/RAG/LoRA 的格式遵循率和一致性差异。
 
 最终效果数字只应来自实际训练后的报告；工程实现本身可以独立验证。
+
+### 确定性文风指标
+
+`evaluate_style.py` 使用同一份 `data/test.prompts.jsonl` 调用 OpenAI-compatible
+`/chat/completions` 端点，并在全部样本生成成功后写出 `.json` 和 `.md` 报告。报告保留每条
+prompt、参考输出、来源、场景分组和模型原始输出，便于逐条复核；调用失败时不会生成一份假成绩。
+
+```powershell
+$env:OPENAI_BASE_URL="http://127.0.0.1:11434/v1"
+$env:CHAT_MODEL="qwen2.5:3b"
+python tools/lora/evaluate_style.py --data tools/lora/data/test.prompts.jsonl `
+  --mode base --out docs/bench/report-style-base
+
+$env:LORA_BASE_URL="http://127.0.0.1:11434/v1"
+$env:LORA_MODEL="trpg-gm-lora"
+python tools/lora/evaluate_style.py --data tools/lora/data/test.prompts.jsonl `
+  --mode lora --out docs/bench/report-style-lora
+```
+
+四项指标均由固定文本规则计算：是否出现第二人称“你”、是否严格以“你要怎么做？”收尾、
+是否出现“掷出了/检定成功/检定失败”等代替玩家掷骰的措辞，以及输出长度是否在 60–220 字符。
+其中非法代掷率越低越好，其余三项越高越好。空测试集返回四个零值，不制造无意义的除零结果。
+这些指标只衡量形式遵循，不判断事实冲突、推理能力或叙事质量；后者仍需现有 bench 和人工复核。
