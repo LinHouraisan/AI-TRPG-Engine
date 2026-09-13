@@ -1,0 +1,12 @@
+{
+  "candidate_file": "train.jsonl",
+  "sources": {
+    "human-authored": {
+      "file_name": "seeds.jsonl",
+      "count": 20
+    },
+    "synthetic-template": {
+      "count": 400
+    }
+  }
+}

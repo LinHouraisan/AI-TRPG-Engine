@@ -1,0 +1,41 @@
+{
+  "seed": 8503,
+  "input_rows": 420,
+  "splits": {
+    "train": {
+      "rows": 357,
+      "groups": [
+        "boarding-house:family:fact.dock_time",
+        "boarding-house:family:loc.hall",
+        "boarding-house:family:npc.landlady",
+        "generic:scene:combat",
+        "mist-harbor:family:fact.bargain",
+        "photo-studio:family:fact.lock_picked_before",
+        "photo-studio:family:fact.name_torn"
+      ],
+      "sources": {
+        "human-authored": 16,
+        "synthetic-template": 341
+      }
+    },
+    "validation": {
+      "rows": 1,
+      "groups": [
+        "generic:scene:rescue-choice"
+      ],
+      "sources": {
+        "human-authored": 1
+      }
+    },
+    "test": {
+      "rows": 62,
+      "groups": [
+        "mist-harbor:family:fact.child_name"
+      ],
+      "sources": {
+        "human-authored": 3,
+        "synthetic-template": 59
+      }
+    }
+  }
+}
