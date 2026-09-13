@@ -32,6 +32,12 @@ class RetrieveRequest(BaseModel):
     top_k: int = Field(default=3, ge=1, le=20)
 
 
+class RuleRequest(BaseModel):
+    action: str = Field(min_length=1)
+    seed: str = Field(min_length=1)
+    turn_id: str = Field(min_length=1)
+
+
 def _ensure_sqlite_parent(database_url: str) -> None:
     url = make_url(database_url)
     if url.get_backend_name() != "sqlite" or not url.database or url.database == ":memory:":
@@ -135,6 +141,36 @@ def create_app(
                 "total_tokens": prompt_tokens + completion_tokens,
             },
         }
+
+    @service.post("/v1/agent/rules")
+    async def resolve_rules(request: RuleRequest):
+        started = time.perf_counter()
+        try:
+            result = await service.state.gateway.resolve_rules(
+                request.action, request.seed, request.turn_id
+            )
+        except Exception:
+            await asyncio.to_thread(
+                service.state.recorder.record,
+                CallRecord(
+                    endpoint="/v1/agent/rules",
+                    model=resolved.chat_model,
+                    status="error",
+                    latency_ms=int((time.perf_counter() - started) * 1000),
+                ),
+            )
+            raise HTTPException(status_code=503, detail="规则 Agent 暂时不可用") from None
+
+        await asyncio.to_thread(
+            service.state.recorder.record,
+            CallRecord(
+                endpoint="/v1/agent/rules",
+                model=resolved.chat_model,
+                status=result.status,
+                latency_ms=int((time.perf_counter() - started) * 1000),
+            ),
+        )
+        return result
 
     return service
 
