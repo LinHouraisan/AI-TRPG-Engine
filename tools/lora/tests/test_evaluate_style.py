@@ -42,7 +42,12 @@ def test_score_outputs_returns_zero_rates_for_empty_input():
     [
         "你投出了18点，判定通过。",
         "你掷出D100，检定失败。",
+        "你掷了18点，门锁没有发出声音。",
         "调查员掷出了07点，检定成功。",
+        "检定成功，你发现窗框上的划痕。",
+        "判定通过，你看清了纸上的字迹。",
+        "判定失败，你踩响了门后的机关。",
+        "你的侦查检定结果为成功，可以看清脚印。",
     ],
 )
 def test_illegal_roll_detects_declared_player_rolls(output):
@@ -55,7 +60,14 @@ def test_illegal_roll_detects_declared_player_rolls(output):
         "若你的侦查检定成功，你会注意到窗框上的划痕。",
         "如果调查员检定失败，可以改为询问守卫。",
         "当检定成功时，再向玩家公开墙后的声响。",
+        "侦查检定成功时，你会注意到窗框上的划痕。",
+        "检定失败的话，你仍可以询问守卫。",
+        "只要你的侦查检定成功，就能看清地面的脚印。",
         "守卫把飞刀掷出了窗外，随即转身逃走。",
+        "你看见守卫掷出18点，随即收起骰子。",
+        "你听见守卫掷出18点，骰子撞上木桌。",
+        "你发现守卫掷出18点，随后拿走了骰子。",
+        "你注意到守卫掷出18点，却没有宣布结果。",
     ],
 )
 def test_illegal_roll_ignores_conditional_advice_and_non_player_throws(output):

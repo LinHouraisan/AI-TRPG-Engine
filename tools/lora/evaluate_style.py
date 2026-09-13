@@ -15,14 +15,17 @@ from urllib.request import Request, urlopen
 ACTION_HOOK = "你要怎么做？"
 MIN_OUTPUT_LENGTH = 60
 MAX_OUTPUT_LENGTH = 220
-_PLAYER = r"(?:你(?:们)?|玩家(?:角色)?|调查员)"
-_RESULT = r"(?:检定(?:成功|失败)|判定(?:通过|成功|失败))"
-_ROLL_DECLARATION = re.compile(
-    rf"{_PLAYER}[^。！？\n]{{0,16}}(?:掷|投)(?:出(?:了)?|得|到)"
-    rf"[^。！？\n]{{0,24}}(?:\d+\s*点|[dD]\s*\d+|{_RESULT})"
+_CLAUSE_BOUNDARY = re.compile(r"[，,；;。！？\n]+")
+_CONDITIONAL_LEAD = re.compile(r"^(?:若|如果|当|只要|假如|倘若)")
+_EXPLICIT_RESULT = re.compile(
+    r"(?:检定|判定)(?:结果(?:为|是))?(?:成功|失败|通过)"
 )
-_RESULT_DECLARATION = re.compile(rf"{_PLAYER}[^。！？\n]{{0,16}}{_RESULT}")
-_CONDITIONAL_PREFIX = re.compile(r"(?:若|如果|当|假如|倘若)[^，,；;。！？\n]*$")
+_CONDITIONAL_RESULT_SUFFIX = re.compile(r"^\s*(?:时|的话|后)")
+_PLAYER_ROLL = re.compile(
+    r"^(?:你(?:们)?|玩家(?:角色)?|调查员)\s*"
+    r"(?:掷|投)(?:出(?:了)?|了|得|到)\s*"
+    r"(?:\d+\s*点|[dD]\s*\d+|骰(?:子)?)"
+)
 
 
 @dataclass(frozen=True)
@@ -34,10 +37,16 @@ class StyleMetrics:
 
 
 def _contains_illegal_roll(output: str) -> bool:
-    for pattern in (_ROLL_DECLARATION, _RESULT_DECLARATION):
-        for match in pattern.finditer(output):
-            if not _CONDITIONAL_PREFIX.search(output[: match.start()]):
+    for clause in _CLAUSE_BOUNDARY.split(output):
+        clause = clause.strip()
+        if not clause:
+            continue
+        conditional = bool(_CONDITIONAL_LEAD.match(clause))
+        for result in _EXPLICIT_RESULT.finditer(clause):
+            if not conditional and not _CONDITIONAL_RESULT_SUFFIX.match(clause[result.end() :]):
                 return True
+        if not conditional and _PLAYER_ROLL.match(clause):
+            return True
     return False
 
 
