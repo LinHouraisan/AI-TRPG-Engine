@@ -3,11 +3,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_PATH="$SCRIPT_DIR/lora_qwen3b.yaml"
+CONFIG_PATH="${LORA_CONFIG:-$SCRIPT_DIR/lora_qwen3b.yaml}"
 DATA_DIR="$SCRIPT_DIR/data"
 MERGED_DIR="${LORA_MERGED_DIR:-$SCRIPT_DIR/merged-qwen2.5-3b-trpg}"
 LOG_DIR="${LORA_LOG_DIR:-$SCRIPT_DIR/logs}"
 LLAMAFACTORY_CLI="${LLAMAFACTORY_CLI:-llamafactory-cli}"
+TEE_COMMAND="${LORA_TEE_COMMAND:-tee}"
 CHECK_ONLY=false
 
 if [[ "${1:-}" == "--check-only" ]]; then
@@ -116,11 +117,11 @@ if not test_rows:
     raise SystemExit(f"测试集不能为空：{test_path}")
 
 model_ref = config["model_name_or_path"]
-if model_ref.startswith(("/", "./", "../")):
-    local_model = Path(model_ref).expanduser()
-    if not local_model.is_absolute():
-        local_model = config_path.parent / local_model
-    local_model = local_model.resolve()
+local_model = Path(model_ref).expanduser()
+if not local_model.is_absolute():
+    local_model = config_path.parent / local_model
+local_model = local_model.resolve()
+if model_ref.startswith(("/", "./", "../", "~")) or local_model.exists():
     if not (local_model / "config.json").is_file():
         raise SystemExit(f"本地基座模型不存在或不完整：{local_model}")
     model_ref = str(local_model)
@@ -138,6 +139,11 @@ readarray -t RUN_VALUES <<<"$RUN_OUTPUT"
 
 BASE_MODEL="${RUN_VALUES[0]}"
 ADAPTER_DIR="${RUN_VALUES[1]}"
+if command -v cygpath >/dev/null 2>&1; then
+  ADAPTER_DIR="$(cygpath -u "$ADAPTER_DIR")"
+  MERGED_DIR="$(cygpath -u "$MERGED_DIR")"
+  LOG_DIR="$(cygpath -u "$LOG_DIR")"
+fi
 echo "数据校验通过：${RUN_VALUES[2]}"
 echo "基座模型：$BASE_MODEL"
 echo "Adapter 目录：$ADAPTER_DIR"
@@ -152,6 +158,7 @@ command -v "$LLAMAFACTORY_CLI" >/dev/null 2>&1 || {
   exit 1
 }
 command -v nvidia-smi >/dev/null 2>&1 || { echo "缺少 nvidia-smi，正式训练必须在 NVIDIA GPU 实例运行。" >&2; exit 1; }
+command -v "$TEE_COMMAND" >/dev/null 2>&1 || { echo "缺少 tee，无法可靠保存训练日志。" >&2; exit 1; }
 GPU_INFO="$(nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader)"
 if [[ -z "$GPU_INFO" ]]; then
   echo "未检测到可用 NVIDIA GPU。" >&2
@@ -165,25 +172,25 @@ fi
 mkdir -p "$LOG_DIR"
 RUN_ID="${LORA_RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 LOG_FILE="$LOG_DIR/train-$RUN_ID.log"
-exec > >(tee -a "$LOG_FILE") 2>&1
 
-echo "==> 训练运行：$RUN_ID"
-echo "GPU：$GPU_INFO"
-echo "配置：$CONFIG_PATH"
-echo "数据：${RUN_VALUES[2]}"
-echo "LLaMA-Factory：$(command -v "$LLAMAFACTORY_CLI")"
+run_training() {
+  echo "==> 训练运行：$RUN_ID"
+  echo "GPU：$GPU_INFO"
+  echo "配置：$CONFIG_PATH"
+  echo "数据：${RUN_VALUES[2]}"
+  echo "LLaMA-Factory：$(command -v "$LLAMAFACTORY_CLI")"
 
-echo "==> 3/4 训练 Adapter"
-(
-  cd "$SCRIPT_DIR"
-  "$LLAMAFACTORY_CLI" train "$CONFIG_PATH"
-)
-if [[ ! -f "$ADAPTER_DIR/adapter_config.json" ]] || \
-  ! compgen -G "$ADAPTER_DIR/adapter_model.*" >/dev/null; then
-  echo "训练命令结束，但 Adapter 产物不完整：$ADAPTER_DIR" >&2
-  exit 1
-fi
-python - "$ADAPTER_DIR/trainer_state.json" <<'PY'
+  echo "==> 3/4 训练 Adapter"
+  (
+    cd "$SCRIPT_DIR"
+    "$LLAMAFACTORY_CLI" train "$CONFIG_PATH"
+  ) || return $?
+  if [[ ! -f "$ADAPTER_DIR/adapter_config.json" ]] || \
+    ! compgen -G "$ADAPTER_DIR/adapter_model.*" >/dev/null; then
+    echo "训练命令结束，但 Adapter 产物不完整：$ADAPTER_DIR" >&2
+    return 1
+  fi
+  python - "$ADAPTER_DIR/trainer_state.json" <<'PY' || return $?
 import json
 from pathlib import Path
 import sys
@@ -206,15 +213,29 @@ print(
 )
 PY
 
-echo "==> 4/4 合并 Adapter"
-python "$SCRIPT_DIR/merge_lora.py" \
-  --base "$BASE_MODEL" \
-  --adapter "$ADAPTER_DIR" \
-  --out "$MERGED_DIR"
-if [[ ! -f "$MERGED_DIR/config.json" ]] || \
-  ! compgen -G "$MERGED_DIR/model*.safetensors" >/dev/null; then
-  echo "合并命令结束，但模型产物不完整：$MERGED_DIR" >&2
-  exit 1
+  echo "==> 4/4 合并 Adapter"
+  python "$SCRIPT_DIR/merge_lora.py" \
+    --base "$BASE_MODEL" \
+    --adapter "$ADAPTER_DIR" \
+    --out "$MERGED_DIR" || return $?
+  if [[ ! -f "$MERGED_DIR/config.json" ]] || \
+    ! compgen -G "$MERGED_DIR/model*.safetensors" >/dev/null; then
+    echo "合并命令结束，但模型产物不完整：$MERGED_DIR" >&2
+    return 1
+  fi
+}
+
+set +e
+(set -euo pipefail; run_training) 2>&1 | "$TEE_COMMAND" -a "$LOG_FILE"
+PIPELINE_STATUS=("${PIPESTATUS[@]}")
+set -e
+if [[ "${PIPELINE_STATUS[0]}" -ne 0 ]]; then
+  echo "训练或合并失败；检查日志：$LOG_FILE" >&2
+  exit "${PIPELINE_STATUS[0]}"
+fi
+if [[ "${PIPELINE_STATUS[1]}" -ne 0 ]]; then
+  echo "训练输出未能可靠写入日志：$LOG_FILE" >&2
+  exit "${PIPELINE_STATUS[1]}"
 fi
 
 echo "训练及合并完成。"

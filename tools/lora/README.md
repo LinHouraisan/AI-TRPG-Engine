@@ -11,7 +11,7 @@
 | `data/dataset_info.json` | LLaMA-Factory Alpaca 数据映射 |
 | `synth_lora_data.py` | 从模组语料扩展 200–800 条 SFT 数据 |
 | `lora_qwen3b.yaml` | Qwen2.5-3B LoRA 训练参数 |
-| `train_autodl.sh` | AutoDL 单卡安装、训练、合并入口 |
+| `train_autodl.sh` | AutoDL 单卡环境校验、训练、合并入口（不自动安装依赖） |
 | `merge_lora.py` | 将 Adapter 合并为标准 Hugging Face 模型 |
 | `electron/src/core/ai/lc/provider.ts` | 基座模型与 LoRA 模型动态路由 |
 | `electron/scripts/bench.ts` | base/RAG/LoRA 共用数据集评测 |
@@ -109,9 +109,10 @@ LORA_LOG_DIR=/data/logs/trpg-style \
 bash tools/lora/train_autodl.sh
 ```
 
-如果 `model_name_or_path` 改为本地路径，脚本会在训练前检查该路径是否存在；默认 Hugging Face
-仓库 ID 则由 LLaMA-Factory 按其缓存和网络配置解析。训练或合并失败时脚本立即退出，不会把半成品
-当作成功产物。
+如果 `model_name_or_path` 改为本地路径，脚本支持 `~/models/qwen`、`./models/qwen`，也会把确实
+存在的 `models/qwen` 识别为相对配置文件的目录，并检查其中的 `config.json`；不存在的普通
+`组织名/模型名` 仍按 Hugging Face 仓库 ID 交给 LLaMA-Factory 按实际缓存和网络解析。训练、日志
+写入或合并失败时脚本立即退出，不会把半成品当作成功产物。
 
 ## 本地部署
 
