@@ -10,50 +10,78 @@ import random
 
 SPLIT_RATIOS = (0.8, 0.1, 0.1)
 SFT_FIELDS = ("instruction", "input", "output")
-ENTITY_FAMILY_GROUPS = {
-    "boarding-house:room:loc.hall": "boarding-house:scene:hall-clock",
-    "boarding-house:item:item.desk_lock": "boarding-house:scene:study-lock",
-    "boarding-house:fact:fact.lock_scratched": "boarding-house:scene:study-lock",
-    "boarding-house:room:loc.study": "boarding-house:scene:study-lock",
-    "boarding-house:npc:npc.landlady": "boarding-house:scene:landing-landlady",
-    "boarding-house:room:loc.landing": "boarding-house:scene:landing-landlady",
-    "photo-studio:item:item.book": "photo-studio:scene:shop-ledger",
-    "photo-studio:fact:fact.name_torn": "photo-studio:scene:shop-ledger",
-    "photo-studio:npc:npc.meimei": "photo-studio:scene:shop-ledger",
-    "photo-studio:room:loc.shop": "photo-studio:scene:shop-ledger",
-    "photo-studio:item:item.cabinet_lock": "photo-studio:scene:darkroom-lock",
-    "photo-studio:fact:fact.lock_picked_before": "photo-studio:scene:darkroom-lock",
-    "photo-studio:room:loc.darkroom": "photo-studio:scene:darkroom-lock",
-    "mist-harbor:item:item.ticket48": "mist-harbor:scene:concourse-tickets",
-    "mist-harbor:item:item.watch": "mist-harbor:scene:concourse-tickets",
-    "mist-harbor:fact:fact.ticket_48": "mist-harbor:scene:concourse-tickets",
-    "mist-harbor:fact:fact.clock_loop": "mist-harbor:scene:concourse-tickets",
-    "mist-harbor:room:loc.concourse": "mist-harbor:scene:concourse-tickets",
-    "mist-harbor:item:item.roster": "mist-harbor:scene:ticket-roster",
-    "mist-harbor:fact:fact.roster_gap": "mist-harbor:scene:ticket-roster",
-    "mist-harbor:npc:npc.clerk": "mist-harbor:scene:ticket-roster",
-    "mist-harbor:investigation:investigation.station-ledger": "mist-harbor:scene:ticket-roster",
-    "mist-harbor:room:loc.ticket": "mist-harbor:scene:ticket-roster",
-    "mist-harbor:item:item.photo": "mist-harbor:scene:luggage-photo",
-    "mist-harbor:fact:fact.photo_six": "mist-harbor:scene:luggage-photo",
-    "mist-harbor:investigation:investigation.tide-photographer": "mist-harbor:scene:luggage-photo",
-    "mist-harbor:room:loc.luggage": "mist-harbor:scene:luggage-photo",
-    "mist-harbor:item:item.emergency_hammer": "mist-harbor:scene:carriage",
-    "mist-harbor:room:loc.carriage": "mist-harbor:scene:carriage",
-    "mist-harbor:investigation:investigation.conductor-leverage": "mist-harbor:scene:platform",
-    "mist-harbor:room:loc.platform": "mist-harbor:scene:platform",
-    "mist-harbor:investigation:investigation.archive-correspondent": "mist-harbor:scene:baggage-archive",
-    "mist-harbor:room:loc.baggage-car": "mist-harbor:scene:baggage-archive",
-    "mist-harbor:item:item.clipping": "mist-harbor:scene:reporter-old-line",
-    "mist-harbor:fact:fact.reporter_note": "mist-harbor:scene:reporter-old-line",
-    "mist-harbor:npc:npc.reporter": "mist-harbor:scene:reporter-old-line",
-    "mist-harbor:investigation:investigation.old-line-reporter": "mist-harbor:scene:reporter-old-line",
-    "mist-harbor:room:loc.dining": "mist-harbor:scene:reporter-old-line",
-    "mist-harbor:item:item.map": "mist-harbor:scene:cab-old-line",
-    "mist-harbor:fact:fact.old_line": "mist-harbor:scene:cab-old-line",
-    "mist-harbor:room:loc.cab": "mist-harbor:scene:cab-old-line",
-    "mist-harbor:room:loc.terminus": "mist-harbor:scene:terminus",
-}
+
+
+def _fact_ids(value: object) -> set[str]:
+    if isinstance(value, dict):
+        facts = set()
+        for key, item in value.items():
+            if key in {"fact", "known", "grants", "observeGrants", "knownFacts"}:
+                values = item if isinstance(item, list) else [item]
+                facts.update(fact for fact in values if isinstance(fact, str) and fact.startswith("fact."))
+            else:
+                facts.update(_fact_ids(item))
+        return facts
+    if isinstance(value, list):
+        return {fact for item in value for fact in _fact_ids(item)}
+    return set()
+
+
+def build_family_groups(packs_root: Path) -> dict[str, str]:
+    """从内容包中显式的实体、场景与事实关联推导稳定 family。"""
+    parent: dict[str, str] = {}
+
+    def add(node: str) -> None:
+        parent.setdefault(node, node)
+
+    def find(node: str) -> str:
+        while parent[node] != node:
+            parent[node] = parent[parent[node]]
+            node = parent[node]
+        return node
+
+    def connect(first: str, second: str) -> None:
+        add(first)
+        add(second)
+        parent[find(second)] = find(first)
+
+    for pack_dir in sorted(path for path in packs_root.iterdir() if path.is_dir()):
+        pack = pack_dir.name
+        records: dict[str, list[dict]] = {}
+        for kind, filename in (
+            ("room", "rooms.json"),
+            ("item", "items.json"),
+            ("npc", "npcs.json"),
+            ("fact", "facts.json"),
+            ("investigation", "investigations.json"),
+        ):
+            path = pack_dir / filename
+            records[kind] = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+            for record in records[kind]:
+                if record.get("id"):
+                    add(f"{pack}:{kind}:{record['id']}")
+        for kind in ("item", "npc", "investigation"):
+            for record in records[kind]:
+                node = f"{pack}:{kind}:{record['id']}"
+                room = record.get("at") or record.get("startAt") or record.get("room")
+                if room:
+                    connect(node, f"{pack}:room:{room}")
+                for fact in _fact_ids(record):
+                    connect(node, f"{pack}:fact:{fact}")
+
+    components: dict[str, list[str]] = defaultdict(list)
+    for node in parent:
+        components[find(node)].append(node)
+    return {
+        node: f"{node.split(':', 1)[0]}:family:{min(component).rsplit(':', 1)[-1]}"
+        for component in components.values()
+        for node in component
+    }
+
+
+DEFAULT_FAMILY_GROUPS = build_family_groups(
+    Path(__file__).resolve().parents[2] / "electron" / "content" / "packs"
+)
 
 
 def _group_for(row: dict, index: int) -> str:
@@ -78,13 +106,22 @@ def _validate_row(row: dict, index: int) -> None:
 
 def _family_group_for(row: dict, index: int) -> str:
     meta = row.get("meta") or {}
+    if meta.get("pack"):
+        if meta.get("kind") and meta.get("entity_id"):
+            entity_group = f"{meta['pack']}:{meta['kind']}:{meta['entity_id']}"
+        elif meta.get("scene_id"):
+            scene_id = str(meta["scene_id"])
+            kind = next(
+                (prefix for prefix in ("room", "item", "npc", "fact", "investigation") if scene_id.startswith(prefix[:3] + ".")),
+                "room",
+            )
+            entity_group = f"{meta['pack']}:{kind}:{scene_id}"
+        else:
+            entity_group = ""
+        if entity_group in DEFAULT_FAMILY_GROUPS:
+            return DEFAULT_FAMILY_GROUPS[entity_group]
     if meta.get("family_group"):
         return str(meta["family_group"])
-    entity_group = ":".join(str(meta.get(key, "")) for key in ("pack", "kind", "entity_id"))
-    if entity_group in ENTITY_FAMILY_GROUPS:
-        return ENTITY_FAMILY_GROUPS[entity_group]
-    if all(meta.get(key) for key in ("pack", "kind", "entity_id")):
-        return f"{meta['pack']}:entity:{meta['entity_id']}"
     return _group_for(row, index)
 
 
@@ -196,6 +233,8 @@ def load_candidate_rows(candidate_path: Path, seed_path: Path) -> list[dict]:
             }
         )
         known[identity] = rows[-1]
+    for index, row in enumerate(rows, 1):
+        row["meta"]["family_group"] = _family_group_for(row, index)
     return rows
 
 

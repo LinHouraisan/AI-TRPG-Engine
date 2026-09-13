@@ -8,7 +8,10 @@ import pytest
 LORA_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(LORA_ROOT))
 
-from prepare_dataset import load_candidate_rows, split_dataset
+from prepare_dataset import build_family_groups, load_candidate_rows, split_dataset
+
+
+FIXTURE_PACKS = Path(__file__).resolve().parents[3] / "electron" / "content" / "packs"
 
 
 def _row(group: str, number: int, family_group: str | None = None) -> dict:
@@ -198,3 +201,50 @@ def test_seed_and_template_with_matching_scene_metadata_share_a_split(tmp_path: 
     }
 
     assert split_by_output["模板车厢"] == split_by_output["人工车厢"]
+
+
+def test_content_fact_relationships_define_one_family_for_related_entities():
+    families = build_family_groups(FIXTURE_PACKS)
+
+    assert families["photo-studio:room:loc.shop"] == families["photo-studio:fact:fact.name_torn"]
+    assert families["mist-harbor:investigation:investigation.old-line-reporter"] == families[
+        "mist-harbor:fact:fact.old_line"
+    ]
+    assert families["mist-harbor:fact:fact.old_line"] == families["mist-harbor:room:loc.cab"]
+    assert families["mist-harbor:npc:npc.reporter"] == families["mist-harbor:fact:fact.reporter_note"]
+
+
+def test_content_relationships_cover_every_current_template_entity():
+    families = build_family_groups(FIXTURE_PACKS)
+    candidate_rows = [json.loads(line) for line in (LORA_ROOT / "data" / "train.jsonl").read_text(encoding="utf-8").splitlines()]
+    template_entities = {
+        f"{row['meta']['pack']}:{row['meta']['kind']}:{row['meta']['entity_id']}"
+        for row in candidate_rows
+        if row["meta"]["source"] == "synthetic-template"
+    }
+
+    assert len(template_entities) == 42
+    assert template_entities <= set(families)
+
+
+def test_current_dataset_uses_one_family_namespace_for_every_split(tmp_path: Path):
+    rows = load_candidate_rows(LORA_ROOT / "data" / "train.jsonl", LORA_ROOT / "data" / "seeds.jsonl")
+    manifest = split_dataset(rows, tmp_path, seed=8503)
+    family_by_output = {row["output"]: row["meta"]["family_group"] for row in rows}
+    split_outputs = {
+        "train": [row["output"] for row in _rows(tmp_path / "train.sft.jsonl")],
+        "validation": [row["output"] for row in _rows(tmp_path / "validation.sft.jsonl")],
+        "test": [row["reference_output"] for row in _rows(tmp_path / "test.prompts.jsonl")],
+    }
+    expected_groups = {
+        name: {family_by_output[output] for output in outputs} for name, outputs in split_outputs.items()
+    }
+
+    assert {name: set(details["groups"]) for name, details in manifest["splits"].items()} == expected_groups
+    assert expected_groups["train"].isdisjoint(expected_groups["validation"])
+    assert expected_groups["train"].isdisjoint(expected_groups["test"])
+    assert expected_groups["validation"].isdisjoint(expected_groups["test"])
+
+    shop_seed = next(row for row in rows if row["input"] == "我仔细看玻璃柜里发黄的合影。")
+    shop_template = next(row for row in rows if row["meta"]["group"] == "photo-studio:room:loc.shop")
+    assert shop_seed["meta"]["family_group"] == shop_template["meta"]["family_group"]
