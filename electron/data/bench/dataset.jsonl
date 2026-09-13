@@ -1,0 +1,27 @@
+{"id":"know-0","type":"knowledge","question":"女房东为什么只开了半扇门？","context":"","reference":"只开了半扇门"}
+{"id":"know-7","type":"knowledge","question":"沈鹭持有的车票是否真实存在？","context":"","reference":"四十八号、不存在"}
+{"id":"know-9","type":"knowledge","question":"合影中是否有人的名字被所有人忘记了？","context":"","reference":"六个人、现场所有人"}
+{"id":"know-12","type":"knowledge","question":"顾弦的姐姐在什么事故中失去了生命？","context":"","reference":"旧线"}
+{"id":"know-13","type":"knowledge","question":"列车员许澄的下一句话是什么？","context":"","reference":"请上车"}
+{"id":"know-15","type":"knowledge","question":"罗姨今晚卖出的票数是否与以往不同？","context":"","reference":"四十七张"}
+{"id":"know-17","type":"knowledge","question":"档案员沈鹭会建议谁被世界记住？","context":"","reference":"别急着救我。先决定你愿意让谁被世界记住。"}
+{"id":"know-20","type":"knowledge","question":"这皮箱的主人是谁？","context":"","reference":"皮箱"}
+{"id":"know-23","type":"knowledge","question":"餐车上的银餐具为什么会震动？","context":"","reference":"银餐具、震动"}
+{"id":"know-24","type":"knowledge","question":"行李车深处的气味是什么？","context":"","reference":"封条、潮湿、纸张"}
+{"id":"know-25","type":"knowledge","question":"驾驶室的速度表为什么没有刻度？","context":"","reference":"没有刻度"}
+{"id":"know-27","type":"knowledge","question":"你上次预约取照是什么时候？","context":"","reference":"上周"}
+{"id":"cons-0","type":"consistency","question":"这扇门上次被谁开过？","context":"寄宿公寓账本。钟停在九点。你按响门铃的时候，雨已经把外套下摆浸透了。女房东只开了半扇门，把钥匙塞给你，说楼上那间空着，别往书房去。\n锁孔有新划痕，最近有人开过","reference":"女房东、半扇门、钥匙"}
+{"id":"cons-1","type":"consistency","question":"楼上的声响是否影响了门厅的挂钟？","context":"女房东：「这个点了还不歇着？楼上的水管一响，我可管不了。」\n门厅：门厅的挂钟停在九点。墙纸上有一圈水渍，楼梯往上没有灯。","reference":"停在九点、墙纸上有一圈水渍"}
+{"id":"cons-3","type":"consistency","question":"档案员沈鹭寄给你的车票编号是多少？","context":"雾港末班车。海雾漫过钟楼时，雾港站只剩最后一班列车。档案员沈鹭失踪前寄来的车票躺在你掌心，背面只有一句话：不要让他们忘记我。\n沈鹭持有不存在的四十八号车票","reference":"四十八号"}
+{"id":"cons-4","type":"consistency","question":"在合影中，乘客名单上为什么少了一个人？","context":"乘客名单在第十三行留下被刮去的空位\n合影中有六个人，现场所有人却只记得五个","reference":"被刮去的空位、五个、六个人"}
+{"id":"cons-5","type":"consistency","question":"站钟每隔十三分钟回到十一点四十七分，列车驶入三十年前封闭的潮汐支线，这背后隐藏着什么秘密？","context":"站钟每隔十三分钟回到十一点四十七分\n列车驶入三十年前封闭的潮汐支线","reference":"站钟、三十年前、潮汐支线"}
+{"id":"cons-6","type":"consistency","question":"记者顾弦为何在旧线事故中失去姐姐？在末班车中，列车员许澄为何会说请上车？","context":"记者顾弦曾在旧线事故中失去姐姐\n列车员许澄：请上车。末班车不等记得太多的人。","reference":"旧线事故、末班车、上车"}
+{"id":"cons-7","type":"consistency","question":"顾弦和罗姨交换了什么？他们知道的事有什么不同？","context":"记者顾弦：沈鹭也给你寄了票？那我们最好交换一下知道的事。\n售票员罗姨：今晚只卖了四十七张票。一直都是四十七张。","reference":"四十七张"}
+{"id":"cons-8","type":"consistency","question":"你愿意让谁被世界记住，无名女孩还是沈鹭？","context":"无名女孩：你能替我记住一个名字吗？\n档案员沈鹭：别急着救我。先决定你愿意让谁被世界记住。","reference":"无名女孩、沈鹭"}
+{"id":"cons-9","type":"consistency","question":"雾港站大厅的铜钟停在十一点四十七分时，售票室里是什么样子？","context":"雾港站大厅：铜钟停在十一点四十七分。售票窗亮着一盏绿灯，站台门外全是海雾。\n售票室：账册摊在台灯下，墨迹像刚被水洇过。","reference":"铜钟、十一点四十七分、账册、墨迹、刚被水洇过"}
+{"id":"rule-0","type":"rule","question":"试图撬开锈死的舱门（力量 3，DC 12）","context":"","reference":"掷骰、检定、成功"}
+{"id":"rule-1","type":"rule","question":"在摇晃的甲板上保持平衡（敏捷 2，DC 10）","context":"","reference":"掷骰、检定、成功"}
+{"id":"rule-2","type":"rule","question":"辨认墙上的古代铭文（学识 4，DC 15）","context":"","reference":"掷骰、检定、成功"}
+{"id":"rule-3","type":"rule","question":"说服女房东打开书房（魅力 3，DC 13）","context":"","reference":"掷骰、检定、成功"}
+{"id":"rule-4","type":"rule","question":"在雾中听出钟声的方位（感知 2，DC 11）","context":"","reference":"掷骰、检定、成功"}
+{"id":"rule-5","type":"rule","question":"忍住恐惧不去回头看（意志 4，DC 14）","context":"","reference":"掷骰、检定、成功"}

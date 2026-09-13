@@ -1,0 +1,289 @@
+{
+  "summary": {
+    "mode": "rag",
+    "n": 27,
+    "overall": 1.963,
+    "byType": {
+      "knowledge": 1,
+      "consistency": 2.556,
+      "rule": 3
+    },
+    "keywordRecall": 0.346,
+    "keywordRecallN": 27,
+    "diceTraceable": "6/6",
+    "recallAt3": "12/12",
+    "avgLatencyMs": 3985
+  },
+  "rows": [
+    {
+      "id": "know-0",
+      "type": "knowledge",
+      "score": 1,
+      "keywordRecall": 0,
+      "diceTraceable": null,
+      "latencyMs": 3792,
+      "reason": "回答偏离了 '只开了半扇门' 的问题",
+      "answer": "黑漆漆的走廊上，你仅有的光源是自己手里的火折子，半扇门后是冷冰冰的视线。你要怎么做？"
+    },
+    {
+      "id": "know-7",
+      "type": "knowledge",
+      "score": 1,
+      "keywordRecall": 0,
+      "diceTraceable": null,
+      "latencyMs": 2572,
+      "reason": "回答与知识问题无关",
+      "answer": "雾港站灯火阑珊，末班车的风声呼啸。你要怎么做？"
+    },
+    {
+      "id": "know-9",
+      "type": "knowledge",
+      "score": 1,
+      "keywordRecall": 0,
+      "diceTraceable": null,
+      "latencyMs": 4081,
+      "reason": "回答与知识无关，未提及六个人和现场所有人",
+      "answer": "雨夜之下，照相馆内湿冷而压抑。你伸手摸了摸挂在墙上的旧时照片，那些面容在昏黄灯光下显得有些模糊。你要怎么做？"
+    },
+    {
+      "id": "know-12",
+      "type": "knowledge",
+      "score": 1,
+      "keywordRecall": 0,
+      "diceTraceable": null,
+      "latencyMs": 3382,
+      "reason": "回答与旧线无关，未提及旧线",
+      "answer": "车厢内灯火幽暗，你看到顾弦紧握着旧旧的车票，眼神中带着难以言喻的伤痛。你要怎么做？"
+    },
+    {
+      "id": "know-13",
+      "type": "knowledge",
+      "score": 1,
+      "keywordRecall": 0,
+      "diceTraceable": null,
+      "latencyMs": 3107,
+      "reason": "回答与任务无关，未提及请上车",
+      "answer": "列车缓缓驶出站台，海雾在车窗前随列车前行，渐行渐远。你要怎么做？"
+    },
+    {
+      "id": "know-15",
+      "type": "knowledge",
+      "score": 1,
+      "keywordRecall": 0,
+      "diceTraceable": null,
+      "latencyMs": 3256,
+      "reason": "回答与知识无关，未提及四十七张",
+      "answer": "三号车厢中，月光透过车窗洒在斑驳的地板上，你看见罗姨紧锁的眉头。你要怎么做？"
+    },
+    {
+      "id": "know-17",
+      "type": "knowledge",
+      "score": 1,
+      "keywordRecall": 0,
+      "diceTraceable": null,
+      "latencyMs": 3190,
+      "reason": "回答偏离了关于选择谁被世界记住的主题",
+      "answer": "港站的月台昏暗而静谧，海雾轻轻覆盖着每一块石板。你要怎么做？"
+    },
+    {
+      "id": "know-20",
+      "type": "knowledge",
+      "score": 1,
+      "keywordRecall": 1,
+      "diceTraceable": null,
+      "latencyMs": 3875,
+      "reason": "回答与问题无关，未提及皮箱",
+      "answer": "行李车的阴影里，显影柜前的空气仿佛凝滞。你环顾四周，发现那皮箱被单独放在秤上，周围没有其他行李与之伴。要怎么做？"
+    },
+    {
+      "id": "know-23",
+      "type": "knowledge",
+      "score": 1,
+      "keywordRecall": 1,
+      "diceTraceable": null,
+      "latencyMs": 3506,
+      "reason": "回答与知识无关，未提及银餐具和震动",
+      "answer": "餐车上的银餐具随轨道震动轻响，那是轨道正在缓缓移动，承载着不同的餐盘与刀叉。你要怎么做？"
+    },
+    {
+      "id": "know-24",
+      "type": "knowledge",
+      "score": 1,
+      "keywordRecall": 1,
+      "diceTraceable": null,
+      "latencyMs": 3265,
+      "reason": "回答与参考答案无关，未提及封条、潮湿、纸张",
+      "answer": "行李车深处，封条覆盖的旧货柜散发出潮湿纸张的气味，渗入空气中。你要怎么做？"
+    },
+    {
+      "id": "know-25",
+      "type": "knowledge",
+      "score": 1,
+      "keywordRecall": 0,
+      "diceTraceable": null,
+      "latencyMs": 2790,
+      "reason": "回答与问题无关，未提及刻度",
+      "answer": "驾驶室的前方漆黑一片，只有仪表板上的微弱光芒。你要怎么做？"
+    },
+    {
+      "id": "know-27",
+      "type": "knowledge",
+      "score": 1,
+      "keywordRecall": 0,
+      "diceTraceable": null,
+      "latencyMs": 3464,
+      "reason": "回答与知识无关，未提及上周",
+      "answer": "雨夜中，你最后一个见到预约簿的时刻。此时，霓虹照在你湿漉漉的双手上。你要怎么做？"
+    },
+    {
+      "id": "cons-0",
+      "type": "consistency",
+      "score": 3,
+      "keywordRecall": 0,
+      "diceTraceable": null,
+      "latencyMs": 4808,
+      "reason": "剧情连贯性轻微脱节",
+      "answer": "书房：窗帘没拉开。写字台上压着一把黄铜锁，锁后面像是塞着一本册子。锁孔有新划痕，最近有人开过，这扇门上次被谁开过？你要怎么做？"
+    },
+    {
+      "id": "cons-1",
+      "type": "consistency",
+      "score": 3,
+      "keywordRecall": 0,
+      "diceTraceable": null,
+      "latencyMs": 4338,
+      "reason": "剧情与水渍无关，显得突兀",
+      "answer": "门厅暗淡的灯光下，水渍斑驳的墙纸反射着昏黄的光线。你听见楼上传来的轻微水声，像是有人在用水。你要怎么做？"
+    },
+    {
+      "id": "cons-3",
+      "type": "consistency",
+      "score": 3,
+      "keywordRecall": 1,
+      "diceTraceable": null,
+      "latencyMs": 4206,
+      "reason": "剧情略显突兀，与前文衔接不够紧密",
+      "answer": "海雾缭绕，钟楼的钟声悠远。你手中握着那张四十八号车票，背面的话犹在耳畔回响。你要怎么做？"
+    },
+    {
+      "id": "cons-4",
+      "type": "consistency",
+      "score": 1,
+      "keywordRecall": 0,
+      "diceTraceable": null,
+      "latencyMs": 3025,
+      "reason": "明显矛盾，与前文情境不符",
+      "answer": "三号车厢的角落里，昏黄的灯光下，你看到一张泛黄的照片。你要怎么做？"
+    },
+    {
+      "id": "cons-5",
+      "type": "consistency",
+      "score": 3,
+      "keywordRecall": 0,
+      "diceTraceable": null,
+      "latencyMs": 4046,
+      "reason": "时间设定与后续剧情关联度低",
+      "answer": "雾港站大厅：铜钟停在十一点四十七分，时间仿佛在这刻凝固。站台上，海雾轻拂，形成一片朦胧的幕布。你要怎么做？"
+    },
+    {
+      "id": "cons-6",
+      "type": "consistency",
+      "score": 3,
+      "keywordRecall": 0.3333333333333333,
+      "diceTraceable": null,
+      "latencyMs": 3629,
+      "reason": "剧情与前文衔接稍显突兀",
+      "answer": "雾港末班车，灯火在海雾中若隐若现。风吹过车厢，带起窗帘的细响。你要怎么做？"
+    },
+    {
+      "id": "cons-7",
+      "type": "consistency",
+      "score": 3,
+      "keywordRecall": 0,
+      "diceTraceable": null,
+      "latencyMs": 3551,
+      "reason": "回答与 context 脱节",
+      "answer": "海雾弥漫，你和顾弦站在这辆末班车车厢内，罗姨的票静静地躺在你掌心。你要怎么做？"
+    },
+    {
+      "id": "cons-8",
+      "type": "consistency",
+      "score": 1,
+      "keywordRecall": 1,
+      "diceTraceable": null,
+      "latencyMs": 3225,
+      "reason": "明显矛盾，选择其一无法同时满足",
+      "answer": "你愿意让沈鹭或是无名女孩被世界记住？选择其一，你便要为他们决定一个名字。"
+    },
+    {
+      "id": "cons-9",
+      "type": "consistency",
+      "score": 3,
+      "keywordRecall": 1,
+      "diceTraceable": null,
+      "latencyMs": 4410,
+      "reason": "描述与后续剧情关联性弱",
+      "answer": "雾港站大厅的铜钟停在十一点四十七分，售票室里账册摊在台灯下，墨迹像刚被水洇过。你要怎么做？"
+    },
+    {
+      "id": "rule-0",
+      "type": "rule",
+      "score": 5,
+      "keywordRecall": 0.6666666666666666,
+      "diceTraceable": true,
+      "latencyMs": 5987,
+      "reason": "判定正确，数值依据充分",
+      "answer": "掷骰结果为 16，加上你的力量属性值 3，总和为 19，成功超过了难度 DC 12。舱门被成功撬开。\n一句话叙事影响：你用力量成功撬开了锈死的舱门。"
+    },
+    {
+      "id": "rule-1",
+      "type": "rule",
+      "score": 1,
+      "keywordRecall": 0.6666666666666666,
+      "diceTraceable": true,
+      "latencyMs": 5488,
+      "reason": "未提及是否遵循规则流程",
+      "answer": "掷骰结果为 20，加上你的敏捷属性值 2，总和为 22，成功超过了难度 DC 10。你成功在摇晃的甲板上保持了平衡。"
+    },
+    {
+      "id": "rule-2",
+      "type": "rule",
+      "score": 5,
+      "keywordRecall": 0.3333333333333333,
+      "diceTraceable": true,
+      "latencyMs": 5808,
+      "reason": "处置流程正确，有数值依据",
+      "answer": "判定结果：23 >= 15，成功。\n数值依据：d20=19 + 属性 4 = 23 vs DC15。\n一句话叙事影响：你成功辨认出了墙上的古代铭文。"
+    },
+    {
+      "id": "rule-3",
+      "type": "rule",
+      "score": 1,
+      "keywordRecall": 0.3333333333333333,
+      "diceTraceable": true,
+      "latencyMs": 4868,
+      "reason": "未提及是否遵循规则流程",
+      "answer": "掷骰结果为 9，加上你的魅力属性值 3，总和为 12，未能达到难度 DC 13，因此说服失败。"
+    },
+    {
+      "id": "rule-4",
+      "type": "rule",
+      "score": 1,
+      "keywordRecall": 0.3333333333333333,
+      "diceTraceable": true,
+      "latencyMs": 4770,
+      "reason": "未提及是否遵循规则流程",
+      "answer": "感知检定结果为 10，未能在雾中听出钟声的方位，难度 DC 为 11，失败。"
+    },
+    {
+      "id": "rule-5",
+      "type": "rule",
+      "score": 5,
+      "keywordRecall": 0.6666666666666666,
+      "diceTraceable": true,
+      "latencyMs": 5143,
+      "reason": "判定正确，数值依据充分",
+      "answer": "掷骰结果为 19，加上你的意志属性值 4，总和为 23，成功超过了难度 DC 14。你成功地忍住了回头看的冲动。"
+    }
+  ]
+}
