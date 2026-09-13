@@ -11,10 +11,13 @@ import argparse
 import hashlib
 import json
 import math
+import os
+import shutil
+import tempfile
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 
 @dataclass(frozen=True)
@@ -22,6 +25,19 @@ class RetrievalMetrics:
     recall_at_3: float
     mrr: float
     ndcg_at_3: float
+
+
+@dataclass(frozen=True)
+class JsonlSnapshot:
+    rows: list[dict]
+    sha256: str
+
+
+@dataclass(frozen=True)
+class ManifestProvenance:
+    seed: int
+    sha256: str
+    payload: dict
 
 
 def _unique(ids: Sequence[str]) -> list[str]:
@@ -113,6 +129,7 @@ def build_report(
     model_name: str,
     data_hash: str,
     docs_hash: str,
+    manifest_hash: str,
     seed: int,
     k: int = 3,
 ) -> dict:
@@ -126,6 +143,7 @@ def build_report(
         "model": model_name,
         "data_sha256": data_hash,
         "documents_sha256": docs_hash,
+        "manifest_sha256": manifest_hash,
         "seed": seed,
         "sample_count": len(rankings),
         "k": k,
@@ -135,46 +153,118 @@ def build_report(
     }
 
 
+def _write_temp_file(target: Path, payload: bytes) -> Path:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
+    temp_path = Path(name)
+    try:
+        with os.fdopen(descriptor, "wb") as output:
+            output.write(payload)
+            output.flush()
+            os.fsync(output.fileno())
+    except BaseException:
+        temp_path.unlink(missing_ok=True)
+        raise
+    return temp_path
+
+
+def _backup_path(target: Path) -> Path:
+    descriptor, name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".bak", dir=target.parent)
+    os.close(descriptor)
+    backup = Path(name)
+    backup.unlink()
+    return backup
+
+
+def publish_files(payloads: Mapping[Path, bytes]) -> None:
+    """Publish a group of files together, restoring prior targets on failure."""
+
+    temp_paths: dict[Path, Path] = {}
+    backups: dict[Path, Path] = {}
+    published: list[Path] = []
+    try:
+        for target, payload in payloads.items():
+            temp_paths[target] = _write_temp_file(target, payload)
+        for target in payloads:
+            if target.exists():
+                backup = _backup_path(target)
+                os.replace(target, backup)
+                backups[target] = backup
+        for target in payloads:
+            os.replace(temp_paths[target], target)
+            published.append(target)
+    except BaseException:
+        for target in reversed(published):
+            target.unlink(missing_ok=True)
+        for target, backup in reversed(list(backups.items())):
+            try:
+                os.replace(backup, target)
+            except OSError:
+                shutil.copyfile(backup, target)
+                backup.unlink(missing_ok=True)
+        raise
+    finally:
+        for temp_path in temp_paths.values():
+            temp_path.unlink(missing_ok=True)
+        for backup in backups.values():
+            backup.unlink(missing_ok=True)
+
+
 def write_report(report: dict, output_prefix: Path) -> None:
-    output_prefix.parent.mkdir(parents=True, exist_ok=True)
     json_path = output_prefix.with_suffix(".json")
     markdown_path = output_prefix.with_suffix(".md")
-    json_path.write_text(
-        json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
     metrics = report["metrics"]
-    markdown_path.write_text(
-        "\n".join(
-            [
-                "# TRPG Embedding 检索评测",
-                "",
-                f"- 模型：`{report['model']}`",
-                f"- 样本数：{report['sample_count']}",
-                f"- Seed：{report['seed']}",
-                f"- Recall@3：{metrics['recall_at_3']:.6f}",
-                f"- MRR：{metrics['mrr']:.6f}",
-                f"- nDCG@3：{metrics['ndcg_at_3']:.6f}",
-                f"- 平均查询编码延迟：{report['average_query_latency_ms']:.3f} ms",
-                f"- 数据 SHA-256：`{report['data_sha256']}`",
-                f"- 文档 SHA-256：`{report['documents_sha256']}`",
-                "",
-                "本报告只记录纯 IR 指标，不使用裁判 LLM。延迟不可跨硬件直接比较。",
-                "",
-            ]
-        ),
-        encoding="utf-8",
-        newline="\n",
+    markdown = "\n".join(
+        [
+            "# TRPG Embedding 检索评测",
+            "",
+            f"- 模型：`{report['model']}`",
+            f"- 样本数：{report['sample_count']}",
+            f"- Seed：{report['seed']}",
+            f"- Recall@3：{metrics['recall_at_3']:.6f}",
+            f"- MRR：{metrics['mrr']:.6f}",
+            f"- nDCG@3：{metrics['ndcg_at_3']:.6f}",
+            f"- 平均查询编码延迟：{report['average_query_latency_ms']:.3f} ms",
+            f"- 数据 SHA-256：`{report['data_sha256']}`",
+            f"- 文档 SHA-256：`{report['documents_sha256']}`",
+            f"- 数据清单 SHA-256：`{report['manifest_sha256']}`",
+            "",
+            "本报告只记录纯 IR 指标，不使用裁判 LLM。延迟不可跨硬件直接比较。",
+            "",
+        ]
+    )
+    publish_files(
+        {
+            json_path: (json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8"),
+            markdown_path: markdown.encode("utf-8"),
+        }
     )
 
 
-def _read_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+def load_jsonl_snapshot(path: Path) -> JsonlSnapshot:
+    raw = path.read_bytes()
+    text = raw.decode("utf-8")
+    rows = [json.loads(line) for line in text.splitlines() if line.strip()]
+    if not all(isinstance(row, dict) for row in rows):
+        raise ValueError(f"JSONL rows must be objects: {path}")
+    return JsonlSnapshot(rows=rows, sha256=hashlib.sha256(raw).hexdigest())
 
 
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+def load_manifest_provenance(path: Path, expected_seed: int | None = None) -> ManifestProvenance:
+    raw = path.read_bytes()
+    payload = json.loads(raw.decode("utf-8"))
+    if not isinstance(payload, dict) or not isinstance(payload.get("seed"), int):
+        raise ValueError(f"manifest has no integer seed: {path}")
+    seed = payload["seed"]
+    if expected_seed is not None and seed != expected_seed:
+        raise ValueError(f"manifest seed {seed} does not match expected seed {expected_seed}")
+    return ManifestProvenance(seed=seed, sha256=hashlib.sha256(raw).hexdigest(), payload=payload)
+
+
+def validate_manifest_hash(provenance: ManifestProvenance, path: Path, actual_hash: str) -> None:
+    declared_hash = provenance.payload.get("sha256", {}).get(path.name)
+    if declared_hash is not None and declared_hash != actual_hash:
+        raise ValueError(f"{path.name} does not match its manifest SHA-256")
 
 
 def main() -> None:
@@ -183,20 +273,30 @@ def main() -> None:
     parser.add_argument("--data", type=Path, required=True)
     parser.add_argument("--docs", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True, help="Output prefix for JSON and Markdown reports")
-    parser.add_argument("--seed", type=int, default=8503)
+    parser.add_argument("--manifest", type=Path, help="Defaults to manifest.json beside --data")
+    parser.add_argument("--seed", type=int, help="Expected manifest seed; mismatch is an error")
     args = parser.parse_args()
 
-    rows = _read_jsonl(args.data)
-    documents = _read_jsonl(args.docs)
-    if not rows:
+    manifest_path = args.manifest or args.data.parent / "manifest.json"
+    output_paths = {args.out.with_suffix(".json").resolve(), args.out.with_suffix(".md").resolve()}
+    input_paths = {args.data.resolve(), args.docs.resolve(), manifest_path.resolve()}
+    if output_paths & input_paths:
+        parser.error("report outputs must differ from --data, --docs, and --manifest")
+    data = load_jsonl_snapshot(args.data)
+    docs = load_jsonl_snapshot(args.docs)
+    provenance = load_manifest_provenance(manifest_path, expected_seed=args.seed)
+    validate_manifest_hash(provenance, args.data, data.sha256)
+    validate_manifest_hash(provenance, args.docs, docs.sha256)
+    if not data.rows:
         raise ValueError("evaluation set is empty")
-    traces = rank_rows(load_model(args.model), rows, documents)
+    traces = rank_rows(load_model(args.model), data.rows, docs.rows)
     report = build_report(
         traces,
         model_name=args.model,
-        data_hash=_sha256(args.data),
-        docs_hash=_sha256(args.docs),
-        seed=args.seed,
+        data_hash=data.sha256,
+        docs_hash=docs.sha256,
+        manifest_hash=provenance.sha256,
+        seed=provenance.seed,
     )
     write_report(report, args.out)
     print(json.dumps({"sample_count": report["sample_count"], **report["metrics"]}, ensure_ascii=False, sort_keys=True))

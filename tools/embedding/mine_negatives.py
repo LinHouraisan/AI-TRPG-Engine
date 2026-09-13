@@ -8,15 +8,28 @@ runtime index.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 from typing import Sequence
 
 if __package__:
-    from tools.embedding.evaluate import load_model, rank_rows
+    from tools.embedding.evaluate import (
+        load_jsonl_snapshot,
+        load_manifest_provenance,
+        load_model,
+        publish_files,
+        rank_rows,
+        validate_manifest_hash,
+    )
 else:
-    from evaluate import load_model, rank_rows
+    from evaluate import (
+        load_jsonl_snapshot,
+        load_manifest_provenance,
+        load_model,
+        publish_files,
+        rank_rows,
+        validate_manifest_hash,
+    )
 
 
 def mine_hard_negatives(
@@ -57,19 +70,11 @@ def select_split_documents(rows: Sequence[dict], documents: Sequence[dict]) -> t
     return [documents_by_id[document_id] for document_id in sorted(split_document_ids)], split_document_ids
 
 
-def _read_jsonl(path: Path) -> list[dict]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-
-
-def _write_jsonl(path: Path, rows: Sequence[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="\n") as output:
-        for row in rows:
-            output.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n")
-
-
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+def write_mining_outputs(rows: Sequence[dict], manifest: dict, output_path: Path) -> None:
+    rows_payload = "".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n" for row in rows)
+    manifest_path = output_path.with_suffix(output_path.suffix + ".manifest.json")
+    manifest_payload = json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    publish_files({output_path: rows_payload.encode("utf-8"), manifest_path: manifest_payload.encode("utf-8")})
 
 
 def main() -> None:
@@ -78,44 +83,43 @@ def main() -> None:
     parser.add_argument("--data", type=Path, required=True, help="One train/validation/test split JSONL")
     parser.add_argument("--docs", type=Path, required=True, help="Training-only documents.jsonl")
     parser.add_argument("--out", type=Path, required=True, help="A new JSONL file; the input split is never overwritten")
-    parser.add_argument("--seed", type=int, default=8503)
+    parser.add_argument("--manifest", type=Path, help="Defaults to manifest.json beside --data")
+    parser.add_argument("--seed", type=int, help="Expected manifest seed; mismatch is an error")
     args = parser.parse_args()
+    manifest_path = args.manifest or args.data.parent / "manifest.json"
     output_paths = {args.out.resolve(), args.out.with_suffix(args.out.suffix + ".manifest.json").resolve()}
-    input_paths = {args.data.resolve(), args.docs.resolve()}
+    input_paths = {args.data.resolve(), args.docs.resolve(), manifest_path.resolve()}
     if output_paths & input_paths:
-        parser.error("--out and its manifest must differ from --data and --docs")
+        parser.error("--out and its manifest must differ from all input files")
 
-    rows = _read_jsonl(args.data)
-    all_documents = _read_jsonl(args.docs)
-    documents_by_id = {document["id"]: document for document in all_documents}
-    split_documents, split_document_ids = select_split_documents(rows, all_documents)
+    data = load_jsonl_snapshot(args.data)
+    docs = load_jsonl_snapshot(args.docs)
+    provenance = load_manifest_provenance(manifest_path, expected_seed=args.seed)
+    validate_manifest_hash(provenance, args.data, data.sha256)
+    validate_manifest_hash(provenance, args.docs, docs.sha256)
+    documents_by_id = {document["id"]: document for document in docs.rows}
+    split_documents, split_document_ids = select_split_documents(data.rows, docs.rows)
 
-    traces = rank_rows(load_model(args.model), rows, split_documents)
+    traces = rank_rows(load_model(args.model), data.rows, split_documents)
     ranked_ids = {trace["query"]: trace["ranked_ids"] for trace in traces}
-    mined = mine_hard_negatives(rows, ranked_ids, valid_document_ids=split_document_ids)
+    mined = mine_hard_negatives(data.rows, ranked_ids, valid_document_ids=split_document_ids)
     for row in mined:
         row["negative"] = documents_by_id[row["negative_id"]]["text"] if row["negative_id"] else ""
         if row["negative_id"] == row["positive_id"]:
             raise AssertionError("a hard negative must differ from the positive document")
-    _write_jsonl(args.out, mined)
-
     manifest = {
         "schema_version": 1,
         "model": args.model,
-        "data_sha256": _sha256(args.data),
-        "documents_sha256": _sha256(args.docs),
-        "seed": args.seed,
-        "sample_count": len(rows),
+        "data_sha256": data.sha256,
+        "documents_sha256": docs.sha256,
+        "manifest_sha256": provenance.sha256,
+        "seed": provenance.seed,
+        "sample_count": len(data.rows),
         "candidate_document_count": len(split_documents),
         "rankings": traces,
     }
-    manifest_path = args.out.with_suffix(args.out.suffix + ".manifest.json")
-    manifest_path.write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
-    print(json.dumps({"sample_count": len(rows), "output": str(args.out)}, ensure_ascii=False, sort_keys=True))
+    write_mining_outputs(mined, manifest, args.out)
+    print(json.dumps({"sample_count": len(data.rows), "output": str(args.out)}, ensure_ascii=False, sort_keys=True))
 
 
 if __name__ == "__main__":
