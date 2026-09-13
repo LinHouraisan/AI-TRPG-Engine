@@ -4,37 +4,83 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python}"
+TEE_BIN="${TEE_BIN:-tee}"
 DATA_DIR="${EMBEDDING_DATA_DIR:-${SCRIPT_DIR}/data}"
 OUTPUT_DIR="${EMBEDDING_OUTPUT_DIR:-${SCRIPT_DIR}/saves/bge-small-zh-trpg}"
 DEVICE="cuda"
+CHECK_ONLY=false
 
 args=("$@")
+forward_args=()
 for ((index = 0; index < ${#args[@]}; index++)); do
   case "${args[$index]}" in
     --data)
       ((index + 1 < ${#args[@]})) || { echo "--data 缺少参数" >&2; exit 2; }
       DATA_DIR="${args[$((index + 1))]}"
+      ((index += 1))
       ;;
     --data=*) DATA_DIR="${args[$index]#--data=}" ;;
     --output)
       ((index + 1 < ${#args[@]})) || { echo "--output 缺少参数" >&2; exit 2; }
       OUTPUT_DIR="${args[$((index + 1))]}"
+      ((index += 1))
       ;;
     --output=*) OUTPUT_DIR="${args[$index]#--output=}" ;;
     --device)
       ((index + 1 < ${#args[@]})) || { echo "--device 缺少参数" >&2; exit 2; }
       DEVICE="${args[$((index + 1))]}"
+      forward_args+=("${args[$index]}" "${args[$((index + 1))]}")
+      ((index += 1))
       ;;
-    --device=*) DEVICE="${args[$index]#--device=}" ;;
+    --device=*)
+      DEVICE="${args[$index]#--device=}"
+      forward_args+=("${args[$index]}")
+      ;;
+    --check-only)
+      CHECK_ONLY=true
+      forward_args+=("${args[$index]}")
+      ;;
+    *) forward_args+=("${args[$index]}") ;;
   esac
 done
 
+expand_user_path() {
+  local path="$1"
+  if [[ "${path}" == "~" ]]; then
+    path="${HOME}"
+  elif [[ "${path}" == "~/"* ]]; then
+    path="${HOME}/${path:2}"
+  fi
+  realpath -m -- "${path}"
+}
+
+command -v realpath >/dev/null 2>&1 || { echo "找不到 realpath，无法规范化路径" >&2; exit 1; }
+DATA_DIR="$(expand_user_path "${DATA_DIR}")"
+OUTPUT_DIR="$(expand_user_path "${OUTPUT_DIR}")"
+
+if [[ "${CHECK_ONLY}" == true ]]; then
+  command -v "${PYTHON_BIN}" >/dev/null 2>&1 || { echo "找不到 Python: ${PYTHON_BIN}" >&2; exit 1; }
+  cd "${REPO_ROOT}"
+  "${PYTHON_BIN}" "${SCRIPT_DIR}/train.py" "${forward_args[@]}" \
+    --data "${DATA_DIR}" --output "${OUTPUT_DIR}" --check-only
+  exit $?
+fi
+
+mkdir -p "${OUTPUT_DIR}"
+rm -f -- "${OUTPUT_DIR}/training-complete.json"
+LOG_FILE="${OUTPUT_DIR}/training.log"
+if ! : > "${LOG_FILE}"; then
+  echo "训练日志不可写: ${LOG_FILE}" >&2
+  exit 1
+fi
+
 command -v "${PYTHON_BIN}" >/dev/null 2>&1 || { echo "找不到 Python: ${PYTHON_BIN}" >&2; exit 1; }
+command -v "${TEE_BIN}" >/dev/null 2>&1 || { echo "找不到 tee: ${TEE_BIN}" >&2; exit 1; }
 for name in train.jsonl validation.jsonl manifest.json; do
   [[ -f "${DATA_DIR}/${name}" ]] || { echo "缺少训练数据: ${DATA_DIR}/${name}" >&2; exit 1; }
 done
 
-"${PYTHON_BIN}" -c 'import datasets, sentence_transformers, torch' || {
+"${PYTHON_BIN}" -c 'import accelerate, datasets, sentence_transformers, torch' || {
   echo "训练依赖缺失；请显式执行: python -m pip install -r tools/embedding/requirements.txt" >&2
   exit 1
 }
@@ -45,7 +91,6 @@ if [[ "${DEVICE}" == cuda* ]]; then
   }
 fi
 
-mkdir -p "${OUTPUT_DIR}"
-LOG_FILE="${OUTPUT_DIR}/training.log"
 cd "${REPO_ROOT}"
-"${PYTHON_BIN}" "${SCRIPT_DIR}/train.py" --data "${DATA_DIR}" --output "${OUTPUT_DIR}" "${args[@]}" 2>&1 | tee "${LOG_FILE}"
+"${PYTHON_BIN}" "${SCRIPT_DIR}/train.py" "${forward_args[@]}" \
+  --data "${DATA_DIR}" --output "${OUTPUT_DIR}" 2>&1 | "${TEE_BIN}" "${LOG_FILE}"

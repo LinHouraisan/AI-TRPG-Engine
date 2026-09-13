@@ -113,6 +113,7 @@ def load_training_data(data_dir: Path, expected_seed: int = 8503) -> TrainingDat
 def import_training_stack() -> tuple[Any, Any, Any, Any, Any, Any, Any]:
     """Import optional training dependencies only for an actual training run."""
 
+    import accelerate  # noqa: F401 - required by the Trainer runtime
     import torch
     from datasets import Dataset
     from sentence_transformers import (
@@ -160,7 +161,17 @@ def _json_bytes(payload: dict) -> bytes:
     return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
+def prepare_output_for_run(output_dir: Path) -> Path:
+    """Invalidate any stale success marker before a non-check training run."""
+
+    resolved = output_dir.expanduser().resolve()
+    resolved.mkdir(parents=True, exist_ok=True)
+    (resolved / "training-complete.json").unlink(missing_ok=True)
+    return resolved
+
+
 def train(config: TrainingConfig, data: TrainingData) -> None:
+    output_dir = prepare_output_for_run(config.output_dir)
     (
         torch,
         Dataset,
@@ -178,10 +189,7 @@ def train(config: TrainingConfig, data: TrainingData) -> None:
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(config.seed)
 
-    output_dir = config.output_dir.resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
     completion_path = output_dir / "training-complete.json"
-    completion_path.unlink(missing_ok=True)
     metadata = build_training_metadata(config, data)
     publish_files({output_dir / "training-config.json": _json_bytes(metadata)})
 
@@ -270,7 +278,7 @@ def main() -> None:
     args = parse_args()
     config = TrainingConfig(
         model_name=args.model,
-        output_dir=args.output,
+        output_dir=args.output.expanduser().resolve(),
         seed=args.seed,
         epochs=args.epochs,
         max_seq_length=args.max_seq_length,
@@ -280,6 +288,8 @@ def main() -> None:
         max_steps=args.max_steps,
         device=args.device,
     )
+    if not args.check_only:
+        prepare_output_for_run(config.output_dir)
     data = load_training_data(args.data, expected_seed=config.seed)
     if args.check_only:
         print(json.dumps(build_training_metadata(config, data), ensure_ascii=False, sort_keys=True))

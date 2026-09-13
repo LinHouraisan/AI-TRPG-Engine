@@ -40,7 +40,7 @@ python tools/embedding/build_dataset.py \
 python -m pip install -r tools/embedding/requirements.txt
 ```
 
-只校验配置、数据和来源证明（不加载模型）：
+只校验配置、数据和来源证明（不导入训练依赖、不检查 GPU、不创建输出目录或日志）：
 
 ```bash
 python tools/embedding/train.py \
@@ -53,6 +53,12 @@ python tools/embedding/train.py \
 
 ```bash
 bash tools/embedding/train_autodl.sh --batch-size 16
+```
+
+也可以通过包装脚本执行同一轻量检查；`--device cpu` 不会触发 CUDA 检查：
+
+```bash
+bash tools/embedding/train_autodl.sh --device cpu --check-only
 ```
 
 显存不足时只降低 batch，不改变 seed 或切分：
@@ -71,10 +77,16 @@ python tools/embedding/train.py \
   --device cpu
 ```
 
-训练开始时会写 `training-config.json`，其中记录实际参数以及数据和 manifest
+正式训练一开始就会删除输出目录内任何旧的 `training-complete.json`，即使后续
+数据校验、依赖检查或 CUDA 检查失败，也不会留下误导性的旧成功标记；
+`--check-only` 则完全不触碰输出。训练开始时会写 `training-config.json`，其中记录实际参数以及数据和 manifest
 哈希。只有训练结束、模型保存并被 `SentenceTransformer` 重新加载成功后，才会
 写 `training-complete.json`。该 marker 是成功证明；仅有目录或 checkpoint 不
 代表训练完成。
+
+AutoDL 脚本在切换到仓库目录前将 `~`、相对和绝对输出路径统一规范化，并在
+启动训练 Python 前创建且验证 `training.log` 可写。依赖预检包含 `accelerate`；
+Python 或 `tee` 任一失败都会以非零状态退出。
 
 训练脚本只允许模型下载产生的常规网络访问，不读取或记录 API Key。云端运行
 后应保留 `training.log` 和模型目录，再用 `evaluate.py` 在固定测试集上生成真实

@@ -1,6 +1,8 @@
 import hashlib
 import json
+import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 
@@ -129,6 +131,8 @@ def test_direct_cli_check_only_does_not_need_training_dependencies(tmp_path: Pat
             str(script),
             "--data",
             str(data_dir),
+            "--output",
+            str(tmp_path / "model"),
             "--device",
             "cpu",
             "--batch-size",
@@ -144,6 +148,7 @@ def test_direct_cli_check_only_does_not_need_training_dependencies(tmp_path: Pat
     payload = json.loads(result.stdout)
     assert payload["actual_parameters"]["batch_size"] == 2
     assert payload["actual_parameters"]["device"] == "cpu"
+    assert not (tmp_path / "model").exists()
 
 
 def fake_training_stack(*, fail_reload: bool):
@@ -231,3 +236,191 @@ def test_completion_marker_is_written_only_after_successful_reload(tmp_path: Pat
     completion = json.loads((output_dir / "training-complete.json").read_text(encoding="utf-8"))
     assert completion["status"] == "complete"
     assert completion["manifest_sha256"] == data.manifest_sha256
+
+
+def test_main_invalidates_old_marker_before_manifest_validation(tmp_path: Path, monkeypatch):
+    data_dir = tmp_path / "data"
+    train_path, _ = write_dataset(data_dir)
+    train_path.write_text('{"query":"changed","positive":"changed"}\n', encoding="utf-8")
+    output_dir = tmp_path / "model"
+    output_dir.mkdir()
+    marker = output_dir / "training-complete.json"
+    marker.write_text('{"status":"old"}', encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["train", "--data", str(data_dir), "--output", str(output_dir), "--device", "cpu"],
+    )
+
+    with pytest.raises(ValueError, match="SHA-256"):
+        train_module.main()
+
+    assert not marker.exists()
+
+
+def test_main_invalidates_old_marker_before_dependency_import(tmp_path: Path, monkeypatch):
+    data_dir = tmp_path / "data"
+    write_dataset(data_dir)
+    output_dir = tmp_path / "model"
+    output_dir.mkdir()
+    marker = output_dir / "training-complete.json"
+    marker.write_text('{"status":"old"}', encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["train", "--data", str(data_dir), "--output", str(output_dir), "--device", "cpu"],
+    )
+    monkeypatch.setattr(
+        train_module,
+        "import_training_stack",
+        lambda: (_ for _ in ()).throw(ModuleNotFoundError("datasets")),
+    )
+
+    with pytest.raises(ModuleNotFoundError, match="datasets"):
+        train_module.main()
+
+    assert not marker.exists()
+
+
+def find_bash() -> str:
+    discovered = shutil.which("bash")
+    if discovered:
+        return discovered
+    candidate = Path(r"C:\Program Files\Git\bin\bash.exe")
+    if candidate.exists():
+        return str(candidate)
+    pytest.skip("bash is unavailable")
+
+
+def run_autodl(args: list[str], *, cwd: Path, env: dict[str, str] | None = None):
+    script = Path(train_module.__file__).with_name("train_autodl.sh")
+    return subprocess.run(
+        [find_bash(), str(script), *args],
+        cwd=cwd,
+        env={**os.environ, **(env or {})},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def write_mock_command(path: Path, body: str) -> Path:
+    path.write_text("#!/usr/bin/env bash\n" + body, encoding="utf-8", newline="\n")
+    path.chmod(0o755)
+    return path
+
+
+def test_autodl_check_only_skips_heavy_preflight_and_output_creation(tmp_path: Path):
+    data_dir = tmp_path / "data"
+    write_dataset(data_dir)
+    output_dir = tmp_path / "unused-output"
+
+    result = run_autodl(
+        [
+            "--data",
+            data_dir.as_posix(),
+            "--output",
+            output_dir.as_posix(),
+            "--device",
+            "cpu",
+            "--check-only",
+        ],
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert not output_dir.exists()
+
+
+def test_autodl_normalizes_relative_output_and_propagates_python_failure(tmp_path: Path):
+    data_dir = tmp_path / "data"
+    write_dataset(data_dir)
+    calls = tmp_path / "calls.txt"
+    fake_python = write_mock_command(
+        tmp_path / "fake-python",
+        'if [[ "$1" == "-c" ]]; then exit 0; fi\n'
+        'printf "%s\\n" "$*" >> "$MOCK_CALLS"\n'
+        'exit 7\n',
+    )
+    relative_output = Path("relative") / "model"
+    absolute_output = tmp_path / relative_output
+    absolute_output.mkdir(parents=True)
+    (absolute_output / "training-complete.json").write_text("old", encoding="utf-8")
+
+    result = run_autodl(
+        ["--data", data_dir.as_posix(), "--output", relative_output.as_posix(), "--device", "cpu"],
+        cwd=tmp_path,
+        env={"PYTHON_BIN": fake_python.as_posix(), "MOCK_CALLS": calls.as_posix()},
+    )
+
+    assert result.returncode == 7
+    assert not (absolute_output / "training-complete.json").exists()
+    assert (absolute_output / "training.log").exists()
+    invocation = calls.read_text(encoding="utf-8")
+    assert "--output relative/model" not in invocation
+    assert invocation.rstrip().endswith("/relative/model")
+
+
+def test_autodl_log_failure_removes_marker_without_starting_python(tmp_path: Path):
+    data_dir = tmp_path / "data"
+    write_dataset(data_dir)
+    output_dir = tmp_path / "model"
+    output_dir.mkdir()
+    (output_dir / "training-complete.json").write_text("old", encoding="utf-8")
+    (output_dir / "training.log").mkdir()
+    calls = tmp_path / "calls.txt"
+    fake_python = write_mock_command(
+        tmp_path / "fake-python",
+        'printf "%s\\n" "$*" >> "$MOCK_CALLS"\nexit 0\n',
+    )
+
+    result = run_autodl(
+        ["--data", data_dir.as_posix(), "--output", output_dir.as_posix(), "--device", "cpu"],
+        cwd=tmp_path,
+        env={"PYTHON_BIN": fake_python.as_posix(), "MOCK_CALLS": calls.as_posix()},
+    )
+
+    assert result.returncode != 0
+    assert not (output_dir / "training-complete.json").exists()
+    assert not calls.exists()
+
+
+def test_autodl_dependency_failure_removes_marker_and_checks_accelerate(tmp_path: Path):
+    data_dir = tmp_path / "data"
+    write_dataset(data_dir)
+    output_dir = tmp_path / "model"
+    output_dir.mkdir()
+    marker = output_dir / "training-complete.json"
+    marker.write_text("old", encoding="utf-8")
+    fake_python = write_mock_command(
+        tmp_path / "fake-python",
+        'if [[ "$1" == "-c" && "$2" == *accelerate* ]]; then exit 3; fi\nexit 5\n',
+    )
+
+    result = run_autodl(
+        ["--data", data_dir.as_posix(), "--output", output_dir.as_posix(), "--device", "cpu"],
+        cwd=tmp_path,
+        env={"PYTHON_BIN": fake_python.as_posix()},
+    )
+
+    assert result.returncode == 1
+    assert not marker.exists()
+    assert "训练依赖缺失" in result.stderr
+
+
+def test_autodl_propagates_tee_failure(tmp_path: Path):
+    data_dir = tmp_path / "data"
+    write_dataset(data_dir)
+    fake_python = write_mock_command(
+        tmp_path / "fake-python",
+        'if [[ "$1" == "-c" ]]; then exit 0; fi\necho training\nexit 0\n',
+    )
+    fake_tee = write_mock_command(tmp_path / "fake-tee", "exit 9\n")
+
+    result = run_autodl(
+        ["--data", data_dir.as_posix(), "--output", "model", "--device", "cpu"],
+        cwd=tmp_path,
+        env={"PYTHON_BIN": fake_python.as_posix(), "TEE_BIN": fake_tee.as_posix()},
+    )
+
+    assert result.returncode == 9
