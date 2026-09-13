@@ -68,6 +68,27 @@ def test_embeddings_contract_and_server_controlled_model_name():
     assert [call[0] for call in fake.calls] == [["铜钟", "车票"], ["钥匙"]]
 
 
+@pytest.mark.parametrize("served_model_name", [None, "   "])
+def test_default_served_model_name_does_not_expose_model_path(served_model_name):
+    app = create_app(
+        Path(r"C:\private\models\sk-secret-model"),
+        served_model_name=served_model_name,
+        model_loader=lambda _path: FakeModel(),
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/embeddings",
+            json={"model": "caller-label", "input": "铜钟"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["model"] == "trpg-embedding"
+    assert "private" not in response.text
+    assert "secret" not in response.text
+    assert "caller-label" not in response.text
+
+
 @pytest.mark.parametrize(
     "payload",
     [

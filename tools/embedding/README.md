@@ -118,5 +118,6 @@ python tools/embedding/serve.py \
 ```
 
 服务固定返回自身配置的 `served-model-name`，不会采用调用者传入的名称伪装实际
-模型。由于 SentenceTransformer 不提供 OpenAI token 计数，响应中的
+模型。省略或传入空白公开名时固定使用 `trpg-embedding`，不会从本地模型目录名
+推导，避免路径命名泄漏。由于 SentenceTransformer 不提供 OpenAI token 计数，响应中的
 `prompt_tokens` 与 `total_tokens` 均明确返回 0。

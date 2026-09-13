@@ -50,8 +50,10 @@ def create_app(
 
     path = Path(model_path)
     public_model_name = (
-        served_model_name.strip() if served_model_name and served_model_name.strip() else path.name
-    ) or "embedding-model"
+        served_model_name.strip()
+        if served_model_name and served_model_name.strip()
+        else "trpg-embedding"
+    )
     encode_lock = threading.Lock()
 
     def _encode(model: object, texts: list[str]):
@@ -114,7 +116,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--served-model-name",
         default=os.environ.get("TRPG_EMBEDDING_SERVED_MODEL"),
-        help="server-controlled model name (env: TRPG_EMBEDDING_SERVED_MODEL)",
+        help=(
+            "server-controlled model name; defaults to trpg-embedding "
+            "(env: TRPG_EMBEDDING_SERVED_MODEL)"
+        ),
     )
     parser.add_argument(
         "--host",
