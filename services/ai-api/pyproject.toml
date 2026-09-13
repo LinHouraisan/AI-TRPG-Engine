@@ -1,0 +1,25 @@
+[project]
+name = "ai-trpg-gateway"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.116,<1",
+  "uvicorn[standard]>=0.35,<1",
+  "langchain>=1,<2",
+  "langchain-openai>=1,<2",
+  "sqlalchemy>=2,<3",
+  "psycopg[binary]>=3.2,<4",
+  "pydantic-settings>=2,<3",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8,<9",
+  "pytest-asyncio>=0.24,<2",
+  "httpx>=0.28,<1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
