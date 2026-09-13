@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: trpg
+      POSTGRES_USER: trpg
+      POSTGRES_PASSWORD: trpg
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trpg -d trpg"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://trpg:trpg@postgres:5432/trpg
+      UPSTREAM_BASE_URL: https://api.deepseek.com
+      UPSTREAM_API_KEY: ${UPSTREAM_API_KEY:-}
+      CHAT_MODEL: ${CHAT_MODEL:-deepseek-v4-flash}
+      EMBEDDING_BASE_URL: http://host.docker.internal:11434/v1
+      EMBEDDING_API_KEY: ollama
+      EMBEDDING_MODEL: bge-m3
+      RETRIEVER_BACKEND: json
+      RAG_INDEX_PATH: /data/rag-index.json
+    volumes:
+      - ../../electron/data:/data:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
