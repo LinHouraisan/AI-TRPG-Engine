@@ -73,4 +73,3 @@ def test_agent_without_executed_tool_cannot_claim_success(tmp_path):
     assert body["evidence"] == []
     assert "成功" not in body["resolution"]
     assert "模型自行宣称" not in body["explanation"]
-

@@ -21,4 +21,3 @@ def test_postgresql_round_trip():
         )
     )
     recorder.engine.dispose()
-

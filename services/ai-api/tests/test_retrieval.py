@@ -67,4 +67,3 @@ def test_factory_rejects_unknown_backend(tmp_path: Path):
 
     with pytest.raises(ValueError, match="milvus"):
         create_retriever(settings, FakeEmbedder())
-

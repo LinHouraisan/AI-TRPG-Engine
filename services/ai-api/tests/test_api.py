@@ -108,4 +108,3 @@ def test_upstream_failure_returns_redacted_503(tmp_path):
     assert response.status_code == 503
     assert "api.deepseek.com" not in response.text
     assert "sk-secret-value" not in response.text
-

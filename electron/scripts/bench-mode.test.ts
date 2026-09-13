@@ -19,4 +19,3 @@ test.each(["rag", "lora"])("%s mode injects retrieval dependencies", (mode) => {
 
   expect(generationRetrieval(mode, index, () => embed)).toEqual({ index, embed });
 });
-

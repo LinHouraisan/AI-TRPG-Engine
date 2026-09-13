@@ -21,4 +21,3 @@ def test_settings_accept_postgresql_url(monkeypatch):
     settings = Settings(_env_file=None)
 
     assert settings.database_url.startswith("postgresql+psycopg://")
-

@@ -35,4 +35,3 @@ def test_postgresql_url_selects_postgresql_driver_without_connecting():
 
     assert recorder.engine.dialect.name == "postgresql"
     recorder.engine.dispose()
-
