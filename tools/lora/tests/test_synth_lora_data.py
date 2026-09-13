@@ -37,6 +37,27 @@ def test_offline_generation_enforces_player_safe_unique_outputs():
     assert all("检定失败" not in output for output in outputs)
 
 
+def test_offline_inputs_include_player_safe_scene_context_without_internal_ids():
+    rows = synthesize_offline(FIXTURE_PACKS, total=80, seed=8503)
+
+    assert all("场景公开信息：" in row["input"] for row in rows)
+    assert all("玩家行动：" in row["input"] for row in rows)
+    assert all(row["meta"]["entity_id"] not in row["input"] for row in rows)
+    assert all(row["meta"]["group"] not in row["input"] for row in rows)
+    assert all(
+        row["input"].split("场景公开信息：", 1)[1].split("公开线索：", 1)[0].split("\n玩家行动：", 1)[0]
+        in row["output"]
+        for row in rows
+    )
+
+    inputs_by_family = {}
+    for row in rows:
+        family = (row["meta"]["pack"], row["meta"]["kind"], row["meta"]["entity_id"])
+        inputs_by_family.setdefault(family, set()).add(row["input"])
+    assert len(inputs_by_family) > 1
+    assert len({next(iter(inputs)) for inputs in inputs_by_family.values()}) > 1
+
+
 def test_player_rows_exclude_every_secret_marker_and_have_stable_groups():
     rows = synthesize_offline(FIXTURE_PACKS, total=400, seed=8503)
     secrets = []
@@ -80,7 +101,7 @@ def test_unrelated_scenes_do_not_claim_a_public_fact_is_established():
     )
 
 
-def test_manifest_keeps_api_rows_out_of_template_source_count(tmp_path):
+def test_candidate_manifest_keeps_api_rows_out_of_template_source_count(tmp_path):
     rows = [
         {
             "instruction": "主持人",
@@ -98,7 +119,8 @@ def test_manifest_keeps_api_rows_out_of_template_source_count(tmp_path):
 
     _write_training_data(tmp_path, rows)
 
-    manifest = json.loads((tmp_path / "dataset_info.json").read_text(encoding="utf-8"))
+    assert not (tmp_path / "dataset_info.json").exists()
+    manifest = json.loads((tmp_path / "candidate_manifest.json").read_text(encoding="utf-8"))
     assert manifest["sources"]["api-model"]["count"] == 1
     assert manifest["sources"]["human-authored"]["count"] == 1
     assert "synthetic-template" not in manifest["sources"]

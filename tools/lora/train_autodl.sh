@@ -4,7 +4,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_PATH="${LORA_CONFIG:-$SCRIPT_DIR/lora_qwen3b.yaml}"
-DATA_DIR="$SCRIPT_DIR/data"
+DATA_DIR="${LORA_DATA_DIR:-$SCRIPT_DIR/data}"
+LORE_ROOT="${LORA_LORE_ROOT:-$SCRIPT_DIR/../../electron/content/packs}"
+SYNTHETIC_TOTAL="${LORA_TOTAL:-400}"
+DATA_SEED="${LORA_SEED:-8503}"
 MERGED_DIR="${LORA_MERGED_DIR:-$SCRIPT_DIR/merged-qwen2.5-3b-trpg}"
 LOG_DIR="${LORA_LOG_DIR:-$SCRIPT_DIR/logs}"
 LLAMAFACTORY_CLI="${LLAMAFACTORY_CLI:-llamafactory-cli}"
@@ -18,8 +21,13 @@ elif [[ $# -ne 0 ]]; then
   exit 2
 fi
 
-for path in "$CONFIG_PATH" "$SCRIPT_DIR/prepare_dataset.py" "$SCRIPT_DIR/merge_lora.py" \
-  "$DATA_DIR/train.jsonl" "$DATA_DIR/seeds.jsonl" "$DATA_DIR/dataset_info.json"; do
+SEED_PATH="$DATA_DIR/seeds.jsonl"
+if [[ ! -f "$SEED_PATH" ]]; then
+  SEED_PATH="$SCRIPT_DIR/data/seeds.jsonl"
+fi
+
+for path in "$CONFIG_PATH" "$SCRIPT_DIR/synth_lora_data.py" "$SCRIPT_DIR/prepare_dataset.py" \
+  "$SCRIPT_DIR/merge_lora.py" "$SEED_PATH"; do
   if [[ ! -f "$path" ]]; then
     echo "缺少必需文件：$path" >&2
     exit 1
@@ -27,14 +35,22 @@ for path in "$CONFIG_PATH" "$SCRIPT_DIR/prepare_dataset.py" "$SCRIPT_DIR/merge_l
 done
 command -v python >/dev/null 2>&1 || { echo "缺少 python" >&2; exit 1; }
 
-echo "==> 1/4 按固定 seed 生成训练、验证和测试切分"
+echo "==> 1/5 从玩家可见内容离线生成候选数据"
+python "$SCRIPT_DIR/synth_lora_data.py" \
+  --offline \
+  --total "$SYNTHETIC_TOTAL" \
+  --seed "$DATA_SEED" \
+  --lore "$LORE_ROOT" \
+  --out "$DATA_DIR"
+
+echo "==> 2/5 按固定 seed 生成训练、验证和测试切分"
 python "$SCRIPT_DIR/prepare_dataset.py" \
   --input "$DATA_DIR/train.jsonl" \
-  --seeds "$DATA_DIR/seeds.jsonl" \
+  --seeds "$SEED_PATH" \
   --out "$DATA_DIR" \
-  --seed 8503
+  --seed "$DATA_SEED"
 
-echo "==> 2/4 校验 LLaMA-Factory 数据注册和配置"
+echo "==> 3/5 校验 LLaMA-Factory 数据注册和配置"
 RUN_OUTPUT="$(python - "$CONFIG_PATH" <<'PY'
 import json
 from pathlib import Path
@@ -180,7 +196,7 @@ run_training() {
   echo "数据：${RUN_VALUES[2]}"
   echo "LLaMA-Factory：$(command -v "$LLAMAFACTORY_CLI")"
 
-  echo "==> 3/4 训练 Adapter"
+  echo "==> 4/5 训练 Adapter"
   (
     cd "$SCRIPT_DIR"
     "$LLAMAFACTORY_CLI" train "$CONFIG_PATH"
@@ -213,7 +229,7 @@ print(
 )
 PY
 
-  echo "==> 4/4 合并 Adapter"
+  echo "==> 5/5 合并 Adapter"
   python "$SCRIPT_DIR/merge_lora.py" \
     --base "$BASE_MODEL" \
     --adapter "$ADAPTER_DIR" \

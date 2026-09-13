@@ -4,7 +4,7 @@
     python tools/lora/synth_lora_data.py --total 800 --seeds 40 \
         --lore electron/content/packs --out tools/lora/data
 
-输出：train.jsonl + dataset_info.json（LLaMA-Factory 直接可读）
+输出：train.jsonl + candidate_manifest.json（候选数据及来源摘要）
 """
 from __future__ import annotations
 
@@ -163,6 +163,14 @@ def build_output(scene: Scene, variant: int) -> str:
     return f"{opening}{clue}{check}{ACTION_HOOK}"
 
 
+def build_input(scene: Scene, variant: int) -> str:
+    """只把生成回复所依据的玩家可见文本放进模型输入。"""
+    context = scene.detail
+    if scene.clue:
+        context += f"公开线索：{scene.clue}。"
+    return f"场景公开信息：{context}\n玩家行动：{INPUTS[variant % len(INPUTS)]}"
+
+
 def _read_records(path: Path) -> list[dict]:
     if not path.exists():
         return []
@@ -284,7 +292,7 @@ def synthesize_offline(lore_root: Path, total: int, seed: int) -> list[dict]:
     for scene, variant in candidates:
         row = {
             "instruction": INSTRUCTION,
-            "input": INPUTS[variant % len(INPUTS)],
+            "input": build_input(scene, variant),
             "output": build_output(scene, variant),
             "meta": {
                 "source": "synthetic-template",
@@ -322,13 +330,10 @@ def _write_training_data(out_dir: Path, rows: list[dict]) -> None:
     with (out_dir / "train.jsonl").open("w", encoding="utf-8") as f:
         for row in rows:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
-    (out_dir / "dataset_info.json").write_text(
+    (out_dir / "candidate_manifest.json").write_text(
         json.dumps(
             {
-                "trpg_dm": {
-                    "file_name": "train.jsonl",
-                    "columns": {"prompt": "instruction", "query": "input", "response": "output"},
-                },
+                "candidate_file": "train.jsonl",
                 "sources": _source_counts(rows),
             },
             ensure_ascii=False,

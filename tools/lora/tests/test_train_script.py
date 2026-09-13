@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import os
 import shutil
 import subprocess
@@ -49,12 +50,51 @@ def test_cloud_script_is_portable_and_validates_the_real_pipeline():
     assert "/root/autodl-tmp" not in source
     assert "--check-only" in source
     assert "prepare_dataset.py" in source
+    assert "synth_lora_data.py" in source
+    assert "LORA_DATA_DIR" in source
     assert "dataset_info.json" in source
     assert '"$LLAMAFACTORY_CLI" train "$CONFIG_PATH"' in source
     assert "adapter_config.json" in source
     assert "trainer_state.json" in source
     assert "merge_lora.py" in source
     assert "nvidia-smi" in source
+
+
+def test_check_only_builds_and_validates_a_fresh_offline_dataset(tmp_path: Path):
+    data_dir = tmp_path / "fresh-data"
+    config = tmp_path / "train.yaml"
+    _write_config(config, model="Qwen/Qwen2.5-3B-Instruct", adapter=tmp_path / "adapter")
+    config.write_text(
+        config.read_text(encoding="utf-8").replace(
+            f'"{DATA_DIR.as_posix()}"', f'"{data_dir.as_posix()}"'
+        ),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [_bash(), str(SCRIPT), "--check-only"],
+        cwd=SCRIPT.parents[2],
+        env={
+            **os.environ,
+            "LORA_CONFIG": str(config),
+            "LORA_DATA_DIR": str(data_dir),
+            "LORA_LORE_ROOT": str(SCRIPT.parents[2] / "electron" / "content" / "packs"),
+            "LORA_TOTAL": "40",
+        },
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (data_dir / "train.jsonl").is_file()
+    assert (data_dir / "candidate_manifest.json").is_file()
+    assert (data_dir / "train.sft.jsonl").is_file()
+    assert (data_dir / "validation.sft.jsonl").is_file()
+    assert (data_dir / "test.prompts.jsonl").is_file()
+    registry = json.loads((data_dir / "dataset_info.json").read_text(encoding="utf-8"))
+    assert registry["trpg_dm_train"]["file_name"] == "train.sft.jsonl"
+    assert registry["trpg_dm_validation"]["file_name"] == "validation.sft.jsonl"
 
 
 def test_cloud_script_does_not_install_upload_or_publish():

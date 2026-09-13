@@ -20,6 +20,7 @@ tools/lora/data/train.sft.jsonl
 tools/lora/data/validation.sft.jsonl
 tools/lora/data/test.prompts.jsonl
 tools/lora/data/manifest.json
+tools/lora/data/candidate_manifest.json
 tools/embedding/data/*
 !tools/embedding/data/.gitkeep
 tools/embedding/saves/

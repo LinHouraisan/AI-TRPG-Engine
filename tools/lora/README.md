@@ -7,8 +7,8 @@
 | 文件 | 作用 |
 | --- | --- |
 | `data/seeds.jsonl` | 20 条人工校对的冷峻叙事种子，离线扩展时始终保留 |
-| `data/train.jsonl` | 人工种子与合成样本合并后的训练集，可直接做 smoke train |
-| `data/dataset_info.json` | LLaMA-Factory Alpaca 数据映射 |
+| `data/train.jsonl` | 人工种子与合成样本合并后的候选数据 |
+| `data/dataset_info.json` | 由 `prepare_dataset.py` 原子生成的 LLaMA-Factory 权威数据映射 |
 | `synth_lora_data.py` | 从模组语料扩展 200–800 条 SFT 数据 |
 | `lora_qwen3b.yaml` | Qwen2.5-3B LoRA 训练参数 |
 | `train_autodl.sh` | AutoDL 单卡环境校验、训练、合并入口（不自动安装依赖） |
@@ -22,25 +22,40 @@
 
 提交的 20 条样例用于验证数据格式、训练配置和端到端链路，定位是“风格微调 smoke set”，不是宣称已经得到稳定泛化效果。所有输出遵循统一目标：第二人称、冷峻克制、场景推进、必要时提示检定，并以“你要怎么做？”收尾。
 
-在装有 LLaMA-Factory 的环境中：
+在装有 LLaMA-Factory 的环境中，推荐使用统一入口先重建并检查数据，再启动训练：
 
 ```bash
-cd tools/lora
-llamafactory-cli train lora_qwen3b.yaml
+bash tools/lora/train_autodl.sh --check-only
+bash tools/lora/train_autodl.sh
 ```
 
-配置采用 Qwen2.5-3B-Instruct、LoRA rank 16、`q_proj/v_proj`、3 epoch。20 条数据可以快速验证链路；用于正式风格实验时，先扩展数据规模。
+统一入口按固定 seed 依次执行离线候选生成、family 分组切分、数据注册校验，再在非
+`--check-only` 模式执行训练和合并。配置采用 Qwen2.5-3B-Instruct、LoRA rank 16、
+`q_proj/v_proj`、3 epoch。
 
 ## 扩展训练数据
 
-默认的离线扩展不需要 API 或密钥；它只组合内容包中已公开的房间、NPC 台词、物品描述和事实。秘密事实及关联实体不会进入训练集，避免 LLaMA-Factory 映射忽略 `meta` 时泄露给玩家样本。每条模板样本都有 `meta.source: "synthetic-template"` 和按内容包/实体生成的稳定 `meta.group`；人工种子则标记为 `human-authored`。
+默认的离线扩展不需要 API 或密钥；它只组合内容包中已公开的房间、NPC 台词、物品描述和事实。
+生成器会排除显式关联秘密事实的实体，以及正文命中秘密标题或守秘短语的实体；它不声称能识别
+所有经过多步事件才可能揭示秘密的玩法路径。每个模型 `input` 都包含生成该回复所需的玩家可见
+场景文本和玩家行动，不包含实体 ID、family 或其他内部元数据。每条模板样本都有
+`meta.source: "synthetic-template"` 和按内容包/实体生成的稳定 `meta.group`；人工种子则标记为
+`human-authored`。
 
 ```powershell
 python tools/lora/synth_lora_data.py --offline --total 400 --seed 8503 `
   --lore electron/content/packs --out tools/lora/data
 ```
 
-该命令会保留 20 条 `seeds.jsonl` 人工种子，并向 `train.jsonl` 追加 400 条确定性的模板样本；`dataset_info.json` 的 `sources` 字段会按实际来源记录数量。输出会拒绝空字段、重复回复、60–220 字范围外的回复、非固定行动钩子结尾，以及替玩家宣告骰点或检定成败的措辞。训练/评估的物理切分留给后续流程；本步骤只提供稳定分组键。
+该命令会保留 20 条 `seeds.jsonl` 人工种子，并向 `train.jsonl` 追加 400 条确定性的模板样本；
+`candidate_manifest.json` 记录候选来源计数。它不会写入或覆盖 `dataset_info.json`。输出会拒绝空字段、
+重复回复、60–220 字范围外的回复、非固定行动钩子结尾，以及替玩家宣告骰点或检定成败的措辞。
+若不用统一入口，必须继续执行准备步骤，生成训练配置引用的 split 和权威注册表：
+
+```powershell
+python tools/lora/prepare_dataset.py --input tools/lora/data/train.jsonl `
+  --seeds tools/lora/data/seeds.jsonl --out tools/lora/data --seed 8503
+```
 
 如需让外部模型补充更多候选数据，仍可在仓库根目录设置 OpenAI-compatible 模型服务。密钥只放环境变量，不写入文件：
 
@@ -52,7 +67,8 @@ python tools/lora/synth_lora_data.py --total 400 --seeds 40 `
   --lore electron/content/packs --out tools/lora/data
 ```
 
-在线生成会覆盖 `data/train.jsonl` 和 `data/dataset_info.json`；正式训练建议人工抽检至少 10%，重点剔除事实冲突、模型自编骰点、半截句和格式漂移。
+在线生成只会覆盖 `data/train.jsonl` 和候选摘要，不会覆盖训练注册表；完成后同样必须运行
+`prepare_dataset.py`。正式训练建议人工抽检至少 10%，重点剔除事实冲突、模型自编骰点、半截句和格式漂移。
 
 ## 云端单卡训练与合并
 
@@ -80,7 +96,7 @@ llamafactory-cli --help
 ### 执行步骤
 
 在仓库根目录先做不需要 GPU 的数据与配置检查。该命令会按固定 seed 重新生成 Task 2 的
-`train.sft.jsonl`、`validation.sft.jsonl`、`test.prompts.jsonl` 和 `manifest.json`，并确认
+候选数据、`train.sft.jsonl`、`validation.sft.jsonl`、`test.prompts.jsonl` 和 `manifest.json`，并确认
 `dataset_info.json` 中的训练集、验证集注册与 YAML 一致：
 
 ```bash
@@ -93,7 +109,9 @@ bash tools/lora/train_autodl.sh --check-only
 bash tools/lora/train_autodl.sh
 ```
 
-脚本依次执行稳定切分、注册校验、`llamafactory-cli train` 和 `merge_lora.py`。默认产物位于：
+脚本依次执行离线生成、稳定切分、注册校验、`llamafactory-cli train` 和 `merge_lora.py`。
+可用 `LORA_DATA_DIR`、`LORA_LORE_ROOT`、`LORA_TOTAL` 和 `LORA_SEED` 显式调整可再生成数据的位置、
+公开内容包、模板数量和随机种子；训练 YAML 的 `dataset_dir` 必须指向同一数据目录。默认产物位于：
 
 - Adapter：`tools/lora/saves/qwen2.5-3b-lora-trpg`（来自 YAML 的 `output_dir`）；
 - 合并模型：`tools/lora/merged-qwen2.5-3b-trpg`；

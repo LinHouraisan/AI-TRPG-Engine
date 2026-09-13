@@ -75,6 +75,23 @@ def test_sft_rows_are_nonempty_alpaca_records_without_metadata(tmp_path: Path):
             assert all(row[field].strip() for field in row)
 
 
+def test_prepare_is_the_authoritative_dataset_registry_writer(tmp_path: Path):
+    split_dataset(FIXTURE_ROWS, tmp_path, seed=8503)
+
+    registry = json.loads((tmp_path / "dataset_info.json").read_text(encoding="utf-8"))
+    expected_columns = {"prompt": "instruction", "query": "input", "response": "output"}
+    assert registry["trpg_dm_train"] == {
+        "file_name": "train.sft.jsonl",
+        "columns": expected_columns,
+    }
+    assert registry["trpg_dm_validation"] == {
+        "file_name": "validation.sft.jsonl",
+        "columns": expected_columns,
+    }
+    assert registry["sources"]["synthetic-template"]["count"] == 10
+    assert registry["sources"]["human-authored"]["count"] == 1
+
+
 def test_test_prompts_keep_reference_source_and_group(tmp_path: Path):
     split_dataset(FIXTURE_ROWS, tmp_path, seed=8503)
 
@@ -248,3 +265,28 @@ def test_current_dataset_uses_one_family_namespace_for_every_split(tmp_path: Pat
     shop_seed = next(row for row in rows if row["input"] == "我仔细看玻璃柜里发黄的合影。")
     shop_template = next(row for row in rows if row["meta"]["group"] == "photo-studio:room:loc.shop")
     assert shop_seed["meta"]["family_group"] == shop_template["meta"]["family_group"]
+
+
+def test_synthetic_test_prompts_do_not_repeat_train_prompts_across_families(tmp_path: Path):
+    rows = load_candidate_rows(LORA_ROOT / "data" / "train.jsonl", LORA_ROOT / "data" / "seeds.jsonl")
+    split_dataset(rows, tmp_path, seed=8503)
+
+    source_by_output = {row["output"]: row["meta"]["source"] for row in rows}
+    train_prompts = {
+        f"{row['instruction']}\n\n{row['input']}"
+        for row in _rows(tmp_path / "train.sft.jsonl")
+    }
+    synthetic_test_prompts = {
+        row["prompt"]
+        for row in _rows(tmp_path / "test.prompts.jsonl")
+        if source_by_output[row["reference_output"]] == "synthetic-template"
+    }
+    synthetic_inputs_by_family = {}
+    for row in rows:
+        if row["meta"]["source"] != "synthetic-template":
+            continue
+        synthetic_inputs_by_family.setdefault(row["input"], set()).add(row["meta"]["family_group"])
+
+    assert synthetic_test_prompts
+    assert synthetic_test_prompts.isdisjoint(train_prompts)
+    assert all(len(families) == 1 for families in synthetic_inputs_by_family.values())

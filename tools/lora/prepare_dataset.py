@@ -10,6 +10,7 @@ import random
 
 SPLIT_RATIOS = (0.8, 0.1, 0.1)
 SFT_FIELDS = ("instruction", "input", "output")
+ALPACA_COLUMNS = {"prompt": "instruction", "query": "input", "response": "output"}
 
 
 def _fact_ids(value: object) -> set[str]:
@@ -149,6 +150,34 @@ def _source_counts(rows: list[dict]) -> dict[str, int]:
     return counts
 
 
+def _write_dataset_registry(out_dir: Path, rows: list[dict]) -> None:
+    """原子写入 LLaMA-Factory 唯一权威数据注册表。"""
+    counts = _source_counts(rows)
+    sources = {
+        source: (
+            {"file_name": "seeds.jsonl", "count": count}
+            if source == "human-authored"
+            else {"count": count}
+        )
+        for source, count in counts.items()
+    }
+    registry = {
+        "trpg_dm_train": {
+            "file_name": "train.sft.jsonl",
+            "columns": ALPACA_COLUMNS,
+        },
+        "trpg_dm_validation": {
+            "file_name": "validation.sft.jsonl",
+            "columns": ALPACA_COLUMNS,
+        },
+        "sources": sources,
+    }
+    target = out_dir / "dataset_info.json"
+    temporary = out_dir / ".dataset_info.json.tmp"
+    temporary.write_text(json.dumps(registry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(target)
+
+
 def split_dataset(rows: list[dict], out_dir: Path, seed: int = 8503) -> dict:
     """稳定地按 ``meta.group`` 切分候选行，避免同场景跨数据集泄漏。"""
     grouped: dict[str, list[dict]] = defaultdict(list)
@@ -204,6 +233,7 @@ def split_dataset(rows: list[dict], out_dir: Path, seed: int = 8503) -> dict:
     (out_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
+    _write_dataset_registry(out_dir, rows)
     return manifest
 
 
