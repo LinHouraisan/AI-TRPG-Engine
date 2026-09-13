@@ -15,12 +15,18 @@ from urllib.request import Request, urlopen
 ACTION_HOOK = "你要怎么做？"
 MIN_OUTPUT_LENGTH = 60
 MAX_OUTPUT_LENGTH = 220
-_CLAUSE_BOUNDARY = re.compile(r"[，,；;。！？\n]+")
+_STRONG_BOUNDARY = re.compile(r"[；;。！？\n]+")
+_WEAK_BOUNDARY = re.compile(r"[，,、]+")
 _CONDITIONAL_LEAD = re.compile(r"^(?:若|如果|当|只要|假如|倘若)")
+_CONDITIONAL_BEFORE_RESULT = re.compile(
+    r"(?:^|[，,、])\s*(?:若|如果|当|只要|假如|倘若)"
+)
 _EXPLICIT_RESULT = re.compile(
     r"(?:检定|判定)(?:结果(?:为|是))?(?:成功|失败|通过)"
 )
-_CONDITIONAL_RESULT_SUFFIX = re.compile(r"^\s*(?:时|的话|后)")
+_CONDITIONAL_RESULT_SUFFIX = re.compile(
+    r"^\s*[，,、]?\s*(?:时|以后|之后|的话|便|则|就|后)"
+)
 _PLAYER_ROLL = re.compile(
     r"^(?:你(?:们)?|玩家(?:角色)?|调查员)\s*"
     r"(?:掷|投)(?:出(?:了)?|了|得|到)\s*"
@@ -37,16 +43,19 @@ class StyleMetrics:
 
 
 def _contains_illegal_roll(output: str) -> bool:
-    for clause in _CLAUSE_BOUNDARY.split(output):
-        clause = clause.strip()
-        if not clause:
+    for segment in _STRONG_BOUNDARY.split(output):
+        segment = segment.strip()
+        if not segment:
             continue
-        conditional = bool(_CONDITIONAL_LEAD.match(clause))
-        for result in _EXPLICIT_RESULT.finditer(clause):
-            if not conditional and not _CONDITIONAL_RESULT_SUFFIX.match(clause[result.end() :]):
+        for result in _EXPLICIT_RESULT.finditer(segment):
+            conditional_before = _CONDITIONAL_BEFORE_RESULT.search(segment[: result.start()])
+            conditional_after = _CONDITIONAL_RESULT_SUFFIX.match(segment[result.end() :])
+            if not conditional_before and not conditional_after:
                 return True
-        if not conditional and _PLAYER_ROLL.match(clause):
-            return True
+        for clause in _WEAK_BOUNDARY.split(segment):
+            clause = clause.strip()
+            if clause and not _CONDITIONAL_LEAD.match(clause) and _PLAYER_ROLL.match(clause):
+                return True
     return False
 
 
