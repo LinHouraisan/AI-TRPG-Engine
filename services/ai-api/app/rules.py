@@ -51,26 +51,28 @@ def roll_for(seed: str, turn_id: str, sides: int) -> int:
     return 1 + int(value * sides)
 
 
-_NOTATION = re.compile(r"^(?P<count>\d+)d(?P<sides>\d+)(?P<modifier>[+-]\d+)?$")
+_NOTATION = re.compile(
+    r"^(?P<count>\d+)d(?P<sides>\d+)\s*(?P<modifier>[+-]\s*\d+)?$",
+    re.IGNORECASE,
+)
 
 
 def roll_notation(notation: str, seed: str, turn_id: str) -> RollEvidence:
-    match = _NOTATION.fullmatch(notation.strip().lower())
+    match = _NOTATION.fullmatch(notation.strip())
     if not match:
         raise ValueError("骰子表达式必须类似 2d6+3")
     count = int(match.group("count"))
     sides = int(match.group("sides"))
-    modifier = int(match.group("modifier") or 0)
+    modifier = int((match.group("modifier") or "0").replace(" ", ""))
     if not 1 <= count <= 20:
         raise ValueError("骰子数量必须在 1 到 20 之间")
     if not 2 <= sides <= 1000:
         raise ValueError("骰子面数必须在 2 到 1000 之间")
 
-    normalized = f"{count}d{sides}{modifier:+d}" if modifier else f"{count}d{sides}"
-    rolls = [roll_for(seed, f"{turn_id}:{normalized}:{index}", sides) for index in range(count)]
+    rolls = [roll_for(seed, f"{turn_id}:{notation}:{index}", sides) for index in range(count)]
     return RollEvidence(
         tool="roll_dice",
-        notation=normalized,
+        notation=notation,
         rolls=rolls,
         modifier=modifier,
         total=sum(rolls) + modifier,

@@ -15,6 +15,14 @@ def test_same_turn_replays_same_evidence():
     assert first == roll_notation("2d6+3", "seed", "turn-7")
 
 
+def test_roll_notation_uses_same_raw_expression_key_as_typescript():
+    evidence = roll_notation("2D6 + 3", "seed", "turn-9")
+
+    assert evidence.rolls == [2, 1]
+    assert evidence.modifier == 3
+    assert evidence.total == 6
+
+
 def test_program_resolution_rejects_hallucinated_numbers():
     evidence = skill_check(3, 12, 20, "seed", "turn-7")
     result = canonical_rule_result([evidence], "我掷出了 999 点并自动成功")
@@ -37,4 +45,3 @@ def test_no_tool_evidence_stays_undecided():
 def test_roll_notation_rejects_invalid_or_unbounded_dice(notation):
     with pytest.raises(ValueError):
         roll_notation(notation, "seed", "turn-1")
-
