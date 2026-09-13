@@ -23,14 +23,14 @@ def _bash() -> str:
     return bash
 
 
-def _write_config(path: Path, *, model: str, adapter: Path) -> None:
+def _write_config(path: Path, *, model: str, adapter: Path, data_dir: Path = DATA_DIR) -> None:
     path.write_text(
         textwrap.dedent(
             f"""
             model_name_or_path: {model}
             dataset: trpg_dm_train
             eval_dataset: trpg_dm_validation
-            dataset_dir: "{DATA_DIR.as_posix()}"
+            dataset_dir: "{data_dir.as_posix()}"
             output_dir: "{adapter.as_posix()}"
             """
         ).strip()
@@ -42,6 +42,30 @@ def _write_config(path: Path, *, model: str, adapter: Path) -> None:
 def _write_executable(path: Path, source: str) -> None:
     path.write_text(source, encoding="utf-8", newline="\n")
     path.chmod(0o755)
+
+
+def _write_curated_candidates(path: Path) -> str:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = [
+        {
+            "instruction": "主持人",
+            "input": f"人工筛选行动 {index}",
+            "output": f"人工修订标记 {index}。你要怎么做？",
+            "meta": {
+                "source": "api-model" if index == 0 else "human-authored",
+                "visibility": "player",
+                "pack": "curated",
+                "kind": "room",
+                "entity_id": f"loc.{index}",
+                "group": f"curated:room:loc.{index}",
+                "family_group": f"curated:family:{index}",
+            },
+        }
+        for index in range(5)
+    ]
+    content = "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows)
+    path.write_text(content, encoding="utf-8")
+    return content
 
 
 def test_cloud_script_is_portable_and_validates_the_real_pipeline():
@@ -63,12 +87,11 @@ def test_cloud_script_is_portable_and_validates_the_real_pipeline():
 def test_check_only_builds_and_validates_a_fresh_offline_dataset(tmp_path: Path):
     data_dir = tmp_path / "fresh-data"
     config = tmp_path / "train.yaml"
-    _write_config(config, model="Qwen/Qwen2.5-3B-Instruct", adapter=tmp_path / "adapter")
-    config.write_text(
-        config.read_text(encoding="utf-8").replace(
-            f'"{DATA_DIR.as_posix()}"', f'"{data_dir.as_posix()}"'
-        ),
-        encoding="utf-8",
+    _write_config(
+        config,
+        model="Qwen/Qwen2.5-3B-Instruct",
+        adapter=tmp_path / "adapter",
+        data_dir=data_dir,
     )
 
     result = subprocess.run(
@@ -95,6 +118,108 @@ def test_check_only_builds_and_validates_a_fresh_offline_dataset(tmp_path: Path)
     registry = json.loads((data_dir / "dataset_info.json").read_text(encoding="utf-8"))
     assert registry["trpg_dm_train"]["file_name"] == "train.sft.jsonl"
     assert registry["trpg_dm_validation"]["file_name"] == "validation.sft.jsonl"
+
+
+@pytest.mark.parametrize(
+    ("args", "expected_code"),
+    [(["--check-only"], 0), ([], 1)],
+)
+def test_existing_curated_candidates_are_preserved_and_prepared(tmp_path: Path, args, expected_code):
+    data_dir = tmp_path / "curated-data"
+    candidate_path = data_dir / "train.jsonl"
+    original = _write_curated_candidates(candidate_path)
+    config = tmp_path / "train.yaml"
+    _write_config(
+        config,
+        model="Qwen/Qwen2.5-3B-Instruct",
+        adapter=tmp_path / "adapter",
+        data_dir=data_dir,
+    )
+
+    result = subprocess.run(
+        [_bash(), str(SCRIPT), *args],
+        cwd=SCRIPT.parents[2],
+        env={
+            **os.environ,
+            "LORA_CONFIG": str(config),
+            "LORA_DATA_DIR": str(data_dir),
+            "LLAMAFACTORY_CLI": "missing-llamafactory-for-preflight-test",
+        },
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    prepared_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
+            data_dir / "train.sft.jsonl",
+            data_dir / "validation.sft.jsonl",
+            data_dir / "test.prompts.jsonl",
+        )
+    )
+    assert result.returncode == expected_code, result.stdout + result.stderr
+    assert candidate_path.read_text(encoding="utf-8") == original
+    assert "保留已有候选数据" in result.stdout
+    assert "人工修订标记 0" in prepared_text
+
+
+def test_rebuild_data_explicitly_replaces_candidates_deterministically(tmp_path: Path):
+    data_dir = tmp_path / "rebuilt-data"
+    candidate_path = data_dir / "train.jsonl"
+    _write_curated_candidates(candidate_path)
+    config = tmp_path / "train.yaml"
+    _write_config(
+        config,
+        model="Qwen/Qwen2.5-3B-Instruct",
+        adapter=tmp_path / "adapter",
+        data_dir=data_dir,
+    )
+    env = {
+        **os.environ,
+        "LORA_CONFIG": str(config),
+        "LORA_DATA_DIR": str(data_dir),
+        "LORA_LORE_ROOT": str(SCRIPT.parents[2] / "electron" / "content" / "packs"),
+        "LORA_TOTAL": "40",
+    }
+
+    first = subprocess.run(
+        [_bash(), str(SCRIPT), "--rebuild-data", "--check-only"],
+        cwd=SCRIPT.parents[2],
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    first_content = candidate_path.read_text(encoding="utf-8")
+    _write_curated_candidates(candidate_path)
+    second = subprocess.run(
+        [_bash(), str(SCRIPT), "--check-only", "--rebuild-data"],
+        cwd=SCRIPT.parents[2],
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    assert first.returncode == 0, first.stdout + first.stderr
+    assert second.returncode == 0, second.stdout + second.stderr
+    assert "显式重建候选数据" in first.stdout
+    assert "人工修订标记" not in first_content
+    assert candidate_path.read_text(encoding="utf-8") == first_content
+
+
+def test_unknown_argument_fails_even_when_combined_with_valid_flags():
+    result = subprocess.run(
+        [_bash(), str(SCRIPT), "--check-only", "--unknown"],
+        cwd=SCRIPT.parents[2],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+    assert result.returncode == 2
+    assert "未知参数" in result.stderr
 
 
 def test_cloud_script_does_not_install_upload_or_publish():

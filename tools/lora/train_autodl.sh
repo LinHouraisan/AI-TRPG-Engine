@@ -13,13 +13,24 @@ LOG_DIR="${LORA_LOG_DIR:-$SCRIPT_DIR/logs}"
 LLAMAFACTORY_CLI="${LLAMAFACTORY_CLI:-llamafactory-cli}"
 TEE_COMMAND="${LORA_TEE_COMMAND:-tee}"
 CHECK_ONLY=false
+REBUILD_DATA=false
 
-if [[ "${1:-}" == "--check-only" ]]; then
-  CHECK_ONLY=true
-elif [[ $# -ne 0 ]]; then
-  echo "用法：bash train_autodl.sh [--check-only]" >&2
-  exit 2
-fi
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --check-only)
+      CHECK_ONLY=true
+      ;;
+    --rebuild-data)
+      REBUILD_DATA=true
+      ;;
+    *)
+      echo "未知参数：$1" >&2
+      echo "用法：bash train_autodl.sh [--check-only] [--rebuild-data]" >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
 
 SEED_PATH="$DATA_DIR/seeds.jsonl"
 if [[ ! -f "$SEED_PATH" ]]; then
@@ -35,13 +46,22 @@ for path in "$CONFIG_PATH" "$SCRIPT_DIR/synth_lora_data.py" "$SCRIPT_DIR/prepare
 done
 command -v python >/dev/null 2>&1 || { echo "缺少 python" >&2; exit 1; }
 
-echo "==> 1/5 从玩家可见内容离线生成候选数据"
-python "$SCRIPT_DIR/synth_lora_data.py" \
-  --offline \
-  --total "$SYNTHETIC_TOTAL" \
-  --seed "$DATA_SEED" \
-  --lore "$LORE_ROOT" \
-  --out "$DATA_DIR"
+CANDIDATE_PATH="$DATA_DIR/train.jsonl"
+if [[ "$REBUILD_DATA" == true ]]; then
+  echo "==> 1/5 收到 --rebuild-data，显式重建候选数据"
+elif [[ ! -f "$CANDIDATE_PATH" ]]; then
+  echo "==> 1/5 候选数据缺失，自动离线生成"
+else
+  echo "==> 1/5 保留已有候选数据（未使用 --rebuild-data）：$CANDIDATE_PATH"
+fi
+if [[ "$REBUILD_DATA" == true ]] || [[ ! -f "$CANDIDATE_PATH" ]]; then
+  python "$SCRIPT_DIR/synth_lora_data.py" \
+    --offline \
+    --total "$SYNTHETIC_TOTAL" \
+    --seed "$DATA_SEED" \
+    --lore "$LORE_ROOT" \
+    --out "$DATA_DIR"
+fi
 
 echo "==> 2/5 按固定 seed 生成训练、验证和测试切分"
 python "$SCRIPT_DIR/prepare_dataset.py" \

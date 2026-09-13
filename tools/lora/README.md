@@ -11,7 +11,7 @@
 | `data/dataset_info.json` | 由 `prepare_dataset.py` 原子生成的 LLaMA-Factory 权威数据映射 |
 | `synth_lora_data.py` | 从模组语料扩展 200–800 条 SFT 数据 |
 | `lora_qwen3b.yaml` | Qwen2.5-3B LoRA 训练参数 |
-| `train_autodl.sh` | AutoDL 单卡环境校验、训练、合并入口（不自动安装依赖） |
+| `train_autodl.sh` | 候选保留/按需生成、数据准备、AutoDL 单卡训练与合并入口（不自动安装依赖） |
 | `merge_lora.py` | 将 Adapter 合并为标准 Hugging Face 模型 |
 | `electron/src/core/ai/lc/provider.ts` | 基座模型与 LoRA 模型动态路由 |
 | `electron/scripts/bench.ts` | base/RAG/LoRA 共用数据集评测 |
@@ -29,9 +29,10 @@ bash tools/lora/train_autodl.sh --check-only
 bash tools/lora/train_autodl.sh
 ```
 
-统一入口按固定 seed 依次执行离线候选生成、family 分组切分、数据注册校验，再在非
-`--check-only` 模式执行训练和合并。配置采用 Qwen2.5-3B-Instruct、LoRA rank 16、
-`q_proj/v_proj`、3 epoch。
+统一入口默认保留已有 `train.jsonl`，仅在候选缺失时按固定 seed 自动离线生成；之后执行
+family 分组切分、数据注册校验，再在非 `--check-only` 模式执行训练和合并。配置采用
+Qwen2.5-3B-Instruct、LoRA rank 16、`q_proj/v_proj`、3 epoch。只有确认要丢弃人工筛选或在线扩展
+结果时，才显式执行 `bash tools/lora/train_autodl.sh --rebuild-data --check-only`。
 
 ## 扩展训练数据
 
@@ -67,8 +68,10 @@ python tools/lora/synth_lora_data.py --total 400 --seeds 40 `
   --lore electron/content/packs --out tools/lora/data
 ```
 
-在线生成只会覆盖 `data/train.jsonl` 和候选摘要，不会覆盖训练注册表；完成后同样必须运行
-`prepare_dataset.py`。正式训练建议人工抽检至少 10%，重点剔除事实冲突、模型自编骰点、半截句和格式漂移。
+在线生成只会覆盖 `data/train.jsonl` 和候选摘要，不会覆盖训练注册表。完成在线扩展和人工筛选后，
+可直接运行默认的 `train_autodl.sh --check-only`：它会保留当前候选并重新 prepare/validate；不要加
+`--rebuild-data`，否则会用离线模板覆盖这些候选。正式训练建议人工抽检至少 10%，重点剔除事实冲突、
+模型自编骰点、半截句和格式漂移。
 
 ## 云端单卡训练与合并
 
@@ -95,12 +98,19 @@ llamafactory-cli --help
 
 ### 执行步骤
 
-在仓库根目录先做不需要 GPU 的数据与配置检查。该命令会按固定 seed 重新生成 Task 2 的
-候选数据、`train.sft.jsonl`、`validation.sft.jsonl`、`test.prompts.jsonl` 和 `manifest.json`，并确认
+在仓库根目录先做不需要 GPU 的数据与配置检查。若 `train.jsonl` 已存在，该命令会明确打印
+“保留已有候选数据”，不会覆盖在线扩展或人工修订；候选缺失时才按固定 seed 自动离线生成。随后它会
+重新生成 `train.sft.jsonl`、`validation.sft.jsonl`、`test.prompts.jsonl` 和 `manifest.json`，并确认
 `dataset_info.json` 中的训练集、验证集注册与 YAML 一致：
 
 ```bash
 bash tools/lora/train_autodl.sh --check-only
+```
+
+需要从公开内容包确定性重建候选时必须显式授权覆盖；两个旗标顺序不限：
+
+```bash
+bash tools/lora/train_autodl.sh --rebuild-data --check-only
 ```
 
 切到 GPU 实例并确认前置条件后，运行真实训练：
@@ -109,9 +119,11 @@ bash tools/lora/train_autodl.sh --check-only
 bash tools/lora/train_autodl.sh
 ```
 
-脚本依次执行离线生成、稳定切分、注册校验、`llamafactory-cli train` 和 `merge_lora.py`。
+脚本依次执行候选保留或按需离线生成、稳定切分、注册校验、`llamafactory-cli train` 和
+`merge_lora.py`。
 可用 `LORA_DATA_DIR`、`LORA_LORE_ROOT`、`LORA_TOTAL` 和 `LORA_SEED` 显式调整可再生成数据的位置、
-公开内容包、模板数量和随机种子；训练 YAML 的 `dataset_dir` 必须指向同一数据目录。默认产物位于：
+公开内容包、模板数量和随机种子；其中模板数量和 seed 仅在候选缺失或指定 `--rebuild-data` 时生效。
+训练 YAML 的 `dataset_dir` 必须指向同一数据目录。默认产物位于：
 
 - Adapter：`tools/lora/saves/qwen2.5-3b-lora-trpg`（来自 YAML 的 `output_dir`）；
 - 合并模型：`tools/lora/merged-qwen2.5-3b-trpg`；
