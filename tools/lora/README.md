@@ -33,14 +33,14 @@ llamafactory-cli train lora_qwen3b.yaml
 
 ## 扩展训练数据
 
-默认的离线扩展不需要 API 或密钥；它只组合内容包中已公开的房间、NPC 台词、物品描述和事实。秘密事实仅写入 `meta.visibility: "keeper"` 的样本，普通玩家样本不会包含它们。每条模板样本都有 `meta.source: "synthetic-template"`，人工种子则标记为 `human-authored`。
+默认的离线扩展不需要 API 或密钥；它只组合内容包中已公开的房间、NPC 台词、物品描述和事实。秘密事实及关联实体不会进入训练集，避免 LLaMA-Factory 映射忽略 `meta` 时泄露给玩家样本。每条模板样本都有 `meta.source: "synthetic-template"` 和按内容包/实体生成的稳定 `meta.group`；人工种子则标记为 `human-authored`。
 
 ```powershell
 python tools/lora/synth_lora_data.py --offline --total 400 --seed 8503 `
   --lore electron/content/packs --out tools/lora/data
 ```
 
-该命令会保留 20 条 `seeds.jsonl` 人工种子，并向 `train.jsonl` 追加 400 条确定性的模板样本；`dataset_info.json` 的 `sources` 字段会分别记录两类来源和数量。输出会拒绝空字段、重复回复、60–220 字范围外的回复、非固定行动钩子结尾，以及替玩家宣告骰点或检定成败的措辞。
+该命令会保留 20 条 `seeds.jsonl` 人工种子，并向 `train.jsonl` 追加 400 条确定性的模板样本；`dataset_info.json` 的 `sources` 字段会按实际来源记录数量。输出会拒绝空字段、重复回复、60–220 字范围外的回复、非固定行动钩子结尾，以及替玩家宣告骰点或检定成败的措辞。训练/评估的物理切分留给后续流程；本步骤只提供稳定分组键。
 
 如需让外部模型补充更多候选数据，仍可在仓库根目录设置 OpenAI-compatible 模型服务。密钥只放环境变量，不写入文件：
 
