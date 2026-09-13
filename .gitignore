@@ -22,6 +22,7 @@ tools/lora/data/test.prompts.jsonl
 tools/lora/data/manifest.json
 tools/embedding/data/*
 !tools/embedding/data/.gitkeep
+tools/embedding/saves/
 *.local
 .tanstack
 .vite
