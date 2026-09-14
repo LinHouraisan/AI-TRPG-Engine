@@ -1,0 +1,41 @@
+EMBEDDING_RETRY_START=2026-09-14T12:10:45+08:00
+/root/autodl-tmp/projects/AI-TRPG-Engine/tools/embedding/train.py:119: DeprecationWarning: Importing from 'sentence_transformers.losses' is deprecated and will be removed in a future version. Please use 'sentence_transformers.sentence_transformer.losses' instead.
+  from sentence_transformers import (
+/root/autodl-tmp/projects/AI-TRPG-Engine/tools/embedding/train.py:125: DeprecationWarning: Importing from 'sentence_transformers.training_args' is deprecated and will be removed in a future version. Please use 'sentence_transformers.sentence_transformer.training_args' instead.
+  from sentence_transformers.training_args import BatchSamplers
+Loading weights:   0%|          | 0/71 [00:00<?, ?it/s]Loading weights: 100%|██████████| 71/71 [00:00<00:00, 12785.87it/s]
+The `warmup_ratio` argument is deprecated in Transformers v5+, and will also be removed from Sentence Transformers once support for Transformers v4 is dropped. Since you're using Transformers v5+, please use `warmup_steps` (as a float) to specify the warmup ratio instead.
+Computing widget examples:   0%|          | 0/1 [00:00<?, ?example/s]                                                                       0%|          | 0/18 [00:00<?, ?it/s]  6%|▌         | 1/18 [00:00<00:14,  1.18it/s] 22%|██▏       | 4/18 [00:00<00:02,  5.26it/s]
+  0%|          | 0/1 [00:00<?, ?it/s][A                                              
+                                     [A 33%|███▎      | 6/18 [00:01<00:02,  5.26it/s]
+100%|██████████| 1/1 [00:00<00:00, 1182.16it/s][A
+                                               [A{'eval_loss': '0.07906', 'eval_runtime': '0.0221', 'eval_samples_per_second': '270.9', 'eval_steps_per_second': '45.15', 'epoch': '1'}
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s][A
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  8.38it/s][AWriting model shards: 100%|██████████| 1/1 [00:00<00:00,  8.36it/s]
+ 33%|███▎      | 6/18 [00:19<00:02,  5.26it/s] 39%|███▉      | 7/18 [02:14<04:24, 24.03s/it]                                               56%|█████▌    | 10/18 [02:14<03:12, 24.03s/it] 61%|██████    | 11/18 [02:14<01:23, 11.90s/it]{'loss': '0.0756', 'grad_norm': '0.2345', 'learning_rate': '1.125e-05', 'epoch': '1.667'}
+
+  0%|          | 0/1 [00:00<?, ?it/s][A                                               
+                                     [A 67%|██████▋   | 12/18 [02:14<01:11, 11.90s/it]
+100%|██████████| 1/1 [00:00<00:00, 1673.04it/s][A
+                                               [A{'eval_loss': '0.05509', 'eval_runtime': '0.0182', 'eval_samples_per_second': '329.3', 'eval_steps_per_second': '54.89', 'epoch': '2'}
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s][A
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  8.97it/s][AWriting model shards: 100%|██████████| 1/1 [00:00<00:00,  8.96it/s]
+[transformers] mtime may not be reliable on this filesystem, falling back to numerical ordering
+ 78%|███████▊  | 14/18 [02:15<00:31,  7.77s/it]
+  0%|          | 0/1 [00:00<?, ?it/s][A                                               
+                                     [A100%|██████████| 18/18 [02:15<00:00,  7.77s/it]
+100%|██████████| 1/1 [00:00<00:00, 3163.13it/s][A
+                                               [A{'eval_loss': '0.05184', 'eval_runtime': '0.0112', 'eval_samples_per_second': '534', 'eval_steps_per_second': '88.99', 'epoch': '3'}
+
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s][A
+Writing model shards: 100%|██████████| 1/1 [00:00<00:00, 10.00it/s][AWriting model shards: 100%|██████████| 1/1 [00:00<00:00,  9.98it/s]
+                                               100%|██████████| 18/18 [02:15<00:00,  7.77s/it]100%|██████████| 18/18 [02:15<00:00,  7.55s/it]
+{'train_runtime': '135.8', 'train_samples_per_second': '1.988', 'train_steps_per_second': '0.133', 'train_loss': '0.05115', 'epoch': '3'}
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00, 10.64it/s]
+Loading weights:   0%|          | 0/71 [00:00<?, ?it/s]Loading weights: 100%|██████████| 71/71 [00:00<00:00, 10659.92it/s]
+{"status": "complete", "output": "/root/autodl-tmp/models/bge-small-zh-trpg"}
+EMBEDDING_RETRY_COMPLETE=2026-09-14T12:13:15+08:00
+184M	/root/autodl-tmp/models/bge-small-zh-v1.5
+365M	/root/autodl-tmp/models/bge-small-zh-trpg

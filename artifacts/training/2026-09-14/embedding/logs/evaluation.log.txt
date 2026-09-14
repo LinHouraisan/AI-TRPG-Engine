@@ -1,0 +1,6 @@
+EMBEDDING_EVAL_START=2026-09-14T12:18:25+08:00
+Loading weights:   0%|          | 0/71 [00:00<?, ?it/s]Loading weights: 100%|██████████| 71/71 [00:00<00:00, 11411.98it/s]
+{"mrr": 1.0, "ndcg_at_3": 1.0, "recall_at_3": 1.0, "sample_count": 12}
+Loading weights:   0%|          | 0/71 [00:00<?, ?it/s]Loading weights: 100%|██████████| 71/71 [00:00<00:00, 10643.92it/s]
+{"mrr": 1.0, "ndcg_at_3": 1.0, "recall_at_3": 1.0, "sample_count": 12}
+EMBEDDING_EVAL_COMPLETE=2026-09-14T12:18:38+08:00

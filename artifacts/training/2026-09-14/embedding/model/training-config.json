@@ -1,0 +1,28 @@
+{
+  "actual_parameters": {
+    "batch_size": 16,
+    "device": "cuda",
+    "epochs": 3,
+    "learning_rate": 2e-05,
+    "max_seq_length": 512,
+    "max_steps": -1,
+    "model_name": "/root/autodl-tmp/models/bge-small-zh-v1.5",
+    "output_dir": "/root/autodl-tmp/models/bge-small-zh-trpg",
+    "seed": 8503,
+    "warmup_ratio": 0.1
+  },
+  "base_model": "/root/autodl-tmp/models/bge-small-zh-v1.5",
+  "data": {
+    "manifest_sha256": "1727bd73b64022dbfef9bf603b8d388586cb06e11e39f7fc212228e2650f7c61",
+    "seed": 8503,
+    "train_samples": 90,
+    "train_sha256": "4b976fb4ffa3abcd3034d9bbf06b91eca3fd6e6ce87fae64b3cbada09b0ada00",
+    "validation_samples": 6,
+    "validation_sha256": "502d41dcb9aa05cc5e34fbc42e8d804da873b1e600584e4050497b9022b19162"
+  },
+  "explicit_negative_fields_used": false,
+  "loss": "MultipleNegativesRankingLoss",
+  "method": "sentence-transformers contrastive fine-tuning",
+  "negative_source": "in-batch only",
+  "schema_version": 1
+}

@@ -1,0 +1,20 @@
+{
+  "documents": 94,
+  "packs": [
+    "boarding-house",
+    "mist-harbor",
+    "photo-studio"
+  ],
+  "seed": 8503,
+  "sha256": {
+    "documents.jsonl": "7fc23228b9e78ade3bb580269b80f291d5f7ec628ab497e1e133ac904cd3c928",
+    "test.jsonl": "24fe96b7ee534ba5f54a0a128c506ddd75e0e245ba01e82c9434998ebc97e0c7",
+    "train.jsonl": "4b976fb4ffa3abcd3034d9bbf06b91eca3fd6e6ce87fae64b3cbada09b0ada00",
+    "validation.jsonl": "502d41dcb9aa05cc5e34fbc42e8d804da873b1e600584e4050497b9022b19162"
+  },
+  "splits": {
+    "test": 12,
+    "train": 90,
+    "validation": 6
+  }
+}

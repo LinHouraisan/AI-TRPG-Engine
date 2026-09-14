@@ -1,0 +1,31 @@
+2026-09-14T08:39:20+08:00
+Python 3.12.3
+Mon Sep 14 08:39:20 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.105.08             Driver Version: 580.105.08     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 5090        On  |   00000000:5A:00.0 Off |                  N/A |
+| 43%   30C    P8             10W /  575W |       0MiB /  32607MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Filesystem      Size  Used Avail Use% Mounted on
+overlay          30G   53M   30G   1% /
+/dev/md0        120G   44K  120G   1% /root/autodl-tmp
+torch 2.8.0+cu128
+cuda_runtime 12.8
+cuda_available True
+gpu NVIDIA GeForce RTX 5090
+capability (12, 0)
+matmul_mean -0.017248954623937607

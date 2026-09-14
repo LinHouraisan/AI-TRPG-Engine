@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+artifacts/training/2026-09-14/** -text
+artifacts/training/2026-09-14/**/*.safetensors filter=lfs diff=lfs merge=lfs -text
+artifacts/training/2026-09-14/**/optimizer.pt filter=lfs diff=lfs merge=lfs -text

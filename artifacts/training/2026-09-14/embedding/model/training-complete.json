@@ -1,0 +1,6 @@
+{
+  "manifest_sha256": "1727bd73b64022dbfef9bf603b8d388586cb06e11e39f7fc212228e2650f7c61",
+  "model_path": "/root/autodl-tmp/models/bge-small-zh-trpg",
+  "status": "complete",
+  "training_config_sha256": "e4c6fe1b6e9918478c8486d81c89c009e3b1012cbbdb44963ce563460dafa557"
+}

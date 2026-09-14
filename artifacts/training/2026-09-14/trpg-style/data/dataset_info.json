@@ -1,0 +1,27 @@
+{
+  "trpg_dm_train": {
+    "file_name": "train.sft.jsonl",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output"
+    }
+  },
+  "trpg_dm_validation": {
+    "file_name": "validation.sft.jsonl",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output"
+    }
+  },
+  "sources": {
+    "human-authored": {
+      "file_name": "seeds.jsonl",
+      "count": 20
+    },
+    "synthetic-template": {
+      "count": 400
+    }
+  }
+}
