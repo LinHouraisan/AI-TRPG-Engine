@@ -67,3 +67,27 @@ test("guarded streaming exposes only the validated fallback, never a fabricated 
   expect(events).toHaveLength(1);
   expect(events[0]?.kind === "final" ? events[0].text : null).toBe(fallback);
 });
+
+test("narration reports every provider attempt to the usage ledger callback", async () => {
+  streamReply({
+    text: "你伸手碰向车票，车票被你拿起并收进口袋。",
+    feedback: "你伸手碰向车票。",
+    reaction: "车票被你拿起并收进口袋。",
+    interactionPoints: ["桌面只剩一圈潮湿印痕"],
+  });
+  let calls = 0;
+
+  await keeperNarrate({
+    config,
+    state: initialState(),
+    events: [],
+    intent: { kind: "free_action", text: "碰一下车票" },
+    spoken: "碰一下车票",
+    fallback: "车票仍留在原处。",
+    onCall: () => {
+      calls += 1;
+    },
+  });
+
+  expect(calls).toBe(2);
+});

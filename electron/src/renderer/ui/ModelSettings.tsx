@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { desktopApi } from "@renderer/desktop";
+import type { ModelUsageSummary } from "../../shared/api";
 import { deepSeekPreset, providerPatchForType, secretStateAfterSave } from "./model-settings-state";
 
 type Provider = {
@@ -37,7 +38,7 @@ export function ModelSettings() {
   const [note, setNote] = useState<string | null>(null);
   const [secret, setSecret] = useState("");
   const [secretPresent, setSecretPresent] = useState(false);
-  const [usage, setUsage] = useState<{ calls: number; promptTokens: number; completionTokens: number; estimatedMicros: number } | null>(null);
+  const [usage, setUsage] = useState<ModelUsageSummary | null>(null);
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -270,7 +271,19 @@ export function ModelSettings() {
                 />
               </label>
               <div className="border-t border-line/40 pt-2">
-                {usage ? <p className="mb-1 text-[11px] text-muted">云调用 {usage.calls} 次，Token {usage.promptTokens + usage.completionTokens}</p> : null}
+                {usage ? (
+                  <div className="mb-1 space-y-0.5 text-[11px] text-muted">
+                    <p>
+                      累计模型调用 {usage.calls.toLocaleString("zh-CN")} 次，Token{" "}
+                      {(usage.promptTokens + usage.completionTokens).toLocaleString("zh-CN")}
+                    </p>
+                    <p>
+                      {usage.forecast
+                        ? `未来 ${usage.forecast.horizonDays} 天预计约 ${usage.forecast.calls.toLocaleString("zh-CN")} 次调用、${usage.forecast.totalTokens.toLocaleString("zh-CN")} Token（基于近 ${usage.forecast.sampleDays} 天）`
+                        : "未来 7 天预测：历史数据不足"}
+                    </p>
+                  </div>
+                ) : null}
                 <p className="text-[11px] text-muted">当前仅云端生成 GM 叙述；后台任务保持本地确定性。</p>
                 {TASKS.map((task) => {
                   const route = routes.find((item) => item.taskType === task);

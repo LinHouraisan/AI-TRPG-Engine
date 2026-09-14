@@ -18,6 +18,7 @@
 | LangChain 聊天与 RAG | 已实现 | 对接 OpenAI-compatible 模型；JSON 向量索引启动时载入内存 |
 | LoRA 领域微调子系统 | 已实现 | Qwen2.5-3B 数据、训练、合并、部署与动态路由闭环 |
 | 有证据约束的 Agent | 已实现 | LLM 只选择工具和解释，程序根据工具证据生成权威判定 |
+| 模型用量运营指标 | 已实现 | 记录调用量与输入/输出 Token，并按最近 7 个自然日预测未来 7 天用量 |
 | SQLite / PostgreSQL | 已实现 | SQLite 零配置启动；通过 `DATABASE_URL` 可切 PostgreSQL |
 | base/RAG/LoRA 三档评测 | 已实现 | 同集对比质量、关键词召回、检索 Recall@3 与点数溯源 |
 

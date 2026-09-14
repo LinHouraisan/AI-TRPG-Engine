@@ -1,6 +1,14 @@
 import type { z } from "zod";
 import type { KeeperConfig } from "./config";
 
+export type ProviderCallUsage = {
+  promptTokens: number;
+  completionTokens: number;
+  cachedTokens: number;
+  elapsedMs: number;
+  outcome: "succeeded" | "failed";
+};
+
 export class KeeperError extends Error {
   constructor(
     message: string,
@@ -31,11 +39,23 @@ export async function askKeeper<T>(params: {
   signal?: AbortSignal;
   stream?: boolean;
   onContent?: (accumulatedJson: string) => void;
+  onCall?: (usage: ProviderCallUsage) => void;
 }): Promise<{ value: T; ms: number }> {
   const { config, schema, jsonSchema } = params;
   const started = Date.now();
   const protocol = config.protocol ?? "ollama";
   const streaming = protocol === "ollama" && params.stream === true;
+  let tokenUsage = { promptTokens: 0, completionTokens: 0, cachedTokens: 0 };
+  let reported = false;
+  const report = (outcome: ProviderCallUsage["outcome"]) => {
+    if (reported) return;
+    reported = true;
+    try {
+      params.onCall?.({ ...tokenUsage, elapsedMs: Date.now() - started, outcome });
+    } catch {
+      // Usage accounting must never interrupt gameplay.
+    }
+  };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);
@@ -87,30 +107,43 @@ export async function askKeeper<T>(params: {
           });
   } catch (error) {
     clearTimeout(timer);
+    report("failed");
     throw toConnectError(error, config.timeoutMs);
   }
 
   if (!response.ok) {
     clearTimeout(timer);
+    report("failed");
     throw new KeeperError(`主持人返回 ${response.status}`, "network");
   }
 
   let content: string;
   try {
-    content =
-      protocol === "openai_compatible"
-        ? await readOpenAiChatOnce(response)
-        : streaming
-          ? await readOllamaChatStream(response, params.onContent)
-          : await readOllamaChatOnce(response);
+    if (protocol === "openai_compatible") {
+      const reply = await readOpenAiChatOnce(response);
+      content = reply.content;
+      tokenUsage = reply.usage;
+    } else {
+      content = streaming
+        ? await readOllamaChatStream(response, params.onContent)
+        : await readOllamaChatOnce(response);
+    }
   } catch (error) {
     clearTimeout(timer);
+    report("failed");
     if (error instanceof KeeperError) throw error;
     throw toConnectError(error, config.timeoutMs, streaming);
   }
   clearTimeout(timer);
 
-  return { value: parseKeeperReply(content, schema), ms: Date.now() - started };
+  try {
+    const value = parseKeeperReply(content, schema);
+    report("succeeded");
+    return { value, ms: Date.now() - started };
+  } catch (error) {
+    report("failed");
+    throw error;
+  }
 }
 
 export type ProviderFailure =
@@ -171,7 +204,7 @@ export async function probeKeeper(config: KeeperConfig): Promise<ProviderProbe> 
     }),
   });
   if (!response.ok) throw new KeeperError(`主持人返回 ${response.status}`, "network");
-  const content = await readOpenAiChatOnce(response);
+  const { content } = await readOpenAiChatOnce(response);
   let jsonOk = false;
   try {
     jsonOk = (JSON.parse(content) as { ok?: unknown }).ok === true;
@@ -181,11 +214,35 @@ export async function probeKeeper(config: KeeperConfig): Promise<ProviderProbe> 
   return { models, modelFound: models.includes(config.model), generationOk: content.length > 0, jsonOk };
 }
 
-async function readOpenAiChatOnce(response: Response): Promise<string> {
+async function readOpenAiChatOnce(response: Response): Promise<{
+  content: string;
+  usage: Pick<ProviderCallUsage, "promptTokens" | "completionTokens" | "cachedTokens">;
+}> {
   const body = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
+    usage?: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      prompt_cache_hit_tokens?: number;
+      prompt_tokens_details?: { cached_tokens?: number };
+    };
   };
-  return body.choices?.[0]?.message?.content ?? "";
+  return {
+    content: body.choices?.[0]?.message?.content ?? "",
+    usage: {
+      promptTokens: tokenCount(body.usage?.prompt_tokens),
+      completionTokens: tokenCount(body.usage?.completion_tokens),
+      cachedTokens: tokenCount(
+        body.usage?.prompt_cache_hit_tokens ?? body.usage?.prompt_tokens_details?.cached_tokens,
+      ),
+    },
+  };
+}
+
+function tokenCount(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? Math.floor(value)
+    : 0;
 }
 
 function toConnectError(error: unknown, timeoutMs: number, streaming = false): KeeperError {

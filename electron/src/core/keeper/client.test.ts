@@ -52,6 +52,54 @@ test("OpenAI-compatible keeper sends bearer auth and parses chat completions", a
   expect(body.thinking).toEqual({ type: "disabled" });
 });
 
+test("OpenAI-compatible keeper reports real provider token usage once per request", async () => {
+  let reported: unknown;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        choices: [{ message: { content: '{"text":"雨声压低了屋里的呼吸。"}' } }],
+        usage: {
+          prompt_tokens: 120,
+          completion_tokens: 35,
+          total_tokens: 155,
+          prompt_cache_hit_tokens: 24,
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    )) as unknown as typeof fetch;
+
+  await askKeeper({
+    config: {
+      enabled: true,
+      protocol: "openai_compatible",
+      baseUrl: "https://api.deepseek.com",
+      apiKey: "test-secret",
+      disableThinking: true,
+      model: "deepseek-v4-flash",
+      timeoutMs: 1000,
+      temperature: 0.7,
+      contextBudgetChars: 4000,
+      stream: false,
+      debugTrace: false,
+    },
+    system: "system",
+    user: "user",
+    schema: z.object({ text: z.string() }),
+    jsonSchema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
+    onCall: (usage) => {
+      reported = usage;
+    },
+  });
+
+  expect(reported).toEqual({
+    promptTokens: 120,
+    completionTokens: 35,
+    cachedTokens: 24,
+    outcome: "succeeded",
+    elapsedMs: expect.any(Number),
+  });
+});
+
 test.each([
   [401, "auth"],
   [402, "balance"],

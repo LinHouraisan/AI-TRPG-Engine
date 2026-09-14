@@ -1,6 +1,7 @@
 /** Electron preload 挂上的桥。浏览器里没有，Demo 继续走自己的 wasm 库。 */
 import type { InvestigatorAllocation, InvestigatorProfile } from "@core/character/types";
 import type { CheckCandidate, Intent } from "@core/engine/types";
+import type { ModelUsageSummary } from "../shared/api";
 
 export type DesktopResult<T> =
   | { ok: true; value: T }
@@ -86,7 +87,7 @@ export interface DesktopApi {
     hasSecret(input: { credentialId: string }): Promise<DesktopResult<{ present: boolean }>>;
     deleteSecret(input: { credentialId: string }): Promise<DesktopResult<void>>;
     testProvider(): Promise<DesktopResult<{ models: string[]; modelFound: boolean; generationOk: boolean; jsonOk: boolean }>>;
-    getModelUsage(): Promise<DesktopResult<{ calls: number; promptTokens: number; completionTokens: number; estimatedMicros: number }>>;
+    getModelUsage(): Promise<DesktopResult<ModelUsageSummary>>;
     listProviders(): Promise<DesktopResult<Array<{
       providerInstanceId: string;
       providerType: string;

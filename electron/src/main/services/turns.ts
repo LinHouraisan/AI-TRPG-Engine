@@ -25,6 +25,7 @@ import { fail, ok, type Result } from "../../shared/result";
 import type { Clock } from "../clock";
 import type { CredentialStore } from "../credentials";
 import { withKeeperConfig } from "../model-config";
+import { recordModelUsage } from "../model-usage";
 import { getCatalog } from "../persist/catalog";
 import type { Driver } from "../persist/driver";
 import {
@@ -563,6 +564,20 @@ export class TurnService {
           recentTurns: params.recentTurns,
           profile: params.profile,
           fallback,
+          onCall: (usage) => {
+            const createdAt = this.clock.nowIso();
+            recordModelUsage(
+              this.campaigns.settings,
+              {
+                taskType: "gm.narrate_result",
+                model: config.model,
+                ...usage,
+                estimatedMicros: 0,
+                createdAt,
+              },
+              createdAt,
+            );
+          },
         }),
         model: config.model,
       }));

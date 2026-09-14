@@ -267,7 +267,7 @@ export function registerIpc(
     }
   });
 
-  handle("settings:getModelUsage", () => ok(summarizeModelUsage(composition.settings)));
+  handle("settings:getModelUsage", () => ok(summarizeModelUsage(composition.settings, clock.nowIso())));
 
   const providerTypes = [
     "openai",

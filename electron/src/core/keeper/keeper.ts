@@ -7,7 +7,7 @@ import {
 } from "@core/engine/investigation";
 import { itemsInRoom, npcsInRoom, visibleItemsInRoom } from "@core/engine/state";
 import type { GameEvent, GameState, Intent, QueryTopic } from "@core/engine/types";
-import { askKeeper, KeeperError } from "./client";
+import { askKeeper, KeeperError, type ProviderCallUsage } from "./client";
 import type { KeeperConfig } from "./config";
 import {
   narrationJsonSchema,
@@ -96,6 +96,7 @@ export async function keeperNarrate(params: {
   fallback: string;
   signal?: AbortSignal;
   onStream?: (event: NarrationStreamEvent) => void;
+  onCall?: (usage: ProviderCallUsage) => void;
 }): Promise<NarrationResult> {
   const { config, fallback } = params;
   const finish = (result: NarrationResult): NarrationResult => {
@@ -133,6 +134,7 @@ export async function keeperNarrate(params: {
         signal: params.signal,
         stream: config.stream,
         onContent: undefined,
+        onCall: params.onCall,
       });
 
       const quality = checkNarrationQuality(value, qualityMode);
