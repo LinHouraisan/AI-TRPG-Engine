@@ -53,3 +53,12 @@ tools/embedding/saves/
 *.njsproj
 *.sln
 *.sw?
+
+# Local generation and temporary test outputs
+.codex_artifacts/
+.pytest_cache/
+__pycache__/
+*.pyc
+# Duplicate training checkpoints; final artifacts remain tracked
+artifacts/training/**/checkpoint-*/
+artifacts/training/**/checkpoints/

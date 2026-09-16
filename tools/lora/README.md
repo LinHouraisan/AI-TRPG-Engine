@@ -16,7 +16,7 @@
 | `electron/src/core/ai/lc/provider.ts` | 基座模型与 LoRA 模型动态路由 |
 | `electron/scripts/bench.ts` | base/RAG/LoRA 共用数据集评测 |
 
-仓库不提交模型权重、Adapter、云端缓存和密钥。它们属于可再生成的大文件，不是源代码的一部分。
+训练工作目录中的权重、缓存和密钥不提交。2026-09-14 的最终 Adapter、数据与日志已单独存入 artifacts/training 留档；重复 checkpoint 已移到仓库外归档，最终权重仍保留。训练完成不等于已证明泛化收益。
 
 ## 最小可运行版本
 

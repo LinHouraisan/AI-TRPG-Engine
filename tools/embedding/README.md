@@ -8,7 +8,7 @@ Sentence Transformers 对比学习微调。它不是 LoRA；收益只能在同�
 ## 当前真实状态
 
 - 数据构建、困难负样本挖掘、纯 IR 指标和训练入口已实现。
-- 本提交没有下载模型、没有跑完训练，也没有产生任何 tuned 指标或模型权重。
+- 2026-09-14 已完成训练、产物重载和纯 IR 对照，见 [训练留档](../../artifacts/training/2026-09-14/README.md)。12 条测试中 base/tuned 指标均满分，不能据此宣称提升。
 - `tools/embedding/data/`、`tools/embedding/saves/` 和训练日志是本地产物，不提交。
 
 ## 数据与训练边界
