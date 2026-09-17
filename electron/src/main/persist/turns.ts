@@ -207,7 +207,13 @@ export function loadRecentDialogueTurns(db: Driver, branchId: string): DialogueT
 
 export type BranchHistoryView = {
   recap: string;
-  recentTurns: Array<{ turnId: string; stateVersion: number; player: string; gm: string }>;
+  recentTurns: Array<{
+    turnId: string;
+    narrationId: string;
+    stateVersion: number;
+    player: string;
+    gm: string;
+  }>;
   restoredFrom: string | null;
 };
 
@@ -277,8 +283,8 @@ export function loadBranchHistory(
     : { stateVersion: branch?.head_state_version ?? 0, eventSequence: branch?.head_sequence ?? 0 });
   const checkpoint = source ?? boundedCheckpoint;
   const recentRows = checkpoint
-    ? db.all<{ turn_id: string; state_version: number; input_text: string; text: string }>(
-        `SELECT t.turn_id,
+    ? db.all<{ turn_id: string; narration_id: string; state_version: number; input_text: string; text: string }>(
+        `SELECT t.turn_id, n.narration_id,
                 COALESCE(t.committed_state_version, t.base_state_version) AS state_version,
                 t.input_text, n.text
          FROM checkpoint_dialogue_members m
@@ -288,8 +294,8 @@ export function loadBranchHistory(
          ORDER BY m.ordinal DESC LIMIT 3`,
         [checkpoint.checkpoint_id],
       )
-    : db.all<{ turn_id: string; state_version: number; input_text: string; text: string }>(
-        `SELECT t.turn_id,
+    : db.all<{ turn_id: string; narration_id: string; state_version: number; input_text: string; text: string }>(
+        `SELECT t.turn_id, n.narration_id,
                 COALESCE(t.committed_state_version, t.base_state_version) AS state_version,
                 t.input_text, n.text
          FROM turns t JOIN narrations n ON n.turn_id = t.turn_id AND n.status = 'final'
@@ -300,6 +306,7 @@ export function loadBranchHistory(
       );
   const recentTurns = recentRows.reverse().map((row) => ({
     turnId: row.turn_id,
+    narrationId: row.narration_id,
     stateVersion: row.state_version,
     player: row.input_text,
     gm: row.text,

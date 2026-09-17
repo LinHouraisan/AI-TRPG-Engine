@@ -1,4 +1,5 @@
 import { keeperNarrate } from "@core/keeper/keeper";
+import { createHash } from "node:crypto";
 import type { DialogueTurn } from "@core/keeper/dialogue-context";
 import type { InvestigatorProfile } from "@core/character/types";
 import { checkCandidateForIntent, publishCheckCandidate } from "@core/engine/check-preview";
@@ -26,6 +27,7 @@ import type { Clock } from "../clock";
 import type { CredentialStore } from "../credentials";
 import { withKeeperConfig } from "../model-config";
 import { recordModelUsage } from "../model-usage";
+import { findAuditTraceByOperation } from "../persist/audit";
 import { getCatalog } from "../persist/catalog";
 import type { Driver } from "../persist/driver";
 import {
@@ -39,13 +41,19 @@ import {
 } from "../persist/turns";
 import { loadMemory, saveFrontier, saveMemory } from "../persist/derived";
 import type { CampaignService } from "./campaigns";
+import { beginTurnAudit, type TurnAuditRecorder } from "./turn-audit";
 import {
   hasInvestigatorPersistence,
   isReplayConsistentInvestigator,
   loadInvestigator,
 } from "../persist/investigator";
 
-export type TurnView = SharedTurnView & { events: GameEvent[] };
+export type TurnView = SharedTurnView & {
+  events: GameEvent[];
+  traceId?: string;
+  turnId?: string;
+  narrationId?: string;
+};
 
 const DELTA_FLUSH_MS = 40;
 const DELTA_FLUSH_CHARS = 256;
@@ -91,7 +99,7 @@ export class TurnService {
   async submit(
     input: SubmitActionInput,
     hooks: { onCandidate?: (candidate: { commandId: string; intent: Intent; check: CheckCandidate }) => void } = {},
-  ): Promise<Result<{ operationId: string; turnId: string }>> {
+  ): Promise<Result<{ operationId: string; turnId: string; traceId: string }>> {
     const text = input.text.trim();
     if (text.length < 1 || text.length > 20_000) {
       return fail({
@@ -142,7 +150,39 @@ export class TurnService {
     }
     const existing = findTurnByCommand(db, input.branchId, input.commandId);
     if (existing) {
-      return ok({ operationId: existing.operationId, turnId: existing.turnId });
+      const traceId = findAuditTraceByOperation(db, existing.operationId);
+      if (traceId) {
+        return ok({ operationId: existing.operationId, turnId: existing.turnId, traceId });
+      }
+      const legacyAudit = beginTurnAudit({
+        db,
+        clock: this.clock,
+        campaignId: input.campaignId,
+        branchId: input.branchId,
+        operationId: existing.operationId,
+        baseStateVersion: existing.baseStateVersion,
+      });
+      legacyAudit.bindTurn({
+        turnId: existing.turnId,
+        committedStateVersion: existing.committedStateVersion,
+      });
+      legacyAudit.append({
+        kind: "program",
+        stage: "legacy.idempotent",
+        taskType: "turn.submitAction",
+        attempt: 1,
+        causal: false,
+        basedOnStateVersion: existing.baseStateVersion,
+        input: { commandId: input.commandId },
+        status: "skipped",
+        output: { reason: "turn_predates_audit" },
+      });
+      legacyAudit.finalize("not_applicable");
+      return ok({
+        operationId: existing.operationId,
+        turnId: existing.turnId,
+        traceId: legacyAudit.traceId,
+      });
     }
     if (catalog.head_state_version !== Number(input.expectedStateVersion)) {
       return fail({
@@ -153,8 +193,47 @@ export class TurnService {
       });
     }
 
+    const operationId = uuidv7();
+    const audit = beginTurnAudit({
+      db,
+      clock: this.clock,
+      campaignId: input.campaignId,
+      branchId: input.branchId,
+      operationId,
+      baseStateVersion: state.version,
+    });
+    audit.append({
+      kind: "program",
+      stage: "turn.received",
+      taskType: "turn.submitAction",
+      attempt: 1,
+      causal: true,
+      basedOnStateVersion: state.version,
+      input: {
+        commandId: input.commandId,
+        actorId: input.actorId,
+        controllerId: input.controllerId,
+        text,
+        expectedStateVersion: Number(input.expectedStateVersion),
+      },
+      status: "succeeded",
+      output: { accepted: true },
+    });
+
     const recentTurns = loadRecentDialogueTurns(db, input.branchId);
     let intent = route(text, state);
+    audit.append({
+      kind: "program",
+      stage: "route.deterministic",
+      taskType: "gm.route",
+      attempt: 1,
+      causal: true,
+      basedOnStateVersion: state.version,
+      promptVersion: "router-v1",
+      input: { text },
+      status: "succeeded",
+      output: { intent },
+    });
     let freeTurnTaskId: string | undefined;
     if (intent.kind === "unclear") {
       freeTurnTaskId = newFreeTurnTaskId();
@@ -167,6 +246,7 @@ export class TurnService {
           recentTurns,
           modelTaskId: freeTurnTaskId!,
           currentStateVersion: () => getCatalog(this.campaigns.settings, input.campaignId)?.head_state_version ?? -1,
+          audit,
         }),
       );
       if (configured.ok) {
@@ -201,6 +281,24 @@ export class TurnService {
       authoritativeState.version !== expectedStateVersion ||
       intentStateVersion !== expectedStateVersion
     ) {
+      audit.append({
+        kind: "guard",
+        stage: "route.validate",
+        taskType: "turn.submitAction",
+        attempt: 1,
+        causal: true,
+        basedOnStateVersion: authoritativeState.version,
+        input: { intent, expectedStateVersion },
+        status: "rejected",
+        errorCode: "STALE_STATE",
+        output: {
+          catalog: authoritativeCatalog?.head_state_version ?? -1,
+          branch: authoritativeBranch?.head_state_version ?? -1,
+          replayed: authoritativeState.version,
+          intent: intentStateVersion,
+        },
+      });
+      audit.finalize("aborted");
       return fail({
         code: "TURN_VERSION_CONFLICT",
         messageKey: "turn.version_conflict",
@@ -222,8 +320,22 @@ export class TurnService {
       profile,
       turnId: `${input.branchId}:turn-${authoritativeState.turn + 1}`,
     });
+    audit.append({
+      kind: "program",
+      stage: "rule.resolve",
+      taskType: "turn.resolve",
+      attempt: 1,
+      causal: true,
+      basedOnStateVersion: authoritativeState.version,
+      input: { text, intent },
+      status: "succeeded",
+      output: {
+        outcomeKind: outcome.kind,
+        check: outcome.kind === "committed" ? outcome.check ?? null : null,
+        events: outcome.kind === "committed" ? outcome.committed : [],
+      },
+    });
     const now = this.clock.nowIso();
-    const operationId = uuidv7();
     const turnId =
       outcome.kind === "committed" && outcome.committed[0]
         ? outcome.committed[0].turnId
@@ -237,6 +349,8 @@ export class TurnService {
       stateVersion: outcome.kind === "committed" ? outcome.state.version : authoritativeState.version,
       check: outcome.kind === "committed" ? outcome.check : undefined,
       intent: outcome.intent,
+      traceId: audit.traceId,
+      turnId,
     };
 
     const status =
@@ -264,6 +378,26 @@ export class TurnService {
       check: outcome.kind === "committed" ? outcome.check : undefined,
       result: view,
     });
+    audit.bindTurn({ turnId, committedStateVersion: view.stateVersion });
+    audit.append({
+      kind: "persistence",
+      stage: "state.commit",
+      taskType: "turn.submitAction",
+      attempt: 1,
+      causal: true,
+      basedOnStateVersion: authoritativeState.version,
+      input: {
+        turnId,
+        operationId,
+        baseStateVersion: authoritativeState.version,
+        eventIds: outcome.kind === "committed" ? outcome.committed.map((event) => event.id) : [],
+      },
+      status: "succeeded",
+      output: {
+        beforeVersion: authoritativeState.version,
+        afterVersion: view.stateVersion,
+      },
+    });
     this.campaigns.setHead(input.campaignId, view.stateVersion);
     if (outcome.kind === "committed") {
       this.persistDerived(db, input.branchId, {
@@ -272,7 +406,7 @@ export class TurnService {
         committed: outcome.committed,
         recent: outcome.recent,
         story: outcome.story,
-      });
+      }, audit);
     }
 
     const task = this.finishNarration({
@@ -287,9 +421,13 @@ export class TurnService {
       modelTaskId: freeTurnTaskId,
       recentTurns,
       profile,
-    }).catch(() => undefined);
+      audit,
+    }).catch(() => {
+      audit.gap("NARRATION_FINALIZE_FAILED");
+      audit.finalize("partial");
+    });
     this.finishing.set(operationId, task);
-    return ok({ operationId, turnId });
+    return ok({ operationId, turnId, traceId: audit.traceId });
   }
 
   get(operationId: string, campaignId: CampaignId): Result<TurnView> {
@@ -438,6 +576,7 @@ export class TurnService {
       recent: ReturnType<typeof recentFromTurn>;
       story: ReturnType<typeof storyMonitor>;
     },
+    audit?: TurnAuditRecorder,
   ): void {
     const jobs = runAfterCommit({
       taskId: params.taskId,
@@ -452,6 +591,38 @@ export class TurnService {
     const now = this.clock.nowIso();
     saveMemory(db, branchId, jobs.memory, now);
     saveFrontier(db, branchId, jobs.director.frontier, now);
+    const common = {
+      kind: "program" as const,
+      attempt: 1,
+      causal: false,
+      basedOnStateVersion: params.state.version,
+      input: { taskId: params.taskId },
+      status: "succeeded" as const,
+    };
+    audit?.append({
+      ...common,
+      stage: "derived.information",
+      taskType: "information.after_commit",
+      output: jobs.information,
+    });
+    audit?.append({
+      ...common,
+      stage: "derived.director",
+      taskType: "director.after_commit",
+      output: jobs.director,
+    });
+    audit?.append({
+      ...common,
+      stage: "derived.memory",
+      taskType: "memory.after_commit",
+      output: { memory: jobs.memory },
+    });
+    audit?.append({
+      ...common,
+      stage: "derived.context",
+      taskType: "context.after_commit",
+      output: { context: jobs.context },
+    });
   }
 
   private emit(operationId: string, event: OperationEvent): void {
@@ -491,8 +662,9 @@ export class TurnService {
     modelTaskId?: string;
     recentTurns: DialogueTurn[];
     profile: InvestigatorProfile | null;
+    audit: TurnAuditRecorder;
   }): Promise<void> {
-    const { db, operationId, turnId, view } = params;
+    const { audit, db, operationId, turnId, view } = params;
     this.emit(operationId, {
       type: "operation.status",
       operation: this.operationView(operationId, "running", "narrating"),
@@ -508,6 +680,7 @@ export class TurnService {
 
     if (view.kind !== "committed") {
       const narrationId = uuidv7();
+      const finalView: TurnView = { ...view, narrationId };
       persistFinalNarration({
         db,
         narrationId,
@@ -519,8 +692,27 @@ export class TurnService {
         text: view.narration,
         now: this.clock.nowIso(),
         operationId,
-        result: view,
+        result: finalView,
       });
+      audit.linkFinalNarration({ narrationId });
+      audit.append({
+        kind: "program",
+        stage: "narration.select",
+        taskType: "gm.narrate_result",
+        attempt: 1,
+        causal: true,
+        basedOnStateVersion: view.stateVersion,
+        promptVersion: "program-w0",
+        input: { outcomeKind: view.kind },
+        status: "succeeded",
+        output: {
+          source: "程序",
+          sourceSpanId: null,
+          narrationId,
+          finalTextSha256: sha256(view.narration),
+        },
+      });
+      audit.finalize();
       this.emit(operationId, {
         type: "narration.completed",
         operationId: asOperationId(operationId),
@@ -549,6 +741,8 @@ export class TurnService {
     let text = fallback;
     let note: string | undefined;
     let modelTaskId = params.modelTaskId ?? "template";
+    let selectionRecorded = false;
+    let sourceSpanId: string | undefined;
     if (
       view.events.length > 0 ||
       (view.intent as Intent).kind === "free_action" ||
@@ -564,6 +758,10 @@ export class TurnService {
           recentTurns: params.recentTurns,
           profile: params.profile,
           fallback,
+          audit: {
+            sink: audit,
+            modelTaskId: params.modelTaskId ?? modelTaskId,
+          },
           onCall: (usage) => {
             const createdAt = this.clock.nowIso();
             recordModelUsage(
@@ -589,6 +787,8 @@ export class TurnService {
           text = completed.result.text;
           narrationKind = completed.result.source;
           note = completed.result.note;
+          sourceSpanId = completed.result.sourceSpanId;
+          selectionRecorded = true;
           modelTaskId = narrationKind === "模型" ? (params.modelTaskId ?? completed.model) : "template";
         } catch (error) {
           note = error instanceof Error ? error.message : String(error);
@@ -604,6 +804,7 @@ export class TurnService {
       narration: text,
       narrationKind,
       narrationNote: note,
+      narrationId,
     };
     persistFinalNarration({
       db,
@@ -618,6 +819,45 @@ export class TurnService {
       operationId,
       result: finalView,
     });
+    audit.linkFinalNarration({ narrationId, sourceSpanId });
+    if (!selectionRecorded) {
+      audit.append({
+        kind: "program",
+        stage: "narration.select",
+        taskType: "gm.narrate_result",
+        attempt: 1,
+        causal: true,
+        modelTaskId,
+        basedOnStateVersion: view.stateVersion,
+        promptVersion: "template-w0",
+        input: { fallback, note: note ?? null },
+        status: "succeeded",
+        output: {
+          source: narrationKind,
+          sourceSpanId: sourceSpanId ?? null,
+          narrationId,
+          finalTextSha256: sha256(text),
+        },
+      });
+    }
+    audit.append({
+      kind: "persistence",
+      stage: "narration.persist",
+      taskType: "gm.narrate_result",
+      attempt: 1,
+      causal: true,
+      modelTaskId,
+      basedOnStateVersion: view.stateVersion,
+      input: { narrationId, source: narrationKind },
+      status: "succeeded",
+      output: {
+        narrationId,
+        source: narrationKind,
+        sourceSpanId: sourceSpanId ?? null,
+        finalTextSha256: sha256(text),
+      },
+    });
+    audit.finalize();
     this.emit(operationId, {
       type: "narration.completed",
       operationId: asOperationId(operationId),
@@ -629,6 +869,10 @@ export class TurnService {
       operation: this.operationView(operationId, "succeeded", "completed"),
     });
   }
+}
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 function persistFinalNarration(params: {

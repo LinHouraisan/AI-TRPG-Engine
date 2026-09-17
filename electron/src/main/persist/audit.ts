@@ -205,6 +205,13 @@ export function loadAuditCase(db: Driver, traceId: string): AuditCase {
   return { run: mapRun(run), spans: spans.map(mapSpan) };
 }
 
+export function findAuditTraceByOperation(db: Driver, operationId: string): string | undefined {
+  return db.get<{ trace_id: string }>(
+    "SELECT trace_id FROM audit_runs WHERE operation_id = ? ORDER BY started_at DESC LIMIT 1",
+    [operationId],
+  )?.trace_id;
+}
+
 function mapRun(row: AuditRunRow): AuditRunRecord {
   return {
     traceId: row.trace_id,
