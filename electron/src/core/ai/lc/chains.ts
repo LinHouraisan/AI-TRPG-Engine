@@ -10,6 +10,7 @@
 import { createAgent } from "langchain";
 import type { BaseMessage } from "@langchain/core/messages";
 import { StringOutputParser } from "@langchain/core/output_parsers";
+import type { AuditSpanSink } from "@core/audit/types";
 import type { KeeperConfig } from "@core/keeper/config";
 import { type LcModelOptions, chatModelFrom } from "./provider";
 import { gmNarrationPrompt, npcPrompt, RULES_AGENT_SYSTEM } from "./prompts";
@@ -24,14 +25,31 @@ export type NarrationResult = {
 
 const NO_HIT = "（没有检索到相关记忆）";
 
-async function recall(params: {
+export async function recall(params: {
   input: string;
   index?: VectorIndex;
   embed?: Embedder;
   topK?: number;
+  audit?: { sink: AuditSpanSink; modelTaskId: string; basedOnStateVersion: number };
 }): Promise<RetrievedDoc[]> {
-  if (!params.index || !params.embed) return [];
-  return search(params.index, params.embed, params.input, params.topK ?? 3);
+  const topK = params.topK ?? 3;
+  const hits = params.index && params.embed
+    ? await search(params.index, params.embed, params.input, topK)
+    : [];
+  appendAudit(params.audit?.sink, {
+    kind: "retrieval",
+    stage: "retrieval.context",
+    taskType: "rag.retrieve",
+    attempt: 1,
+    causal: true,
+    modelTaskId: params.audit?.modelTaskId,
+    basedOnStateVersion: params.audit?.basedOnStateVersion,
+    promptVersion: "vector-index-v1",
+    input: { query: params.input, topK, indexSize: params.index?.docs.length ?? 0 },
+    status: "succeeded",
+    output: { usedRag: hits.length > 0, hits },
+  });
+  return hits;
 }
 
 function modelOptions(config: KeeperConfig, lora?: LcModelOptions): LcModelOptions {
@@ -51,6 +69,7 @@ export async function narrateTurn(params: {
   embed?: Embedder;
   topK?: number;
   lora?: LcModelOptions;
+  audit?: { sink: AuditSpanSink; modelTaskId: string; basedOnStateVersion: number };
 }): Promise<NarrationResult> {
   const hits = await recall(params);
   const context = hits.length > 0 ? hits.map((hit) => hit.text).join("\n---\n") : NO_HIT;
@@ -74,6 +93,7 @@ export async function npcTurn(params: {
   index?: VectorIndex;
   embed?: Embedder;
   topK?: number;
+  audit?: { sink: AuditSpanSink; modelTaskId: string; basedOnStateVersion: number };
 }): Promise<NarrationResult> {
   const hits = await recall(params);
   const context = hits.length > 0 ? hits.map((hit) => hit.text).join("\n---\n") : NO_HIT;
@@ -88,6 +108,22 @@ export async function npcTurn(params: {
     input: params.input,
   });
   return { text, usedRag: hits.length > 0, hits };
+}
+
+function appendAudit(
+  sink: AuditSpanSink | undefined,
+  input: Parameters<AuditSpanSink["append"]>[0],
+): void {
+  if (!sink) return;
+  try {
+    sink.append(input);
+  } catch {
+    try {
+      sink.gap("AUDIT_RETRIEVAL_SPAN_WRITE_FAILED");
+    } catch {
+      // Retrieval remains available when audit persistence fails.
+    }
+  }
 }
 
 /**

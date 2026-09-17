@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { AuditSpanSink } from "@core/audit/types";
 import { askKeeper } from "@core/keeper/client";
 import type { KeeperConfig } from "@core/keeper/config";
 import { packIndex } from "../engine/pack";
@@ -59,6 +60,7 @@ export async function runAfterCommitLive(params: {
   memory: MemoryState;
   context: AfterCommitJobs["context"];
   config: KeeperConfig;
+  audit?: AuditSpanSink;
 }): Promise<LiveAfterCommitJobs> {
   const baseline = runAfterCommit({
     taskId: params.taskId,
@@ -84,6 +86,7 @@ export async function runAfterCommitLive(params: {
     jsonSchema: contextPlanJsonSchema,
     system: INFORMATION_PLAN_SYSTEM,
     user: informationPlanUser(params),
+    audit: backgroundAudit(params, "information.plan"),
   });
   if (planned) {
     plan = {
@@ -126,6 +129,7 @@ export async function runAfterCommitLive(params: {
     jsonSchema: informationProposeJsonSchema,
     system: INFORMATION_PROPOSE_SYSTEM,
     user: informationProposeUser(params),
+    audit: backgroundAudit(params, "information.propose"),
   });
   if (proposed) {
     const extra = proposed.proposals
@@ -152,6 +156,7 @@ export async function runAfterCommitLive(params: {
       jsonSchema: directorAnalyzeJsonSchema,
       system: DIRECTOR_SYSTEM,
       user: directorUser(params, frontier),
+      audit: backgroundAudit(params, "director.analyze_progress"),
     });
     if (analyzed) {
       directorUsed = true;
@@ -188,6 +193,7 @@ export async function runAfterCommitLive(params: {
     jsonSchema: memoryExtractJsonSchema,
     system: MEMORY_EXTRACT_SYSTEM,
     user: memoryExtractUser(params),
+    audit: backgroundAudit(params, "memory.extract"),
   });
   if (extracted) {
     const allowed = new Set(params.committed.map((event) => event.id));
@@ -222,6 +228,7 @@ export async function runAfterCommitLive(params: {
     jsonSchema: memoryConsolidateJsonSchema,
     system: MEMORY_CONSOLIDATE_SYSTEM,
     user: memoryConsolidateUser(memory, params.state.pcAt),
+    audit: backgroundAudit(params, "memory.consolidate"),
   });
   if (consolidated) {
     const sources = unique(
@@ -275,13 +282,14 @@ export async function runAfterCommitLive(params: {
   };
 }
 
-async function askStructured<T>(params: {
+export async function askStructured<T>(params: {
   config: KeeperConfig;
   task: AiTaskType;
   schema: z.ZodType<T>;
   jsonSchema: unknown;
   system: string;
   user: string;
+  audit?: { sink: AuditSpanSink; modelTaskId: string; basedOnStateVersion: number };
 }): Promise<T | undefined> {
   const limits = TASK_LIMITS[params.task];
   try {
@@ -296,11 +304,32 @@ async function askStructured<T>(params: {
       schema: params.schema,
       jsonSchema: params.jsonSchema,
       maxTokens: 800,
+      audit: params.audit ? {
+        sink: params.audit.sink,
+        stage: `background.${params.task}`,
+        taskType: params.task,
+        modelTaskId: params.audit.modelTaskId,
+        attempt: 1,
+        basedOnStateVersion: params.audit.basedOnStateVersion,
+        promptVersion: "live-v1",
+        causal: false,
+      } : undefined,
     });
     return result.value;
   } catch {
     return undefined;
   }
+}
+
+function backgroundAudit(
+  params: { audit?: AuditSpanSink; taskId: string; state: GameState },
+  task: AiTaskType,
+): { sink: AuditSpanSink; modelTaskId: string; basedOnStateVersion: number } | undefined {
+  return params.audit ? {
+    sink: params.audit,
+    modelTaskId: `${params.taskId}:${task}`,
+    basedOnStateVersion: params.state.version,
+  } : undefined;
 }
 
 function isPackEntity(id: string): boolean {

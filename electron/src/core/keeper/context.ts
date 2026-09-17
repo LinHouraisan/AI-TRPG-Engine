@@ -67,6 +67,32 @@ export type ContextUsage = {
   columns: ContextColumnUsage[];
 };
 
+export type ContextManifestEntry = {
+  column: ContextColumnName;
+  sourceKind:
+    | "scene"
+    | "visible_item"
+    | "inventory_item"
+    | "present_npc"
+    | "known_fact"
+    | "investigator_state"
+    | "prior_event"
+    | "current_event"
+    | "authored_narration"
+    | "recent_dialogue";
+  sourceId: string;
+  visibility: "public" | "secret" | "player";
+  text: string;
+  included: boolean;
+  dropReason?: "budget" | "not_selected";
+};
+
+export type ContextManifest = {
+  finalText: string;
+  columns: ContextColumnUsage[];
+  entries: ContextManifestEntry[];
+};
+
 export type KeeperContext = {
   text: string;
   /** 叙述里允许出现的专有名词。用来事后查它有没有编人编物 */
@@ -75,6 +101,8 @@ export type KeeperContext = {
   allowedFactIds: string[];
   /** 分栏用量。界面只读这份，不要自己再数一遍。 */
   usage?: ContextUsage;
+  /** 本次实际装配的来源、裁剪结果与最终文本。 */
+  manifest: ContextManifest;
 };
 
 /** 上下文里给模型看的略去痕迹。测试按这个原文断言。 */
@@ -150,12 +178,16 @@ export function buildContext(params: {
   const scenarioIndex = indexPack(scenarioPack);
   const publicKnown = state.known.filter((id) => scenarioIndex.fact(id)?.visibility === "public");
   const clueIds = npcId ? publicKnown : state.known;
-  const clueItems = clueIds.map((id) => scenarioIndex.fact(id)?.title ?? id);
+  const clueItems = clueIds.map((id) => ({ id, text: scenarioIndex.fact(id)?.title ?? id }));
   const visiblePrior = npcId ? prior.filter((event) => event.visibility === "public") : prior;
   const visibleCurrent = npcId ? current.filter((event) => event.visibility === "public") : current;
-  const historyItems = perceivedSummaries(visiblePrior);
-  const thisTurnFacts = perceivedSummaries(visibleCurrent);
-  const authored = visibleCurrent.map((event) => event.narration).filter(Boolean);
+  const historyItems = perceivedEvents(visiblePrior);
+  const thisTurnFacts = perceivedEvents(visibleCurrent);
+  const authored = visibleCurrent
+    .filter((event): event is GameEvent & { narration: string } => Boolean(event.narration))
+    .map((event) => ({ id: event.id, text: event.narration }));
+  const allHistoryItems = [...historyItems];
+  const allClueItems = [...clueItems];
   const allowedFactIds = new Set(npcId ? publicKnown : state.known);
   if (npcId) {
     for (const id of disclosableNpcFactIds({ npcId, state, scenarioPack })) {
@@ -204,17 +236,17 @@ export function buildContext(params: {
       `【在场的人】${peopleNames.length > 0 ? peopleNames.join("、") : "只有你自己"}`,
       0,
     );
-    weigh("已知线索", `【已知线索】${renderClues(clueItems, cluesDropped)}`, cluesDropped);
+    weigh("已知线索", `【已知线索】${renderClues(clueItems.map((item) => item.text), cluesDropped)}`, cluesDropped);
     weigh(
       "调查员",
       `【调查员】生命 ${state.hp}/${state.hpMax}，理智 ${state.san}/${state.sanMax}`,
       0,
     );
-    weigh("经过", historyHad ? renderHistory(historyItems, historyDropped) : "", historyDropped);
+    weigh("经过", historyHad ? renderHistory(historyItems.map((item) => item.text), historyDropped) : "", historyDropped);
     weigh(
       "本回合已提交的事实",
       `【本回合已提交的事实】\n${
-        thisTurnFacts.length > 0 ? thisTurnFacts.map((s) => `- ${s}`).join("\n") : "- 无"
+        thisTurnFacts.length > 0 ? thisTurnFacts.map((item) => `- ${item.text}`).join("\n") : "- 无"
       }`,
       0,
     );
@@ -223,7 +255,7 @@ export function buildContext(params: {
       authored.length > 0
         ? [
             "【作者写好的句子，必须用上，可以改写语气但不能改事实】",
-            ...authored.map((t) => `- ${t}`),
+            ...authored.map((item) => `- ${item.text}`),
           ].join("\n")
         : "",
       0,
@@ -260,7 +292,151 @@ export function buildContext(params: {
     allowedNames: [...allowedNames],
     allowedFactIds: [...allowedFactIds],
     usage: assembled.usage,
+    manifest: {
+      finalText: assembled.text,
+      columns: assembled.usage.columns,
+      entries: buildManifestEntries({
+        state,
+        roomId: room?.id,
+        roomText: room?.title,
+        here,
+        visible,
+        bag,
+        bagNames,
+        people,
+        peopleNames,
+        allClueItems,
+        includedClueIds: new Set(clueItems.map((item) => item.id)),
+        allHistoryItems,
+        includedHistoryIds: new Set(historyItems.map((item) => item.id)),
+        thisTurnFacts,
+        authored,
+        recentTurns,
+        npcDialogue,
+      }),
+    },
   };
+}
+
+function buildManifestEntries(params: {
+  state: GameState;
+  roomId?: string;
+  roomText?: string;
+  here: string[];
+  visible: string[];
+  bag: string[];
+  bagNames: string[];
+  people: string[];
+  peopleNames: string[];
+  allClueItems: Array<{ id: string; text: string }>;
+  includedClueIds: Set<string>;
+  allHistoryItems: Array<{ id: string; text: string; visibility: "public" | "secret" }>;
+  includedHistoryIds: Set<string>;
+  thisTurnFacts: Array<{ id: string; text: string; visibility: "public" | "secret" }>;
+  authored: Array<{ id: string; text: string }>;
+  recentTurns: DialogueTurn[];
+  npcDialogue: string;
+}): ContextManifestEntry[] {
+  const entries: ContextManifestEntry[] = [];
+  if (params.roomId) {
+    entries.push({
+      column: "场景与出口",
+      sourceKind: "scene",
+      sourceId: params.roomId,
+      visibility: "public",
+      text: params.roomText ?? params.roomId,
+      included: true,
+    });
+  }
+  params.here.forEach((id, index) => entries.push({
+    column: "看得见的东西",
+    sourceKind: "visible_item",
+    sourceId: id,
+    visibility: "public",
+    text: params.visible[index] ?? id,
+    included: true,
+  }));
+  params.bag.forEach((id, index) => entries.push({
+    column: "背包",
+    sourceKind: "inventory_item",
+    sourceId: id,
+    visibility: "player",
+    text: params.bagNames[index] ?? id,
+    included: true,
+  }));
+  params.people.forEach((id, index) => entries.push({
+    column: "在场的人",
+    sourceKind: "present_npc",
+    sourceId: id,
+    visibility: "public",
+    text: params.peopleNames[index] ?? id,
+    included: true,
+  }));
+  entries.push({
+    column: "调查员",
+    sourceKind: "investigator_state",
+    sourceId: "pc.state",
+    visibility: "player",
+    text: `生命 ${params.state.hp}/${params.state.hpMax}，理智 ${params.state.san}/${params.state.sanMax}`,
+    included: true,
+  });
+  for (const item of params.allClueItems) {
+    const included = params.includedClueIds.has(item.id);
+    entries.push({
+      column: "已知线索",
+      sourceKind: "known_fact",
+      sourceId: item.id,
+      visibility: "player",
+      text: item.text,
+      included,
+      ...(included ? {} : { dropReason: "budget" as const }),
+    });
+  }
+  for (const item of params.allHistoryItems) {
+    const included = params.includedHistoryIds.has(item.id);
+    entries.push({
+      column: "经过",
+      sourceKind: "prior_event",
+      sourceId: item.id,
+      visibility: item.visibility,
+      text: item.text,
+      included,
+      ...(included ? {} : { dropReason: "budget" as const }),
+    });
+  }
+  for (const item of params.thisTurnFacts) {
+    entries.push({
+      column: "本回合已提交的事实",
+      sourceKind: "current_event",
+      sourceId: item.id,
+      visibility: item.visibility,
+      text: item.text,
+      included: true,
+    });
+  }
+  for (const item of params.authored) {
+    entries.push({
+      column: "作者写好的句子",
+      sourceKind: "authored_narration",
+      sourceId: item.id,
+      visibility: "player",
+      text: item.text,
+      included: true,
+    });
+  }
+  params.recentTurns.forEach((turn, index) => {
+    const included = params.npcDialogue.includes(turn.player) || params.npcDialogue.includes(turn.gm);
+    entries.push({
+      column: "NPC 对话",
+      sourceKind: "recent_dialogue",
+      sourceId: `recent:${index}`,
+      visibility: "player",
+      text: `${turn.player}\n${turn.gm}`,
+      included,
+      ...(included ? {} : { dropReason: "not_selected" as const }),
+    });
+  });
+  return entries;
 }
 
 function renderClues(items: string[], dropped: number): string {
@@ -293,10 +469,12 @@ function splitByTurn(events: GameEvent[]): { prior: GameEvent[]; current: GameEv
   return { prior, current };
 }
 
-function perceivedSummaries(events: GameEvent[]): string[] {
+function perceivedEvents(
+  events: GameEvent[],
+): Array<{ id: string; text: string; visibility: "public" | "secret" }> {
   return events
     .filter((event) => event.visibility === "public" || isPerceived(event))
-    .map((event) => event.summary);
+    .map((event) => ({ id: event.id, text: event.summary, visibility: event.visibility }));
 }
 
 /** 一条事件牵涉到哪些专有名词。 */

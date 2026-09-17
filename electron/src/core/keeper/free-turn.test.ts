@@ -1,4 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
+import type { AuditSpanSink } from "@core/audit/types";
 import { initialState } from "../engine/state";
 import { freeTurnNarrationSchema, handleFreeTurn, narrateFreeTurn } from "./free-turn";
 import type { KeeperConfig } from "./config";
@@ -321,6 +322,7 @@ test("free-turn narration requires structured quality fields and displays only c
 
 test("two semantically invalid narration attempts use the safe fallback", async () => {
   const prompts: string[] = [];
+  const audit = recordingAuditSink();
   globalThis.fetch = (async (_input, init) => {
     const body = JSON.parse(String(init?.body)) as {
       messages: Array<{ role: string; content: string }>;
@@ -349,12 +351,26 @@ test("two semantically invalid narration attempts use the safe fallback", async 
     spoken: "继续问她",
     scenarioPack: mist,
     fallback: "她没有回答。",
+    audit: audit.sink,
   });
 
   expect(prompts).toHaveLength(2);
   expect(prompts[1]).toContain("叙述结构不完整");
   expect(prompts[1]).not.toContain("missing_feedback");
   expect(result).toMatchObject({ text: "她没有回答。", source: "模板" });
+  expect(audit.started.map((span) => ({ stage: span.stage, attempt: span.attempt }))).toEqual([
+    { stage: "gm.narrate", attempt: 1 },
+    { stage: "gm.narrate", attempt: 2 },
+  ]);
+  expect(audit.appended.filter((span) => span.stage === "guard.quality")).toEqual([
+    expect.objectContaining({ parentSpanId: "model-span-1", status: "rejected" }),
+    expect.objectContaining({ parentSpanId: "model-span-2", status: "rejected" }),
+  ]);
+  expect(audit.appended.at(-1)).toMatchObject({
+    stage: "narration.select",
+    status: "succeeded",
+    output: { source: "模板", sourceSpanId: "model-span-2" },
+  });
 });
 
 test("a safe short narration is accepted without a second model call", async () => {
@@ -385,3 +401,23 @@ test("a safe short narration is accepted without a second model call", async () 
   expect(attempts).toBe(1);
   expect(result).toMatchObject({ text: shortText, source: "模型" });
 });
+
+function recordingAuditSink() {
+  const started: Array<Record<string, unknown> & { stage: string; attempt: number }> = [];
+  const appended: Array<Record<string, unknown> & { stage: string }> = [];
+  let sequence = 0;
+  const sink: AuditSpanSink = {
+    start(input) {
+      sequence += 1;
+      started.push(input);
+      return `model-span-${sequence}`;
+    },
+    finish() {},
+    append(input) {
+      appended.push(input);
+      return `program-span-${appended.length}`;
+    },
+    gap() {},
+  };
+  return { sink, started, appended };
+}

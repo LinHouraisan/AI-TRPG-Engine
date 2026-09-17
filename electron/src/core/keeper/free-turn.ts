@@ -3,6 +3,7 @@ import type { InvestigationProfile } from "@core/engine/investigation";
 import type { Pack } from "@core/engine/pack";
 import type { KeeperConfig } from "./config";
 import type { DialogueTurn } from "./dialogue-context";
+import type { AuditSpanSink } from "@core/audit/types";
 import { narrationReplySchema, routeReplySchema } from "./contract";
 import {
   keeperNarrate,
@@ -52,6 +53,7 @@ export async function handleFreeTurn(params: {
   recentTurns?: DialogueTurn[];
   modelTaskId: string;
   signal?: AbortSignal;
+  audit?: AuditSpanSink;
 }): Promise<FreeTurnIntentResult> {
   const routed = await keeperRoute({
     config: params.config,
@@ -62,6 +64,7 @@ export async function handleFreeTurn(params: {
     spoken: params.spoken,
     recentTurns: params.recentTurns,
     signal: params.signal,
+    audit: params.audit ? { sink: params.audit, modelTaskId: params.modelTaskId } : undefined,
   });
   if (
     routed.intent.kind === "unclear"
@@ -104,6 +107,7 @@ export async function narrateFreeTurn(params: {
   fallback: string;
   signal?: AbortSignal;
   onStream?: (event: NarrationStreamEvent) => void;
+  audit?: AuditSpanSink;
 }): Promise<FreeTurnNarrationResult> {
   const result = await keeperNarrate({
     config: params.config,
@@ -117,6 +121,7 @@ export async function narrateFreeTurn(params: {
     fallback: params.fallback,
     signal: params.signal,
     onStream: params.onStream,
+    audit: params.audit ? { sink: params.audit, modelTaskId: params.modelTaskId } : undefined,
   });
   return { ...result, modelTaskId: params.modelTaskId };
 }

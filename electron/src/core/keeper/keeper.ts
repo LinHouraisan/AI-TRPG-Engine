@@ -24,6 +24,7 @@ import {
   type NarrationQualityMode,
 } from "./guard";
 import type { DialogueTurn } from "./dialogue-context";
+import type { AuditSpanSink } from "@core/audit/types";
 
 const NARRATE_SYSTEM = [
   "你是《克苏鲁的呼唤》的守秘人，主持一场简体中文的跑团。",
@@ -61,6 +62,8 @@ export type NarrationResult = {
   ms?: number;
   /** 这一次叙述真正装配进去的用量。主持人关掉时没装配，也就没有。 */
   usage?: ContextUsage;
+  /** 审计中最终采用或导致模板回退的模型 Attempt。 */
+  sourceSpanId?: string;
 };
 
 /**
@@ -97,6 +100,7 @@ export async function keeperNarrate(params: {
   signal?: AbortSignal;
   onStream?: (event: NarrationStreamEvent) => void;
   onCall?: (usage: ProviderCallUsage) => void;
+  audit?: { sink: AuditSpanSink; modelTaskId: string };
 }): Promise<NarrationResult> {
   const { config, fallback } = params;
   const finish = (result: NarrationResult): NarrationResult => {
@@ -115,6 +119,19 @@ export async function keeperNarrate(params: {
     scenarioPack: params.scenarioPack,
     budgetChars: params.config.contextBudgetChars,
   });
+  appendAudit(params.audit?.sink, {
+    kind: "program",
+    stage: "context.build",
+    taskType: "gm.narrate_result",
+    attempt: 1,
+    causal: true,
+    modelTaskId: params.audit?.modelTaskId,
+    basedOnStateVersion: params.state.version,
+    promptVersion: "context-v1",
+    input: { spoken: params.spoken },
+    status: "succeeded",
+    output: { manifest: context.manifest },
+  });
   const done = (result: Omit<NarrationResult, "usage">): NarrationResult =>
     finish({ ...result, usage: context.usage });
   const base = [context.text, "", `【玩家这一步】${params.spoken}`].join("\n");
@@ -122,9 +139,10 @@ export async function keeperNarrate(params: {
 
   let complaint = "";
   let lastReason = "";
+  let lastSourceSpanId: string | undefined;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const { value, ms } = await askKeeper({
+      const { value, ms, auditSpanId } = await askKeeper({
         config,
         system: NARRATE_SYSTEM,
         user: complaint ? `${base}\n\n【上一次不合格】${complaint}，重写一遍。` : base,
@@ -135,14 +153,54 @@ export async function keeperNarrate(params: {
         stream: config.stream,
         onContent: undefined,
         onCall: params.onCall,
+        audit: params.audit ? {
+          sink: params.audit.sink,
+          stage: "gm.narrate",
+          taskType: "gm.narrate_result",
+          modelTaskId: params.audit.modelTaskId,
+          attempt: attempt + 1,
+          basedOnStateVersion: params.state.version,
+          promptVersion: "keeper-w0",
+          causal: true,
+        } : undefined,
       });
+      lastSourceSpanId = auditSpanId;
 
       const quality = checkNarrationQuality(value, qualityMode);
       if (!quality.ok) {
+        appendAudit(params.audit?.sink, {
+          parentSpanId: auditSpanId,
+          kind: "guard",
+          stage: "guard.quality",
+          taskType: "gm.narrate_result",
+          attempt: attempt + 1,
+          causal: true,
+          modelTaskId: params.audit?.modelTaskId,
+          basedOnStateVersion: params.state.version,
+          promptVersion: "guard-v1",
+          input: { reply: value },
+          status: "rejected",
+          errorCode: quality.reason,
+          output: { reason: quality.reason },
+        });
         lastReason = quality.reason;
         complaint = qualityComplaint(quality.reason);
         continue;
       }
+      appendAudit(params.audit?.sink, {
+        parentSpanId: auditSpanId,
+        kind: "guard",
+        stage: "guard.quality",
+        taskType: "gm.narrate_result",
+        attempt: attempt + 1,
+        causal: true,
+        modelTaskId: params.audit?.modelTaskId,
+        basedOnStateVersion: params.state.version,
+        promptVersion: "guard-v1",
+        input: { reply: value },
+        status: "succeeded",
+        output: { accepted: true },
+      });
 
       const verdict = checkNarration({
         text: value.text,
@@ -152,22 +210,94 @@ export async function keeperNarrate(params: {
         scenarioPack: params.scenarioPack,
       });
       if (!verdict.ok) {
+        appendAudit(params.audit?.sink, {
+          parentSpanId: auditSpanId,
+          kind: "guard",
+          stage: "guard.facts",
+          taskType: "gm.narrate_result",
+          attempt: attempt + 1,
+          causal: true,
+          modelTaskId: params.audit?.modelTaskId,
+          basedOnStateVersion: params.state.version,
+          promptVersion: "guard-v1",
+          input: { text: value.text },
+          status: "rejected",
+          errorCode: verdict.reason,
+          output: { reason: verdict.reason },
+        });
         lastReason = verdict.reason;
         complaint = "叙述包含未经授权的事实或未提交结果";
         continue;
       }
+      appendAudit(params.audit?.sink, {
+        parentSpanId: auditSpanId,
+        kind: "guard",
+        stage: "guard.facts",
+        taskType: "gm.narrate_result",
+        attempt: attempt + 1,
+        causal: true,
+        modelTaskId: params.audit?.modelTaskId,
+        basedOnStateVersion: params.state.version,
+        promptVersion: "guard-v1",
+        input: { text: value.text },
+        status: "succeeded",
+        output: { accepted: true },
+      });
 
-      return done({ text: value.text.trim(), source: "模型", ms });
+      appendAudit(params.audit?.sink, {
+        parentSpanId: auditSpanId,
+        kind: "program",
+        stage: "narration.select",
+        taskType: "gm.narrate_result",
+        attempt: attempt + 1,
+        causal: true,
+        modelTaskId: params.audit?.modelTaskId,
+        basedOnStateVersion: params.state.version,
+        promptVersion: "selection-v1",
+        input: { sourceSpanId: auditSpanId ?? null },
+        status: "succeeded",
+        output: { source: "模型", sourceSpanId: auditSpanId ?? null },
+      });
+      return done({ text: value.text.trim(), source: "模型", ms, sourceSpanId: auditSpanId });
     } catch (error) {
       const reason = error instanceof KeeperError ? error.message : String(error);
-      return done({ text: fallback, source: "模板", note: reason });
+      appendAudit(params.audit?.sink, {
+        parentSpanId: lastSourceSpanId,
+        kind: "program",
+        stage: "narration.select",
+        taskType: "gm.narrate_result",
+        attempt: attempt + 1,
+        causal: true,
+        modelTaskId: params.audit?.modelTaskId,
+        basedOnStateVersion: params.state.version,
+        promptVersion: "selection-v1",
+        input: { reason },
+        status: "succeeded",
+        output: { source: "模板", sourceSpanId: lastSourceSpanId ?? null },
+      });
+      return done({ text: fallback, source: "模板", note: reason, sourceSpanId: lastSourceSpanId });
     }
   }
 
+  appendAudit(params.audit?.sink, {
+    parentSpanId: lastSourceSpanId,
+    kind: "program",
+    stage: "narration.select",
+    taskType: "gm.narrate_result",
+    attempt: 2,
+    causal: true,
+    modelTaskId: params.audit?.modelTaskId,
+    basedOnStateVersion: params.state.version,
+    promptVersion: "selection-v1",
+    input: { reason: lastReason || complaint },
+    status: "succeeded",
+    output: { source: "模板", sourceSpanId: lastSourceSpanId ?? null },
+  });
   return done({
     text: fallback,
     source: "模板",
     note: `叙述两次都没过体检：${lastReason || complaint}`,
+    sourceSpanId: lastSourceSpanId,
   });
 }
 
@@ -194,6 +324,7 @@ export type RouteResult = {
   intent: Intent;
   source: "程序" | "模型";
   note?: string;
+  sourceSpanId?: string;
 };
 
 /**
@@ -209,12 +340,13 @@ export async function keeperRoute(params: {
   spoken: string;
   recentTurns?: DialogueTurn[];
   signal?: AbortSignal;
+  audit?: { sink: AuditSpanSink; modelTaskId: string };
 }): Promise<RouteResult> {
   const { config, state, spoken } = params;
   if (!config.enabled) return { intent: { kind: "unclear", text: spoken }, source: "程序" };
 
   try {
-    const { value } = await askKeeper({
+    const { value, auditSpanId } = await askKeeper({
       config,
       system: ROUTE_SYSTEM,
       user: `${buildRouteContext(state, params.profile ?? investigationProfileFromState(state), params.scenarioPack, params.recentTurns, spoken)}\n\n【玩家说】${spoken}`,
@@ -222,6 +354,16 @@ export async function keeperRoute(params: {
       jsonSchema: routeJsonSchema,
       maxTokens: 160,
       signal: params.signal,
+      audit: params.audit ? {
+        sink: params.audit.sink,
+        stage: "gm.route",
+        taskType: "gm.handle_free_turn",
+        modelTaskId: params.audit.modelTaskId,
+        attempt: 1,
+        basedOnStateVersion: state.version,
+        promptVersion: "route-w0",
+        causal: true,
+      } : undefined,
     });
 
     if ((params.currentStateVersion?.() ?? state.version) !== state.version) {
@@ -229,6 +371,7 @@ export async function keeperRoute(params: {
         intent: { kind: "unclear", text: spoken },
         source: "模型",
         note: `模型候选基于状态版本 ${state.version}，当前版本已经变化，已作废`,
+        sourceSpanId: auditSpanId,
       };
     }
 
@@ -249,12 +392,30 @@ export async function keeperRoute(params: {
         note: "kind" in value
           ? `模型给的调查入口 ${target} 此刻不可用，已作废`
           : `模型给的目标 ${target || "（空）"} 不在场，已作废`,
+        sourceSpanId: auditSpanId,
       };
     }
-    return { intent, source: "模型" };
+    return { intent, source: "模型", sourceSpanId: auditSpanId };
   } catch (error) {
     const reason = error instanceof KeeperError ? error.message : String(error);
     return { intent: { kind: "unclear", text: spoken }, source: "程序", note: reason };
+  }
+}
+
+function appendAudit(
+  sink: AuditSpanSink | undefined,
+  input: Parameters<AuditSpanSink["append"]>[0],
+): string | undefined {
+  if (!sink) return undefined;
+  try {
+    return sink.append(input);
+  } catch {
+    try {
+      sink.gap("AUDIT_PROGRAM_SPAN_WRITE_FAILED");
+    } catch {
+      // Audit failures never interrupt narration.
+    }
+    return undefined;
   }
 }
 

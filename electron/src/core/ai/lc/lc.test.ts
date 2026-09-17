@@ -14,6 +14,8 @@ import {
   type Embedder,
 } from "./retrieval";
 import type { MemoryEntry } from "@core/ai/memory";
+import type { AuditSpanSink } from "@core/audit/types";
+import { recall } from "./chains";
 
 const seed = { seed: "br-test", turnId: "t-3" };
 
@@ -84,5 +86,44 @@ describe("检索", () => {
     });
     const docs = memoryDocs([entry("m1", "active"), entry("m2", "superseded")]);
     expect(docs.map((doc) => doc.id)).toEqual(["m1"]);
+  });
+
+  test("检索审计保存查询、Top-K、命中分数和来源", async () => {
+    const index = await buildIndex(fake, [
+      { id: "memory-ledger", text: "黑色账本记着名单", source: "fact" },
+      { id: "memory-study", text: "书房里有把锁", source: "scene" },
+    ]);
+    const appended: Array<Record<string, unknown>> = [];
+    const sink: AuditSpanSink = {
+      start: () => undefined,
+      finish() {},
+      append(input) {
+        appended.push(input);
+        return "retrieval-span-1";
+      },
+      gap() {},
+    };
+
+    const hits = await recall({
+      input: "那本账本",
+      index,
+      embed: fake,
+      topK: 1,
+      audit: { sink, modelTaskId: "rag-task-1", basedOnStateVersion: 3 },
+    });
+
+    expect(hits.map((hit) => hit.id)).toEqual(["memory-ledger"]);
+    expect(appended).toEqual([
+      expect.objectContaining({
+        kind: "retrieval",
+        stage: "retrieval.context",
+        causal: true,
+        input: { query: "那本账本", topK: 1, indexSize: 2 },
+        output: {
+          usedRag: true,
+          hits: [expect.objectContaining({ id: "memory-ledger", source: "fact", score: 1 })],
+        },
+      }),
+    ]);
   });
 });
