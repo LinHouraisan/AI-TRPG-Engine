@@ -37,6 +37,6 @@ bun run dev             # 拉起 Vite + Electron 窗口
 bun run audit:export --campaign <campaign.sqlite> --out <cases.jsonl> --manifest <cases.manifest.json>
 ```
 
-审计库可能包含完整对话、检索来源和状态摘要，应按敏感业务数据管理。API Key、Authorization 头和凭据字段不会写入审计或导出；标为 `gm_only` 的内容在数据集导出时只保留来源元数据，不导出正文。当前版本不包含浏览器内存审计模式，也不包含本地 Judge 自动评分。
+审计库可能包含完整对话、检索来源和状态摘要，应按敏感业务数据管理。API Key、Authorization 头和凭据字段不会写入审计或导出；标为 `secret` / `gm_only` 的程序数据在审计、备份、回看和数据集导出中只保留受控来源元数据，不保留正文。当前版本不包含浏览器内存审计模式，也不包含本地 Judge 自动评分。
 
 云凭据走 Main 的 `CredentialStore`（Electron `safeStorage`），密文 blob 写在 userData/`credentials.json`（`credentialId` / `ciphertext` / `createdAt` / `updatedAt`）。Renderer 只有 `settings:setSecret` / `hasSecret` / `deleteSecret`，没有 `getSecret`。`safeStorage` 不可用时拒绝持久化，只允许进程内会话密钥。`bun run persist:check` 用假 cipher 覆盖 set/has/use/delete、落盘无明文、以及不可用模式。

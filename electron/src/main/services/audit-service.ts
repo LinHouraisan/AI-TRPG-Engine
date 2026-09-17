@@ -1,5 +1,6 @@
 import { diagnoseTurn, type TurnDiagnosis } from "@core/audit/diagnosis";
 import { exportAuditCases, type AuditExportSource } from "@core/audit/export";
+import { redactAuditCase } from "@core/audit/privacy";
 import type {
   AuditCase,
   CandidateStatus,
@@ -76,12 +77,14 @@ export class AuditService {
     if (candidate.status === "captured") {
       try {
         const diagnoses = this.diagnose(audit);
-        candidate = saveRuleDiagnoses(db, {
-          feedbackId: captured.feedback.feedbackId,
-          caseId: candidate.caseId,
-          diagnoses: diagnoses.map((diagnosis) => ({ ...diagnosis, diagnosisId: uuidv7() })),
-          createdAt: this.clock.nowIso(),
-        });
+        if (diagnoses.length > 0) {
+          candidate = saveRuleDiagnoses(db, {
+            feedbackId: captured.feedback.feedbackId,
+            caseId: candidate.caseId,
+            diagnoses: diagnoses.map((diagnosis) => ({ ...diagnosis, diagnosisId: uuidv7() })),
+            createdAt: this.clock.nowIso(),
+          });
+        }
       } catch {
         // Feedback capture is intentionally durable even if post-capture diagnosis fails.
       }
@@ -118,7 +121,7 @@ export class AuditService {
     const finalOutput = narrationId ? loadFinalNarrationText(db, narrationId) : undefined;
     if (!finalOutput) return candidateNotFound();
     return ok({
-      audit,
+      audit: redactAuditCase(audit),
       feedback,
       candidate: this.toCandidateView(db, candidate),
       finalOutput,
@@ -127,7 +130,8 @@ export class AuditService {
 
   reviewCandidate(input: ReviewCandidateInput): Result<DatasetCandidateView> {
     const correctedOutput = input.correctedOutput?.trim();
-    if ((input.datasetUsage === "sft" || input.datasetUsage === "preference") && !correctedOutput) {
+    const needsCorrection = input.datasetUsage === "sft" || input.datasetUsage === "preference";
+    if (needsCorrection && !correctedOutput) {
       return fail({
         code: "AUDIT_CORRECTED_OUTPUT_REQUIRED",
         messageKey: "audit.corrected_output_required",
@@ -147,6 +151,16 @@ export class AuditService {
       });
     }
     const audit = loadAuditCase(db, candidate.traceId);
+    const originalOutput = audit.run.finalNarrationId
+      ? loadFinalNarrationText(db, audit.run.finalNarrationId)?.trim()
+      : undefined;
+    if (needsCorrection && correctedOutput === originalOutput) {
+      return fail({
+        code: "AUDIT_CORRECTED_OUTPUT_REQUIRED",
+        messageKey: "audit.corrected_output_required",
+        retryable: false,
+      });
+    }
     if (input.status === "curated" && audit.run.completeness !== "complete") {
       return fail({
         code: "AUDIT_RUN_INCOMPLETE",

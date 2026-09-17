@@ -22,7 +22,9 @@ test("exports only eligible curated complete cases as stable safe JSONL", () => 
   }
   expect(exported.jsonl).not.toMatch(/authorization|api[_-]?key|credential/i);
   expect(exported.jsonl).not.toContain("隐藏正文");
+  expect(exported.jsonl).not.toContain("秘密上下文正文");
   expect(exported.jsonl).toContain("gm_only");
+  expect(exported.jsonl).toContain("secret-source");
 });
 
 test("serialization is deterministic regardless of source order", () => {
@@ -102,10 +104,17 @@ function modelSpan(caseId: string): AuditSpanRecord {
     promptVersion: "keeper-w0",
     modelId: "local-model",
     input: {
-      messages: [{ role: "user", content: "公开输入" }],
       authorization: "Bearer secret",
       apiKey: "secret",
-      manifest: { entries: [{ visibility: "gm_only", sourceId: "secret-1", text: "隐藏正文" }] },
+      messages: [{ role: "user", content: "公开输入\n秘密上下文正文" }],
+      request: { messages: [{ role: "user", content: "公开输入\n秘密上下文正文" }] },
+      manifest: {
+        finalText: "公开上下文\n秘密上下文正文",
+        entries: [
+          { visibility: "gm_only", sourceId: "secret-1", text: "隐藏正文" },
+          { visibility: "secret", sourceId: "secret-source", text: "秘密上下文正文" },
+        ],
+      },
     },
     output: { rawContent: "原始回复", parsed: { text: "原始回复" } },
     status: "succeeded",

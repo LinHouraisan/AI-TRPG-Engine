@@ -46,3 +46,16 @@ export function validateCandidateReview(input: {
   }
   return null;
 }
+
+export async function loadAllCandidatePages<T>(
+  loadPage: (cursor?: string) => Promise<{ items: T[]; nextCursor?: string | null }>,
+): Promise<T[]> {
+  const items: T[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await loadPage(cursor);
+    items.push(...page.items);
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor);
+  return items;
+}

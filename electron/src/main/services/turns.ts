@@ -790,7 +790,7 @@ export class TurnService {
     let narrationKind: NarrationKind = "模板";
     let text = fallback;
     let note: string | undefined;
-    let modelTaskId = params.modelTaskId ?? "template";
+    const modelTaskId = params.modelTaskId ?? newFreeTurnTaskId();
     let selectionRecorded = false;
     let sourceSpanId: string | undefined;
     if (
@@ -839,7 +839,6 @@ export class TurnService {
           note = completed.result.note;
           sourceSpanId = completed.result.sourceSpanId;
           selectionRecorded = true;
-          modelTaskId = narrationKind === "模型" ? (params.modelTaskId ?? completed.model) : "template";
         } catch (error) {
           note = error instanceof Error ? error.message : String(error);
         }

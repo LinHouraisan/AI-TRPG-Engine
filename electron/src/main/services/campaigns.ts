@@ -135,7 +135,15 @@ export class CampaignService {
       for (const migration of this.extraMigrations) {
         applyMigration(driver, this.clock, migration.sql, migration.id);
       }
-      recoverInterruptedAudits(driver, this.clock.nowIso());
+      try {
+        recoverInterruptedAudits(driver, this.clock.nowIso());
+      } catch {
+        try {
+          recoverInterruptedAudits(driver, this.clock.nowIso());
+        } catch {
+          // Audit recovery must never prevent opening the campaign.
+        }
+      }
       this.openCampaigns.set(campaignId, driver);
     }
     touchOpened(this.settings, campaignId, this.clock.nowIso());

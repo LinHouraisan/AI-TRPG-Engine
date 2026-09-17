@@ -5,7 +5,7 @@ import {
   type DesktopAuditCase,
   type DesktopCandidate,
 } from "@renderer/desktop";
-import { validateCandidateReview } from "./audit-feedback-state";
+import { loadAllCandidatePages, validateCandidateReview } from "./audit-feedback-state";
 
 const STATUSES: CandidateStatus[] = [
   "captured",
@@ -55,13 +55,22 @@ export function AuditReviewPanel({
 
   const reload = async () => {
     if (!api) return;
-    const result = await api.audit.listCandidates({
-      campaignId,
-      status: status || undefined,
-      limit: 100,
-    });
-    if (result.ok) setItems(result.value.items);
-    else setError(result.error.messageKey);
+    try {
+      const loaded = await loadAllCandidatePages(async (cursor) => {
+        const result = await api.audit.listCandidates({
+          campaignId,
+          status: status || undefined,
+          cursor,
+          limit: 100,
+        });
+        if (!result.ok) throw new Error(result.error.messageKey);
+        return result.value;
+      });
+      setItems(loaded);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
   };
 
   useEffect(() => { void reload(); }, [campaignId, status]);

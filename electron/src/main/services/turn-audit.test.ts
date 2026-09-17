@@ -11,6 +11,7 @@ import { setSetting } from "../persist/catalog";
 import { applyInit } from "../persist/migrate";
 import { resolvePaths } from "../paths";
 import { parseAuditCaseLine } from "@core/audit/export";
+import { beginTurnAudit } from "./turn-audit";
 
 const now = "2026-09-17T10:00:00.000Z";
 const originalFetch = globalThis.fetch;
@@ -208,6 +209,14 @@ test("a deterministic action records commit, context, model, and final selection
       beforeVersion: confirmed.value.stateVersion,
       afterVersion: confirmed.value.stateVersion + 1,
     });
+    const narrationTaskIds = new Set(
+      audit.spans
+        .filter((span) => ["gm.narrate", "narration.select", "narration.persist"].includes(span.stage))
+        .map((span) => span.modelTaskId),
+    );
+    expect(narrationTaskIds.size).toBe(1);
+    expect([...narrationTaskIds][0]).toBeString();
+    expect([...narrationTaskIds][0]).not.toBe("template");
   } finally {
     fixture.close();
   }
@@ -314,7 +323,7 @@ test("a disliked guarded retry becomes a curated preference export", async () =>
 });
 
 test("one audit span write failure leaves gameplay complete and marks the run partial", async () => {
-  const fixture = await turnFixture(true);
+  const fixture = await turnFixture("span");
   try {
     const created = fixture.campaigns.create("审计失败隔离");
     if (!created.ok) throw new Error("campaign create failed");
@@ -347,6 +356,91 @@ test("one audit span write failure leaves gameplay complete and marks the run pa
   }
 });
 
+test("one audit run start failure is recovered under the original trace", async () => {
+  const fixture = await turnFixture("run");
+  try {
+    const created = fixture.campaigns.create("审计启动失败隔离");
+    if (!created.ok) throw new Error("campaign create failed");
+    const confirmed = fixture.campaigns.confirmInvestigator({
+      campaignId: created.value.campaignId,
+      branchId: created.value.headBranchId,
+      allocation: validAllocation(),
+    });
+    if (!confirmed.ok) throw new Error("investigator confirmation failed");
+    const submitted = await fixture.turns.submit({
+      campaignId: created.value.campaignId,
+      branchId: created.value.headBranchId,
+      actorId: "pc.linwan" as never,
+      controllerId: "player",
+      expectedStateVersion: confirmed.value.stateVersion as never,
+      commandId: "audit-run-start-gap",
+      text: "现在几点",
+    });
+    if (!submitted.ok) throw new Error("turn failed");
+    await fixture.turns.waitForNarration(submitted.value.operationId);
+    const db = fixture.campaigns.driver(created.value.campaignId);
+    if (!db) throw new Error("campaign not open");
+    expect(loadAuditCase(db, submitted.value.traceId).run).toMatchObject({
+      traceId: submitted.value.traceId,
+      completeness: "partial",
+      gapCodes: ["AUDIT_RUN_START_FAILED"],
+    });
+  } finally {
+    fixture.close();
+  }
+});
+
+test("private program data persists and backs up only as controlled references", async () => {
+  const fixture = await turnFixture();
+  try {
+    const created = fixture.campaigns.create("私密审计边界");
+    if (!created.ok) throw new Error("campaign create failed");
+    const opened = fixture.campaigns.ensureOpen(created.value.campaignId);
+    if (!opened.ok) throw new Error("campaign not open");
+    const db = opened.value;
+    const privateText = "gm-only-audit-sentinel";
+    const audit = beginTurnAudit({
+      db,
+      clock: fixedClock(now),
+      campaignId: created.value.campaignId,
+      branchId: created.value.headBranchId,
+      operationId: "operation-private-audit",
+      baseStateVersion: 0,
+      traceId: "trace-private-audit",
+    });
+    audit.append({
+      kind: "program",
+      stage: "rule.resolve",
+      taskType: "turn.submitAction",
+      attempt: 1,
+      causal: true,
+      basedOnStateVersion: 0,
+      input: {},
+      output: {
+        events: [{
+          id: "event-private-audit",
+          visibility: "secret",
+          summary: privateText,
+          payload: { type: "fact_known", fact: "fact.hidden" },
+        }],
+        copiedContext: `公开内容\n${privateText}`,
+      },
+      status: "succeeded",
+    });
+    audit.finalize();
+
+    const stored = JSON.stringify(loadAuditCase(db, audit.traceId));
+    expect(stored).not.toContain(privateText);
+    expect(stored).toContain("event-private-audit");
+    const backup = fixture.campaigns.exportCampaign(created.value.campaignId);
+    expect(backup.ok).toBe(true);
+    if (!backup.ok) throw new Error("backup failed");
+    expect(JSON.stringify(backup.value)).not.toContain(privateText);
+  } finally {
+    fixture.close();
+  }
+});
+
 function validAllocation() {
   return {
     name: "林晚",
@@ -356,7 +450,7 @@ function validAllocation() {
   };
 }
 
-async function turnFixture(failOneAuditSpan = false) {
+async function turnFixture(failure?: "span" | "run") {
   const [{ CampaignService }, { TurnService }, { AuditService }] = await Promise.all([
     import("./campaigns"),
     import("./turns"),
@@ -381,7 +475,7 @@ async function turnFixture(failOneAuditSpan = false) {
     settings,
     paths,
     clock,
-    failOneAuditSpan ? openWithOneAuditSpanFailure : openBun,
+    failure ? (path) => openWithOneAuditFailure(path, failure) : openBun,
     readFileSync(join(sqlDir, "campaign.sql"), "utf8"),
     migrations,
   );
@@ -405,13 +499,14 @@ async function turnFixture(failOneAuditSpan = false) {
   };
 }
 
-function openWithOneAuditSpanFailure(path: string): Driver {
+function openWithOneAuditFailure(path: string, failure: "span" | "run"): Driver {
   const db = openBun(path);
   let pending = true;
   return {
     ...db,
     run(sql, params) {
-      if (pending && sql.includes("INSERT INTO audit_spans")) {
+      const target = failure === "span" ? "INSERT INTO audit_spans" : "INSERT INTO audit_runs";
+      if (pending && sql.includes(target)) {
         pending = false;
         throw new Error("simulated audit write failure");
       }

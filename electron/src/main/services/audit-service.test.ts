@@ -65,6 +65,67 @@ test("diagnosis failure keeps the atomic captured feedback pair", () => {
   }
 });
 
+test("empty diagnosis evidence keeps the candidate captured", () => {
+  const fixture = auditFixture(() => []);
+  try {
+    const result = fixture.audit.submitDissatisfied({
+      campaignId: fixture.campaignId,
+      narrationId: fixture.narrationId,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("feedback failed");
+    expect(result.value.status).toBe("captured");
+    expect(result.value.diagnoses).toEqual([]);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("candidate review view redacts private context and its prompt copies", () => {
+  const fixture = auditFixture();
+  try {
+    const privateText = "未揭示的剧本秘密";
+    appendAuditSpan(fixture.db, {
+      spanId: "span-private-context",
+      traceId: fixture.traceId,
+      sequence: 2,
+      kind: "program",
+      stage: "context.build",
+      taskType: "gm.narrate_result",
+      attempt: 1,
+      causal: true,
+      basedOnStateVersion: 1,
+      input: {
+        messages: [{ role: "user", content: `公开内容\n${privateText}` }],
+        manifest: {
+          finalText: `公开内容\n${privateText}`,
+          entries: [{ visibility: "secret", sourceId: "fact-hidden", text: privateText }],
+        },
+      },
+      output: {},
+      status: "succeeded",
+      createdAt: now,
+      completedAt: now,
+    });
+    const submitted = fixture.audit.submitDissatisfied({
+      campaignId: fixture.campaignId,
+      narrationId: fixture.narrationId,
+    });
+    if (!submitted.ok) throw new Error("feedback failed");
+    const viewed = fixture.audit.getCandidate({
+      campaignId: fixture.campaignId,
+      caseId: submitted.value.caseId,
+    });
+    expect(viewed.ok).toBe(true);
+    if (!viewed.ok) throw new Error("candidate missing");
+    const serialized = JSON.stringify(viewed.value.audit);
+    expect(serialized).not.toContain(privateText);
+    expect(serialized).toContain("fact-hidden");
+  } finally {
+    fixture.close();
+  }
+});
+
 test("review rejects uncorrected training data and incomplete curated runs", () => {
   const fixture = auditFixture();
   try {
@@ -85,6 +146,17 @@ test("review rejects uncorrected training data and incomplete curated runs", () 
       });
       expect(rejected.ok).toBe(false);
       if (!rejected.ok) expect(rejected.error.code).toBe("AUDIT_CORRECTED_OUTPUT_REQUIRED");
+
+      const unchanged = fixture.audit.reviewCandidate({
+        campaignId: fixture.campaignId,
+        caseId: submitted.value.caseId,
+        status: "reviewed",
+        confirmedIssueTags: ["UNKNOWN"],
+        datasetUsage,
+        correctedOutput: " 这里暂时没有新的变化。 ",
+      });
+      expect(unchanged.ok).toBe(false);
+      if (!unchanged.ok) expect(unchanged.error.code).toBe("AUDIT_CORRECTED_OUTPUT_REQUIRED");
     }
 
     fixture.db.run("UPDATE audit_runs SET completeness = 'partial' WHERE trace_id = ?", [fixture.traceId]);

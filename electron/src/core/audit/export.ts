@@ -9,6 +9,11 @@ import type {
   DiagnosisConfidence,
   DiagnosisSeverity,
 } from "./diagnosis";
+import {
+  collectPrivateAuditTexts,
+  redactAuditText,
+  redactAuditValue,
+} from "./privacy";
 
 export const AUDIT_CASE_SCHEMA_VERSION = "audit-case-v1" as const;
 
@@ -81,7 +86,7 @@ export function exportAuditCases(sources: AuditExportSource[]): {
   manifest: AuditExportManifest;
 } {
   const eligible = sources.filter(isEligible).sort((left, right) =>
-    left.candidate.caseId.localeCompare(right.candidate.caseId));
+    compareText(left.candidate.caseId, right.candidate.caseId));
   const cases = eligible.map(toAuditCaseV1);
   const jsonl = cases.length > 0 ? `${cases.map(stableJson).join("\n")}\n` : "";
   return {
@@ -115,6 +120,7 @@ function isEligible(source: AuditExportSource): boolean {
 }
 
 function toAuditCaseV1(source: AuditExportSource): AuditCaseV1 {
+  const privateTexts = collectPrivateAuditTexts(source.audit.spans);
   const modelCalls = source.audit.spans.filter((span) => span.kind === "model").map((span) => ({
     span_id: span.spanId,
     parent_span_id: span.parentSpanId,
@@ -127,8 +133,8 @@ function toAuditCaseV1(source: AuditExportSource): AuditCaseV1 {
     model_id: span.modelId,
     prompt_version: span.promptVersion,
     based_on_state_version: span.basedOnStateVersion,
-    input: sanitize(span.input),
-    output: sanitize(span.output),
+    input: redactAuditValue(span.input, privateTexts),
+    output: redactAuditValue(span.output, privateTexts),
     status: span.status,
     error_code: span.errorCode,
     tokens: {
@@ -147,8 +153,8 @@ function toAuditCaseV1(source: AuditExportSource): AuditCaseV1 {
     task_type: span.taskType,
     causal: span.causal,
     based_on_state_version: span.basedOnStateVersion,
-    input: sanitize(span.input),
-    output: sanitize(span.output),
+    input: redactAuditValue(span.input, privateTexts),
+    output: redactAuditValue(span.output, privateTexts),
     status: span.status,
     error_code: span.errorCode,
     evidence_id: span.payloadSha256,
@@ -158,52 +164,37 @@ function toAuditCaseV1(source: AuditExportSource): AuditCaseV1 {
     case_id: source.candidate.caseId,
     trace_id: source.audit.run.traceId,
     turn: {
-      player_input: source.playerInput,
+      player_input: redactAuditText(source.playerInput, privateTexts),
       base_state_version: source.audit.run.baseStateVersion,
       committed_state_version: source.audit.run.committedStateVersion,
     },
     model_calls: modelCalls,
     program_steps: programSteps,
-    final_output: source.finalOutput,
-    feedback: source.feedback,
+    final_output: redactAuditText(source.finalOutput, privateTexts),
+    feedback: {
+      rating: source.feedback.rating,
+      note: source.feedback.note === null ? null : redactAuditText(source.feedback.note, privateTexts),
+    },
     diagnoses: source.diagnoses.map((diagnosis) => ({
       code: diagnosis.code,
       confidence: diagnosis.confidence,
       severity: diagnosis.severity,
-      explanation: diagnosis.explanation,
+      explanation: redactAuditText(diagnosis.explanation, privateTexts),
       evidence_span_ids: diagnosis.evidenceSpanIds,
       rule_version: diagnosis.ruleVersion,
     })),
     manual_review: {
       confirmed_tags: source.candidate.confirmedIssueTags,
-      review_note: source.candidate.reviewNote,
-      corrected_output: source.candidate.correctedOutput,
+      review_note: source.candidate.reviewNote === null
+        ? null
+        : redactAuditText(source.candidate.reviewNote, privateTexts),
+      corrected_output: source.candidate.correctedOutput === null
+        ? null
+        : redactAuditText(source.candidate.correctedOutput, privateTexts),
       dataset_usage: source.candidate.datasetUsage as Exclude<DatasetUsage, "discard" | null>,
       reviewed_at: source.candidate.reviewedAt,
     },
   };
-}
-
-const SECRET_KEY = /authorization|api[_-]?key|credential|headers?|secret|token$/i;
-
-function sanitize(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sanitize);
-  if (!value || typeof value !== "object") return value;
-  const record = value as Record<string, unknown>;
-  if (record.visibility === "gm_only") {
-    return {
-      visibility: "gm_only",
-      sourceKind: stringOrNull(record.sourceKind),
-      sourceId: stringOrNull(record.sourceId),
-      included: typeof record.included === "boolean" ? record.included : null,
-      redacted: true,
-    };
-  }
-  return Object.fromEntries(
-    Object.entries(record)
-      .filter(([key]) => !SECRET_KEY.test(key))
-      .map(([key, entry]) => [key, sanitize(entry)]),
-  );
 }
 
 function stableJson(value: unknown): string {
@@ -215,13 +206,13 @@ function sortObjectKeys(value: unknown): unknown {
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>)
-      .sort(([left], [right]) => left.localeCompare(right))
+      .sort(([left], [right]) => compareText(left, right))
       .map(([key, entry]) => [key, sortObjectKeys(entry)]),
   );
 }
 
-function stringOrNull(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function sha256(value: string): string {

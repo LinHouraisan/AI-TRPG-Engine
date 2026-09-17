@@ -3,6 +3,7 @@ import {
   feedbackReducer,
   initialFeedbackState,
   isFeedbackSubmissionBlocked,
+  loadAllCandidatePages,
   validateCandidateReview,
 } from "./audit-feedback-state";
 
@@ -46,4 +47,15 @@ test("training and preference review require corrected output", () => {
     );
   }
   expect(validateCandidateReview({ datasetUsage: "evaluation_only", correctedOutput: "" })).toBeNull();
+});
+
+test("candidate review loads every page before applying local filters", async () => {
+  const cursors: Array<string | undefined> = [];
+  const items = await loadAllCandidatePages(async (cursor) => {
+    cursors.push(cursor);
+    if (!cursor) return { items: Array.from({ length: 100 }, (_, index) => index), nextCursor: "page-2" };
+    return { items: [100, 101], nextCursor: null };
+  });
+  expect(items).toHaveLength(102);
+  expect(cursors).toEqual([undefined, "page-2"]);
 });

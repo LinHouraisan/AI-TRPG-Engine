@@ -6,6 +6,7 @@ import { fixedClock } from "../clock";
 import { CredentialStore } from "../credentials";
 import { resolvePaths } from "../paths";
 import { openBun } from "../persist/bun-driver";
+import type { Driver } from "../persist/driver";
 import { createCheckpoint } from "../persist/checkpoints";
 import { hashProfile, loadInvestigator } from "../persist/investigator";
 import { applyInit } from "../persist/migrate";
@@ -197,6 +198,19 @@ test("desktop campaign import rejects resealed profile-hash and replay mismatche
   }
 });
 
+test("audit recovery write failure does not prevent opening a campaign", () => {
+  const fixture = campaignFixture(openWithOneAuditRecoveryFailure);
+  try {
+    const created = fixture.campaigns.create("审计恢复隔离");
+    if (!created.ok) throw new Error("campaign create failed");
+    fixture.campaigns.close(created.value.campaignId);
+    const reopened = fixture.campaigns.open(created.value.campaignId);
+    expect(reopened.ok).toBe(true);
+  } finally {
+    fixture.close();
+  }
+});
+
 function validAllocation(name: string) {
   return {
     name,
@@ -206,7 +220,7 @@ function validAllocation(name: string) {
   };
 }
 
-function campaignFixture() {
+function campaignFixture(openDriver: (path: string) => Driver = openBun) {
   const root = mkdtempSync(join(tmpdir(), "campaign-backup-"));
   const clock = fixedClock(now);
   const paths = resolvePaths(root);
@@ -226,7 +240,7 @@ function campaignFixture() {
     settings,
     paths,
     clock,
-    openBun,
+    openDriver,
     readFileSync(join(sqlDir, "campaign.sql"), "utf8"),
     migrations,
   );
@@ -244,6 +258,21 @@ function campaignFixture() {
       campaigns.dispose();
       settings.close();
       try { rmSync(root, { recursive: true, force: true }); } catch { /* SQLite handle */ }
+    },
+  };
+}
+
+function openWithOneAuditRecoveryFailure(path: string): Driver {
+  const db = openBun(path);
+  let pending = true;
+  return {
+    ...db,
+    run(sql, params) {
+      if (pending && sql.includes("UPDATE audit_spans")) {
+        pending = false;
+        throw new Error("simulated audit recovery failure");
+      }
+      db.run(sql, params);
     },
   };
 }

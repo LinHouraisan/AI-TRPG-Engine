@@ -1,4 +1,5 @@
 import type { AuditCompleteness, AuditSpanSink } from "@core/audit/types";
+import { collectPrivateAuditTexts, redactAuditValue } from "@core/audit/privacy";
 import { uuidv7 } from "../../shared/ids";
 import type { Clock } from "../clock";
 import {
@@ -34,33 +35,46 @@ export function beginTurnAudit(input: {
   let sequence = 0;
   let runStarted = false;
   let finalized = false;
+  const privateTexts = new Set<string>();
 
-  try {
-    startAuditRun(input.db, {
-      traceId,
-      campaignId: input.campaignId,
-      branchId: input.branchId,
-      operationId: input.operationId,
-      baseStateVersion: input.baseStateVersion,
-      startedAt: input.clock.nowIso(),
-      schemaVersion: "turn-audit-v1",
-    });
-    runStarted = true;
-  } catch {
-    gaps.add("AUDIT_RUN_START_FAILED");
-  }
+  const redactPayload = <T>(value: T): T => {
+    collectPrivateAuditTexts(value, privateTexts);
+    return redactAuditValue(value, privateTexts) as T;
+  };
+
+  const ensureRun = () => {
+    if (runStarted) return true;
+    try {
+      startAuditRun(input.db, {
+        traceId,
+        campaignId: input.campaignId,
+        branchId: input.branchId,
+        operationId: input.operationId,
+        baseStateVersion: input.baseStateVersion,
+        startedAt: input.clock.nowIso(),
+        schemaVersion: "turn-audit-v1",
+      });
+      runStarted = true;
+      return true;
+    } catch {
+      gaps.add("AUDIT_RUN_START_FAILED");
+      return false;
+    }
+  };
+  ensureRun();
 
   const gap = (code: string) => {
     gaps.add(code);
   };
 
   const start: AuditSpanSink["start"] = (span) => {
-    if (!runStarted || finalized) return undefined;
+    if (finalized || !ensureRun()) return undefined;
     sequence += 1;
     const spanId = uuidv7();
     try {
       startAuditSpan(input.db, {
         ...span,
+        input: redactPayload(span.input),
         spanId,
         traceId,
         sequence,
@@ -74,21 +88,29 @@ export function beginTurnAudit(input: {
   };
 
   const finish: AuditSpanSink["finish"] = (spanId, span) => {
-    if (!runStarted || finalized) return;
+    if (finalized || !ensureRun()) return;
     try {
-      finishAuditSpan(input.db, spanId, { ...span, completedAt: input.clock.nowIso() });
+      finishAuditSpan(input.db, spanId, {
+        ...span,
+        ...(span.output === undefined ? {} : { output: redactPayload(span.output) }),
+        completedAt: input.clock.nowIso(),
+      });
     } catch {
       gaps.add("AUDIT_SPAN_FINISH_FAILED");
     }
   };
 
   const append: AuditSpanSink["append"] = (span) => {
-    if (!runStarted || finalized) return undefined;
+    if (finalized || !ensureRun()) return undefined;
     sequence += 1;
     const spanId = uuidv7();
     try {
+      collectPrivateAuditTexts(span.input, privateTexts);
+      collectPrivateAuditTexts(span.output, privateTexts);
       appendAuditSpan(input.db, {
         ...span,
+        input: redactAuditValue(span.input, privateTexts) as typeof span.input,
+        output: redactAuditValue(span.output, privateTexts) as typeof span.output,
         spanId,
         traceId,
         sequence,
@@ -110,7 +132,7 @@ export function beginTurnAudit(input: {
     append,
     gap,
     bindTurn(binding) {
-      if (!runStarted || finalized) return;
+      if (finalized || !ensureRun()) return;
       try {
         bindAuditRun(input.db, traceId, binding);
       } catch {
@@ -118,7 +140,7 @@ export function beginTurnAudit(input: {
       }
     },
     linkFinalNarration(link) {
-      if (!runStarted || finalized) return;
+      if (finalized || !ensureRun()) return;
       try {
         linkFinalNarration(input.db, traceId, link.narrationId);
       } catch {
@@ -126,7 +148,7 @@ export function beginTurnAudit(input: {
       }
     },
     finalize(completeness = "complete") {
-      if (!runStarted || finalized) return;
+      if (finalized || !ensureRun()) return;
       const resolved = gaps.size > 0 && completeness === "complete" ? "partial" : completeness;
       try {
         finalizeAuditRun(input.db, traceId, {
