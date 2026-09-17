@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { z } from "zod";
+import type { AuditSpanSink } from "@core/audit/types";
 import { askKeeper, classifyProviderFailure, probeKeeper } from "./client";
 import type { KeeperConfig } from "./config";
 
@@ -100,6 +101,67 @@ test("OpenAI-compatible keeper reports real provider token usage once per reques
   });
 });
 
+test("askKeeper records the exact request and response without credentials", async () => {
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        choices: [{ message: { content: '{"ok":true}' } }],
+        usage: { prompt_tokens: 8, completion_tokens: 4 },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    )) as unknown as typeof fetch;
+  const recorded = recordingAuditSink();
+
+  const result = await askKeeper({
+    config: {
+      enabled: true,
+      protocol: "openai_compatible",
+      baseUrl: "https://api.deepseek.com",
+      apiKey: "sk-test-never-store",
+      disableThinking: true,
+      model: "deepseek-v4-flash",
+      timeoutMs: 1000,
+      temperature: 0,
+      contextBudgetChars: 4000,
+      stream: false,
+      debugTrace: false,
+    },
+    system: "system text",
+    user: "user text",
+    schema: z.object({ ok: z.boolean() }),
+    jsonSchema: { type: "object", properties: { ok: { type: "boolean" } } },
+    audit: {
+      sink: recorded.sink,
+      stage: "gm.route",
+      taskType: "gm.handle_free_turn",
+      modelTaskId: "task-1",
+      attempt: 1,
+      basedOnStateVersion: 4,
+      promptVersion: "route-w0",
+      causal: true,
+    },
+  });
+
+  expect(result.auditSpanId).toBe("recorded-span-1");
+  expect(recorded.started[0]?.input).toMatchObject({
+    messages: [
+      { role: "system", content: "system text" },
+      { role: "user", content: "user text" },
+    ],
+    model: "deepseek-v4-flash",
+    protocol: "openai_compatible",
+  });
+  expect(recorded.finished[0]).toMatchObject({
+    spanId: "recorded-span-1",
+    status: "succeeded",
+    output: { rawContent: '{"ok":true}', parsed: { ok: true } },
+    promptTokens: 8,
+    completionTokens: 4,
+  });
+  expect(JSON.stringify(recorded)).not.toContain("sk-test-never-store");
+  expect(JSON.stringify(recorded)).not.toContain("authorization");
+});
+
 test.each([
   [401, "auth"],
   [402, "balance"],
@@ -141,3 +203,25 @@ test("DeepSeek probe verifies model list and JSON generation", async () => {
   });
   expect(result).toEqual({ models: ["deepseek-v4-flash"], modelFound: true, generationOk: true, jsonOk: true });
 });
+
+function recordingAuditSink() {
+  const started: Array<{ spanId: string; input: Record<string, unknown> }> = [];
+  const finished: Array<Record<string, unknown> & { spanId: string }> = [];
+  let sequence = 0;
+  const sink: AuditSpanSink = {
+    start(input) {
+      sequence += 1;
+      const spanId = `recorded-span-${sequence}`;
+      started.push({ spanId, input: input.input });
+      return spanId;
+    },
+    finish(spanId, input) {
+      finished.push({ spanId, ...input });
+    },
+    append() {
+      return undefined;
+    },
+    gap() {},
+  };
+  return { sink, started, finished };
+}

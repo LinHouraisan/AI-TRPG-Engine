@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { AuditSpanSink } from "@core/audit/types";
 import type { KeeperConfig } from "./config";
 
 export type ProviderCallUsage = {
@@ -40,11 +41,54 @@ export async function askKeeper<T>(params: {
   stream?: boolean;
   onContent?: (accumulatedJson: string) => void;
   onCall?: (usage: ProviderCallUsage) => void;
-}): Promise<{ value: T; ms: number }> {
+  audit?: {
+    sink: AuditSpanSink;
+    stage: string;
+    taskType: string;
+    modelTaskId: string;
+    attempt: number;
+    basedOnStateVersion: number;
+    promptVersion: string;
+    causal: boolean;
+    parentSpanId?: string;
+  };
+}): Promise<{ value: T; ms: number; auditSpanId?: string }> {
   const { config, schema, jsonSchema } = params;
   const started = Date.now();
   const protocol = config.protocol ?? "ollama";
   const streaming = protocol === "ollama" && params.stream === true;
+  const messages = [
+    { role: "system", content: params.system },
+    { role: "user", content: params.user },
+  ];
+  const requestBody = protocol === "openai_compatible"
+    ? {
+        model: config.model,
+        stream: false,
+        response_format: { type: "json_object" },
+        ...(config.disableThinking ? { thinking: { type: "disabled" } } : {}),
+        temperature: config.temperature,
+        max_tokens: params.maxTokens ?? 320,
+        messages,
+      }
+    : {
+        model: config.model,
+        stream: streaming,
+        think: false,
+        format: jsonSchema,
+        options: {
+          temperature: config.temperature,
+          num_predict: params.maxTokens ?? 320,
+        },
+        messages,
+      };
+  const auditSpanId = startModelAudit(params.audit, {
+    protocol,
+    model: config.model,
+    messages,
+    request: requestBody,
+  });
+  let auditFinished = false;
   let tokenUsage = { promptTokens: 0, completionTokens: 0, cachedTokens: 0 };
   let reported = false;
   const report = (outcome: ProviderCallUsage["outcome"]) => {
@@ -72,47 +116,37 @@ export async function askKeeper<T>(params: {
               authorization: `Bearer ${config.apiKey ?? ""}`,
             },
             signal: controller.signal,
-            body: JSON.stringify({
-              model: config.model,
-              stream: false,
-              response_format: { type: "json_object" },
-              ...(config.disableThinking ? { thinking: { type: "disabled" } } : {}),
-              temperature: config.temperature,
-              max_tokens: params.maxTokens ?? 320,
-              messages: [
-                { role: "system", content: params.system },
-                { role: "user", content: params.user },
-              ],
-            }),
+            body: JSON.stringify(requestBody),
           })
         : await fetch(`${config.baseUrl}/api/chat`, {
             method: "POST",
             headers: { "content-type": "application/json" },
             signal: controller.signal,
-            body: JSON.stringify({
-              model: config.model,
-              stream: streaming,
-              // 思考链对叙述没有帮助，只会把首字延迟拖到几十秒。
-              think: false,
-              format: jsonSchema,
-              options: {
-                temperature: config.temperature,
-                num_predict: params.maxTokens ?? 320,
-              },
-              messages: [
-                { role: "system", content: params.system },
-                { role: "user", content: params.user },
-              ],
-            }),
+            body: JSON.stringify(requestBody),
           });
   } catch (error) {
     clearTimeout(timer);
+    const keeperError = toConnectError(error, config.timeoutMs);
+    auditFinished = finishModelAudit(params.audit, auditSpanId, {
+      status: "failed",
+      errorCode: keeperError.kind.toUpperCase(),
+      output: { error: keeperError.message },
+      durationMs: Date.now() - started,
+      ...tokenUsage,
+    });
     report("failed");
-    throw toConnectError(error, config.timeoutMs);
+    throw keeperError;
   }
 
   if (!response.ok) {
     clearTimeout(timer);
+    auditFinished = finishModelAudit(params.audit, auditSpanId, {
+      status: "failed",
+      errorCode: classifyProviderFailure({ status: response.status }).toUpperCase(),
+      output: { status: response.status },
+      durationMs: Date.now() - started,
+      ...tokenUsage,
+    });
     report("failed");
     throw new KeeperError(`主持人返回 ${response.status}`, "network");
   }
@@ -130,19 +164,91 @@ export async function askKeeper<T>(params: {
     }
   } catch (error) {
     clearTimeout(timer);
+    const keeperError = error instanceof KeeperError
+      ? error
+      : toConnectError(error, config.timeoutMs, streaming);
+    auditFinished = finishModelAudit(params.audit, auditSpanId, {
+      status: "failed",
+      errorCode: keeperError.kind.toUpperCase(),
+      output: { error: keeperError.message },
+      durationMs: Date.now() - started,
+      ...tokenUsage,
+    });
     report("failed");
-    if (error instanceof KeeperError) throw error;
-    throw toConnectError(error, config.timeoutMs, streaming);
+    throw keeperError;
   }
   clearTimeout(timer);
 
   try {
     const value = parseKeeperReply(content, schema);
+    auditFinished = finishModelAudit(params.audit, auditSpanId, {
+      status: "succeeded",
+      output: { rawContent: content, parsed: value },
+      durationMs: Date.now() - started,
+      ...tokenUsage,
+    });
     report("succeeded");
-    return { value, ms: Date.now() - started };
+    return { value, ms: Date.now() - started, auditSpanId };
   } catch (error) {
+    if (!auditFinished) {
+      finishModelAudit(params.audit, auditSpanId, {
+        status: "failed",
+        errorCode: "CONTRACT",
+        output: { rawContent: content, error: error instanceof Error ? error.message : String(error) },
+        durationMs: Date.now() - started,
+        ...tokenUsage,
+      });
+    }
     report("failed");
     throw error;
+  }
+}
+
+function startModelAudit(
+  audit: Parameters<typeof askKeeper>[0]["audit"],
+  input: Record<string, unknown>,
+): string | undefined {
+  if (!audit) return undefined;
+  try {
+    return audit.sink.start({
+      parentSpanId: audit.parentSpanId,
+      kind: "model",
+      stage: audit.stage,
+      taskType: audit.taskType,
+      attempt: audit.attempt,
+      causal: audit.causal,
+      modelTaskId: audit.modelTaskId,
+      basedOnStateVersion: audit.basedOnStateVersion,
+      promptVersion: audit.promptVersion,
+      modelId: typeof input.model === "string" ? input.model : undefined,
+      input,
+    });
+  } catch {
+    try {
+      audit.sink.gap("AUDIT_MODEL_SPAN_WRITE_FAILED");
+    } catch {
+      // Audit failures never interrupt the provider call.
+    }
+    return undefined;
+  }
+}
+
+function finishModelAudit(
+  audit: Parameters<typeof askKeeper>[0]["audit"],
+  spanId: string | undefined,
+  input: Parameters<AuditSpanSink["finish"]>[1],
+): boolean {
+  if (!audit || !spanId) return false;
+  try {
+    audit.sink.finish(spanId, input);
+    return true;
+  } catch {
+    try {
+      audit.sink.gap("AUDIT_MODEL_SPAN_WRITE_FAILED");
+    } catch {
+      // Audit failures never interrupt the provider call.
+    }
+    return false;
   }
 }
 
