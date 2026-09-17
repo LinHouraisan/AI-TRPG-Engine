@@ -102,6 +102,40 @@ test("review rejects uncorrected training data and incomplete curated runs", () 
   }
 });
 
+test("export records immutable batches and advances curated candidates once", () => {
+  const fixture = auditFixture();
+  try {
+    const submitted = fixture.audit.submitDissatisfied({
+      campaignId: fixture.campaignId,
+      narrationId: fixture.narrationId,
+    });
+    if (!submitted.ok) throw new Error("feedback failed");
+    const reviewed = fixture.audit.reviewCandidate({
+      campaignId: fixture.campaignId,
+      caseId: submitted.value.caseId,
+      status: "curated",
+      confirmedIssueTags: ["UNKNOWN"],
+      datasetUsage: "evaluation_only",
+    });
+    if (!reviewed.ok) throw new Error("review failed");
+
+    const first = fixture.audit.exportCandidates({ campaignId: fixture.campaignId });
+    const second = fixture.audit.exportCandidates({ campaignId: fixture.campaignId });
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (!first.ok || !second.ok) throw new Error("export failed");
+    expect(first.value.manifest.count).toBe(1);
+    expect(second.value.manifest.exportBatchId).not.toBe(first.value.manifest.exportBatchId);
+    expect(fixture.db.get<{ count: number }>("SELECT count(*) AS count FROM dataset_export_batches")?.count).toBe(2);
+    expect(fixture.db.get<{ status: string; export_batch_id: string }>(
+      "SELECT status, export_batch_id FROM dataset_candidates WHERE case_id = ?",
+      [submitted.value.caseId],
+    )).toEqual({ status: "exported", export_batch_id: first.value.manifest.exportBatchId });
+  } finally {
+    fixture.close();
+  }
+});
+
 function auditFixture(diagnose?: ConstructorParameters<typeof AuditService>[2]) {
   const root = mkdtempSync(join(tmpdir(), "audit-service-"));
   const clock = fixedClock(now);

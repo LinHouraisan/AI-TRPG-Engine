@@ -54,6 +54,7 @@ const desktopApi: DesktopApi = {
     listCandidates: (input) => invoke("audit:listCandidates", input),
     getCandidate: (input) => invoke("audit:getCandidate", input),
     reviewCandidate: (input) => invoke("audit:reviewCandidate", input),
+    exportCandidates: (input) => invoke("audit:exportCandidates", input),
   },
   content: {
     list: () => invoke("content:list"),

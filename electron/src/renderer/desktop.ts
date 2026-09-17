@@ -238,6 +238,21 @@ export interface DesktopApi {
       correctedOutput?: string;
       datasetUsage: DatasetUsage;
     }): Promise<DesktopResult<DesktopCandidate>>;
+    exportCandidates(input: {
+      campaignId: string;
+      caseIds?: string[];
+    }): Promise<DesktopResult<{
+      fileName: string;
+      jsonl: string;
+      manifest: {
+        exportBatchId: string;
+        schemaVersion: "audit-case-v1";
+        count: number;
+        sha256: string;
+        caseIds: string[];
+        createdAt: string;
+      };
+    }>>;
   };
   checkpoint: {
     list(input:{campaignId:string}): Promise<DesktopResult<Array<{checkpointId:string;branchId:string;stateVersion:number;eventSequence:number;label:string;createdAt:string;purpose:string|null;passed:boolean|null;stateHash:string;recap:string}>>>;

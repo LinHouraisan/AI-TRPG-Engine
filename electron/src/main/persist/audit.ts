@@ -484,6 +484,71 @@ export function loadFinalNarrationText(db: Driver, narrationId: string): string 
   )?.text;
 }
 
+export function loadPlayerInput(db: Driver, turnId: string): string | undefined {
+  return db.get<{ input_text: string }>(
+    "SELECT input_text FROM turns WHERE turn_id = ?",
+    [turnId],
+  )?.input_text;
+}
+
+export function listExportableCandidates(
+  db: Driver,
+  caseIds?: string[],
+): DatasetCandidateRecord[] {
+  if (caseIds && caseIds.length === 0) return [];
+  const rows = caseIds
+    ? db.all<{ case_id: string }>(
+        `SELECT case_id FROM dataset_candidates
+         WHERE status IN ('curated', 'exported') AND case_id IN (${caseIds.map(() => "?").join(",")})
+         ORDER BY case_id`,
+        caseIds,
+      )
+    : db.all<{ case_id: string }>(
+        "SELECT case_id FROM dataset_candidates WHERE status IN ('curated', 'exported') ORDER BY case_id",
+      );
+  return rows.map((row) => loadCandidate(db, row.case_id))
+    .filter((candidate): candidate is DatasetCandidateRecord => Boolean(candidate));
+}
+
+export function recordAuditExportBatch(db: Driver, input: {
+  exportBatchId: string;
+  filters: JsonObject;
+  schemaVersion: string;
+  caseIds: string[];
+  sha256: string;
+  createdAt: string;
+}): void {
+  db.transaction(() => {
+    db.run(
+      `INSERT INTO dataset_export_batches (
+        export_batch_id, filters_json, schema_version, case_count, sha256, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        input.exportBatchId,
+        canonicalJson(input.filters),
+        input.schemaVersion,
+        input.caseIds.length,
+        input.sha256,
+        input.createdAt,
+      ],
+    );
+    for (const caseId of input.caseIds) {
+      const candidate = loadCandidate(db, caseId);
+      if (!candidate || (candidate.status !== "curated" && candidate.status !== "exported")) {
+        throw new Error("audit.export_candidate_not_curated");
+      }
+      if (candidate.status === "curated") {
+        db.run(
+          `UPDATE dataset_candidates
+           SET status = 'exported', export_batch_id = ?
+           WHERE case_id = ? AND status = 'curated'`,
+          [input.exportBatchId, caseId],
+        );
+      }
+    }
+  });
+}
+
 function mapRun(row: AuditRunRow): AuditRunRecord {
   return {
     traceId: row.trace_id,

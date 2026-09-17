@@ -29,6 +29,7 @@
     "keeper:check": "bun scripts/keeper-check.ts",
     "store:check": "bun scripts/store-check.ts",
     "rag:build": "bun scripts/build-rag.ts",
+    "audit:export": "bun scripts/export-audit-cases.ts",
     "bench": "bun scripts/bench.ts",
     "bench:synth": "bun scripts/synth-bench.ts",
     "lc:test": "bun test src/core/ai/lc",

@@ -1,10 +1,12 @@
 import { diagnoseTurn, type TurnDiagnosis } from "@core/audit/diagnosis";
+import { exportAuditCases, type AuditExportSource } from "@core/audit/export";
 import type {
   AuditCase,
   CandidateStatus,
 } from "@core/audit/types";
 import type {
   AuditCaseView,
+  AuditExportResult,
   CandidateListInput,
   DatasetCandidateView,
   FeedbackReceipt,
@@ -17,15 +19,19 @@ import {
   captureDissatisfaction,
   findAuditCaseByNarration,
   listCandidateRecords,
+  listExportableCandidates,
   loadAuditCase,
   loadCandidate,
   loadDiagnoses,
   loadFeedback,
   loadFinalNarrationText,
+  loadPlayerInput,
+  recordAuditExportBatch,
   saveRuleDiagnoses,
   updateCandidateReview,
   type DatasetCandidateRecord,
 } from "../persist/audit";
+import type { Driver } from "../persist/driver";
 import type { CampaignService } from "./campaigns";
 
 type Diagnose = (input: AuditCase) => TurnDiagnosis[];
@@ -160,6 +166,23 @@ export class AuditService {
     return ok(this.toCandidateView(db, updated));
   }
 
+  exportCandidates(input: {
+    campaignId: CampaignId;
+    caseIds?: string[];
+  }): Result<AuditExportResult> {
+    const opened = this.campaigns.ensureOpen(input.campaignId);
+    if (!opened.ok) return opened;
+    const exported = exportCandidateBatch(opened.value, this.clock.nowIso(), input.caseIds);
+    if (!exported) {
+      return fail({
+        code: "AUDIT_NO_ELIGIBLE_CANDIDATES",
+        messageKey: "audit.no_eligible_candidates",
+        retryable: false,
+      });
+    }
+    return ok(exported);
+  }
+
   private toCandidateView(
     db: Parameters<typeof loadDiagnoses>[0],
     candidate: DatasetCandidateRecord,
@@ -175,6 +198,60 @@ export class AuditService {
       promptVersions: unique(audit.spans.map((span) => span.promptVersion).filter((value): value is string => Boolean(value))),
     };
   }
+}
+
+export function exportCandidateBatch(
+  db: Driver,
+  createdAt: string,
+  caseIds?: string[],
+): AuditExportResult | null {
+  const candidates = listExportableCandidates(db, caseIds);
+  const sources: AuditExportSource[] = [];
+  for (const candidate of candidates) {
+    const audit = loadAuditCase(db, candidate.traceId);
+    const feedback = loadFeedback(db, candidate.feedbackId);
+    const turnId = audit.run.turnId;
+    const narrationId = audit.run.finalNarrationId;
+    if (!feedback || !turnId || !narrationId) continue;
+    const playerInput = loadPlayerInput(db, turnId);
+    const finalOutput = loadFinalNarrationText(db, narrationId);
+    if (playerInput === undefined || finalOutput === undefined) continue;
+    sources.push({
+      candidate,
+      audit,
+      playerInput,
+      finalOutput,
+      feedback: { rating: feedback.rating, note: feedback.note },
+      diagnoses: loadDiagnoses(db, feedback.feedbackId).map((diagnosis) => ({
+        code: diagnosis.code,
+        confidence: diagnosis.confidence,
+        severity: diagnosis.severity,
+        explanation: diagnosis.explanation,
+        evidenceSpanIds: diagnosis.evidenceSpanIds,
+        ruleVersion: diagnosis.ruleVersion,
+      })),
+    });
+  }
+  const exported = exportAuditCases(sources);
+  if (exported.manifest.count === 0) return null;
+  const exportBatchId = uuidv7();
+  recordAuditExportBatch(db, {
+    exportBatchId,
+    filters: { caseIds: caseIds ?? null },
+    schemaVersion: exported.manifest.schemaVersion,
+    caseIds: exported.manifest.caseIds,
+    sha256: exported.manifest.sha256,
+    createdAt,
+  });
+  return {
+    fileName: `audit-cases-${exportBatchId}.jsonl`,
+    jsonl: exported.jsonl,
+    manifest: {
+      exportBatchId,
+      ...exported.manifest,
+      createdAt,
+    },
+  };
 }
 
 function unique(values: string[]): string[] {

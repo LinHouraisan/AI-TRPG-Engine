@@ -123,6 +123,23 @@ export function AuditReviewPanel({
     await reload();
   };
 
+  const exportCandidates = async () => {
+    if (!api) return;
+    const result = await api.audit.exportCandidates({ campaignId });
+    if (!result.ok) {
+      setError(result.error.messageKey);
+      return;
+    }
+    downloadText(result.value.fileName, result.value.jsonl, "application/x-ndjson");
+    downloadText(
+      result.value.fileName.replace(/\.jsonl$/, ".manifest.json"),
+      `${JSON.stringify(result.value.manifest, null, 2)}\n`,
+      "application/json",
+    );
+    setError(null);
+    await reload();
+  };
+
   const spans = selected?.audit.spans.filter((span) => showNonCausal || span.causal) ?? [];
 
   return (
@@ -133,7 +150,10 @@ export function AuditReviewPanel({
             <h2 className="font-serif text-lg text-brass">审计数据池</h2>
             <p className="text-xs text-muted">回看证据、人工修订并选择数据用途</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded border border-line px-3 py-1 text-sm">关闭</button>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => void exportCandidates()} className="rounded border border-brass/60 px-3 py-1 text-sm text-brass">导出合格项</button>
+            <button type="button" onClick={onClose} className="rounded border border-line px-3 py-1 text-sm">关闭</button>
+          </div>
         </header>
 
         <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[300px_minmax(0,1fr)]">
@@ -214,4 +234,13 @@ export function AuditReviewPanel({
 
 function isDiagnosisCode(value: string): value is DiagnosisCode {
   return DIAGNOSIS_CODES.includes(value as DiagnosisCode);
+}
+
+function downloadText(fileName: string, content: string, type: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }

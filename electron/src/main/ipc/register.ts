@@ -552,6 +552,20 @@ export function registerIpc(
     });
   });
 
+  handle("audit:exportCandidates", (payload) => {
+    const parsed = z.object({
+      campaignId: z.string().min(1),
+      caseIds: z.array(z.string().min(1)).max(100).optional(),
+    }).strict().safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return composition.audits.exportCandidates({
+      ...parsed.data,
+      campaignId: asCampaignId(parsed.data.campaignId),
+    });
+  });
+
   handle("checkpoint:list", (payload) => {
     const parsed = idSchema.safeParse(payload); if (!parsed.success) return fail({ code:"IPC_INVALID_REQUEST", messageKey:"ipc.invalid_request", retryable:false });
     const opened = composition.campaigns.ensureOpen(asCampaignId(parsed.data.campaignId)); return opened.ok ? ok(listCheckpoints(opened.value)) : opened;

@@ -183,6 +183,19 @@ export interface AuditCaseView {
   finalOutput: string;
 }
 
+export interface AuditExportResult {
+  fileName: string;
+  jsonl: string;
+  manifest: {
+    exportBatchId: string;
+    schemaVersion: "audit-case-v1";
+    count: number;
+    sha256: string;
+    caseIds: string[];
+    createdAt: string;
+  };
+}
+
 export interface BranchHistoryView {
   recap: string;
   recentTurns: Array<{
@@ -377,6 +390,10 @@ export interface DesktopApi {
     listCandidates(input: CandidateListInput): Promise<Result<Page<DatasetCandidateView>>>;
     getCandidate(input: { campaignId: CampaignId; caseId: string }): Promise<Result<AuditCaseView>>;
     reviewCandidate(input: ReviewCandidateInput): Promise<Result<DatasetCandidateView>>;
+    exportCandidates(input: {
+      campaignId: CampaignId;
+      caseIds?: string[];
+    }): Promise<Result<AuditExportResult>>;
   };
   content: { list(): Promise<Result<never>> };
   model: { list(): Promise<Result<never>> };
@@ -440,6 +457,7 @@ export const CHANNELS = {
   "audit:listCandidates": true,
   "audit:getCandidate": true,
   "audit:reviewCandidate": true,
+  "audit:exportCandidates": true,
 } as const;
 
 export type Channel = keyof typeof CHANNELS;
