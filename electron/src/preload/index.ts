@@ -49,6 +49,12 @@ const desktopApi: DesktopApi = {
   timeline: {
     page: (input) => invoke("timeline:page", input),
   },
+  audit: {
+    submitDissatisfied: (input) => invoke("audit:submitDissatisfied", input),
+    listCandidates: (input) => invoke("audit:listCandidates", input),
+    getCandidate: (input) => invoke("audit:getCandidate", input),
+    reviewCandidate: (input) => invoke("audit:reviewCandidate", input),
+  },
   content: {
     list: () => invoke("content:list"),
   },

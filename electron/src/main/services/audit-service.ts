@@ -2,10 +2,14 @@ import { diagnoseTurn, type TurnDiagnosis } from "@core/audit/diagnosis";
 import type {
   AuditCase,
   CandidateStatus,
-  DatasetUsage,
-  DiagnosisCode,
 } from "@core/audit/types";
-import type { Page } from "../../shared/api";
+import type {
+  AuditCaseView,
+  CandidateListInput,
+  DatasetCandidateView,
+  FeedbackReceipt,
+  ReviewCandidateInput,
+} from "../../shared/api";
 import { uuidv7, type CampaignId } from "../../shared/ids";
 import { fail, ok, type Result } from "../../shared/result";
 import type { Clock } from "../clock";
@@ -21,46 +25,8 @@ import {
   saveRuleDiagnoses,
   updateCandidateReview,
   type DatasetCandidateRecord,
-  type DiagnosisRecord,
-  type FeedbackRecord,
 } from "../persist/audit";
 import type { CampaignService } from "./campaigns";
-
-export type FeedbackReceipt = {
-  feedbackId: string;
-  caseId: string;
-  traceId: string;
-  status: CandidateStatus;
-  diagnoses: DiagnosisRecord[];
-};
-
-export type DatasetCandidateView = DatasetCandidateRecord & {
-  diagnoses: DiagnosisRecord[];
-};
-
-export type CandidateListInput = {
-  campaignId: CampaignId;
-  status?: CandidateStatus;
-  cursor?: string;
-  limit: number;
-};
-
-export type ReviewCandidateInput = {
-  campaignId: CampaignId;
-  caseId: string;
-  status: "reviewed" | "curated" | "discarded";
-  confirmedIssueTags: DiagnosisCode[];
-  reviewNote?: string;
-  correctedOutput?: string;
-  datasetUsage: DatasetUsage;
-};
-
-export type AuditCaseView = {
-  audit: AuditCase;
-  feedback: FeedbackRecord;
-  candidate: DatasetCandidateView;
-  finalOutput: string;
-};
 
 type Diagnose = (input: AuditCase) => TurnDiagnosis[];
 
@@ -123,7 +89,7 @@ export class AuditService {
     });
   }
 
-  listCandidates(input: CandidateListInput): Result<Page<DatasetCandidateView>> {
+  listCandidates(input: CandidateListInput): Result<import("../../shared/api").Page<DatasetCandidateView>> {
     const opened = this.campaigns.ensureOpen(input.campaignId);
     if (!opened.ok) return opened;
     const page = listCandidateRecords(opened.value, input);
@@ -198,8 +164,21 @@ export class AuditService {
     db: Parameters<typeof loadDiagnoses>[0],
     candidate: DatasetCandidateRecord,
   ): DatasetCandidateView {
-    return { ...candidate, diagnoses: loadDiagnoses(db, candidate.feedbackId) };
+    const audit = loadAuditCase(db, candidate.traceId);
+    const feedback = loadFeedback(db, candidate.feedbackId);
+    return {
+      ...candidate,
+      diagnoses: loadDiagnoses(db, candidate.feedbackId),
+      createdAt: feedback?.createdAt ?? audit.run.startedAt,
+      taskTypes: unique(audit.spans.map((span) => span.taskType)),
+      modelIds: unique(audit.spans.map((span) => span.modelId).filter((value): value is string => Boolean(value))),
+      promptVersions: unique(audit.spans.map((span) => span.promptVersion).filter((value): value is string => Boolean(value))),
+    };
   }
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
 }
 
 function canReview(

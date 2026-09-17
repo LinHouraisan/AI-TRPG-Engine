@@ -5,6 +5,13 @@ import type {
   InvestigatorProfile,
 } from "@core/character/types";
 import type { CheckCandidate, Intent } from "@core/engine/types";
+import type {
+  AuditCase,
+  CandidateStatus,
+  DatasetUsage,
+  DiagnosisCode,
+} from "@core/audit/types";
+import type { DiagnosisConfidence, DiagnosisSeverity } from "@core/audit/diagnosis";
 
 export interface ApiVersion {
   major: 1;
@@ -86,6 +93,7 @@ export interface SubmitActionInput {
 export interface OperationAccepted {
   operationId: OperationId;
   turnId?: TurnId;
+  traceId: string;
 }
 
 export type NarrationKind = "模型" | "模板" | "程序";
@@ -99,7 +107,100 @@ export interface TurnView {
   stateVersion: number;
   check?: unknown;
   intent: unknown;
+  turnId?: string;
+  narrationId?: string;
+  traceId?: string;
 }
+
+export interface DiagnosisView {
+  diagnosisId: string;
+  feedbackId: string;
+  source: "rule" | "local_judge";
+  code: DiagnosisCode;
+  confidence: DiagnosisConfidence;
+  severity: DiagnosisSeverity;
+  explanation: string;
+  evidenceSpanIds: string[];
+  ruleVersion: string;
+  createdAt: string;
+}
+
+export interface FeedbackReceipt {
+  feedbackId: string;
+  caseId: string;
+  traceId: string;
+  status: CandidateStatus;
+  diagnoses: DiagnosisView[];
+}
+
+export interface DatasetCandidateView {
+  caseId: string;
+  feedbackId: string;
+  traceId: string;
+  status: CandidateStatus;
+  confirmedIssueTags: DiagnosisCode[];
+  reviewNote: string | null;
+  correctedOutput: string | null;
+  datasetUsage: DatasetUsage | null;
+  reviewedAt: string | null;
+  exportBatchId: string | null;
+  diagnoses: DiagnosisView[];
+  createdAt: string;
+  taskTypes: string[];
+  modelIds: string[];
+  promptVersions: string[];
+}
+
+export interface CandidateListInput {
+  campaignId: CampaignId;
+  status?: CandidateStatus;
+  cursor?: string;
+  limit: number;
+}
+
+export interface ReviewCandidateInput {
+  campaignId: CampaignId;
+  caseId: string;
+  status: "reviewed" | "curated" | "discarded";
+  confirmedIssueTags: DiagnosisCode[];
+  reviewNote?: string;
+  correctedOutput?: string;
+  datasetUsage: DatasetUsage;
+}
+
+export interface AuditCaseView {
+  audit: AuditCase;
+  feedback: {
+    feedbackId: string;
+    traceId: string;
+    turnId: string;
+    narrationId: string;
+    rating: "dissatisfied";
+    note: string | null;
+    createdAt: string;
+  };
+  candidate: DatasetCandidateView;
+  finalOutput: string;
+}
+
+export interface BranchHistoryView {
+  recap: string;
+  recentTurns: Array<{
+    turnId: string;
+    narrationId: string;
+    stateVersion: number;
+    player: string;
+    gm: string;
+  }>;
+  restoredFrom: string | null;
+}
+
+export type TimelinePage = Page<{
+  kind: string;
+  turnId: string;
+  summary: string;
+  occurredAt: string;
+}> & Partial<BranchHistoryView> & { events?: unknown[] };
 
 export interface OperationView {
   operationId: OperationId | string;
@@ -265,7 +366,17 @@ export interface DesktopApi {
       campaignId: CampaignId;
       branchId: BranchId;
       page: PageRequest;
-    }): Promise<Result<Page<{ kind: string; turnId: string; summary: string; occurredAt: string }>>>;
+    }): Promise<Result<TimelinePage>>;
+  };
+  audit: {
+    submitDissatisfied(input: {
+      campaignId: CampaignId;
+      narrationId: string;
+      note?: string;
+    }): Promise<Result<FeedbackReceipt>>;
+    listCandidates(input: CandidateListInput): Promise<Result<Page<DatasetCandidateView>>>;
+    getCandidate(input: { campaignId: CampaignId; caseId: string }): Promise<Result<AuditCaseView>>;
+    reviewCandidate(input: ReviewCandidateInput): Promise<Result<DatasetCandidateView>>;
   };
   content: { list(): Promise<Result<never>> };
   model: { list(): Promise<Result<never>> };
@@ -287,7 +398,7 @@ export interface DesktopApi {
   };
 }
 
-export const API_VERSION: ApiVersion = { major: 1, minor: 1 };
+export const API_VERSION: ApiVersion = { major: 1, minor: 2 };
 
 export const CHANNELS = {
   "app:getVersion": true,
@@ -325,6 +436,10 @@ export const CHANNELS = {
   "checkpoint:recreateInvestigator": true,
   "backup:export": true,
   "backup:import": true,
+  "audit:submitDissatisfied": true,
+  "audit:listCandidates": true,
+  "audit:getCandidate": true,
+  "audit:reviewCandidate": true,
 } as const;
 
 export type Channel = keyof typeof CHANNELS;

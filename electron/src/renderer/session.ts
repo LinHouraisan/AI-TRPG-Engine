@@ -51,6 +51,10 @@ export type Message = {
   kind?: MessageKind;
   /** 本次打开的一次性说明。进 messages 可以，进库不行。 */
   transient?: boolean;
+  turnId?: string;
+  narrationId?: string;
+  traceId?: string;
+  feedbackCaseId?: string;
 };
 
 function isTransient(message: Pick<Message, "transient" | "kind">): boolean {
@@ -149,13 +153,31 @@ export function createOpening(state: GameState, profile: InvestigatorProfile | n
 
 export function createRestoredMessages(
   state: GameState,
-  history: { recap: string; recentTurns: Array<{ turnId: string; stateVersion: number; player: string; gm: string }>; restoredFrom: string | null },
+  history: {
+    recap: string;
+    recentTurns: Array<{
+      turnId: string;
+      narrationId: string;
+      stateVersion: number;
+      player: string;
+      gm: string;
+    }>;
+    restoredFrom: string | null;
+  },
 ): Message[] {
   const messages: Message[] = [{ id: "restore-recap", role: "system", text: `前情提要：${history.recap}`, stateVersion: state.version, kind: "notice", transient: true }];
   for (const turn of history.recentTurns.slice(-3)) {
     messages.push(
       { id: `${turn.turnId}-pl`, role: "pl", text: turn.player, stateVersion: turn.stateVersion, kind: "play" },
-      { id: `${turn.turnId}-kp`, role: "kp", text: turn.gm, stateVersion: turn.stateVersion, kind: "play" },
+      {
+        id: `${turn.turnId}-kp`,
+        role: "kp",
+        text: turn.gm,
+        stateVersion: turn.stateVersion,
+        kind: "play",
+        turnId: turn.turnId,
+        narrationId: turn.narrationId,
+      },
     );
   }
   if (history.restoredFrom) messages.push({ id: "restore-notice", role: "system", text: `已从「${history.restoredFrom}」创建恢复分支。原检查点仍然保留。`, stateVersion: state.version, kind: "notice", transient: true });
@@ -622,7 +644,15 @@ export function useSession() {
         if (view.kind !== "committed") {
           setStatus(null);
           setNarrationDraft(null);
-          push({ role: "kp", text: view.narration, stateVersion: baseState.version, source: "程序" });
+          push({
+            role: "kp",
+            text: view.narration,
+            stateVersion: baseState.version,
+            source: "程序",
+            turnId: view.turnId,
+            narrationId: view.narrationId,
+            traceId: view.traceId,
+          });
           reveal();
           setPending(null);
           setBusy(false);
@@ -652,6 +682,9 @@ export function useSession() {
           stateVersion: nextState.version,
           source: view.narrationKind,
           note: view.narrationNote,
+          turnId: view.turnId,
+          narrationId: view.narrationId,
+          traceId: view.traceId,
         });
         const story = storyMonitor({
           before: baseState,
@@ -1431,6 +1464,26 @@ export function useSession() {
     [pushNotice],
   );
 
+  const submitDissatisfied = useCallback(async (message: Message, note?: string) => {
+    const remote = tryDesktopApi();
+    if (!remote || !campaignId || !message.narrationId) {
+      throw new Error("这条回复没有可追溯的 Narration 身份。");
+    }
+    const result = await remote.audit.submitDissatisfied({
+      campaignId,
+      narrationId: message.narrationId,
+      note,
+    });
+    if (!result.ok) throw new Error(result.error.messageKey);
+    setMessages((prev) => prev.map((item) => item.id === message.id
+      ? { ...item, feedbackCaseId: result.value.caseId }
+      : item));
+    return {
+      caseId: result.value.caseId,
+      diagnosis: result.value.diagnoses[0]?.code,
+    };
+  }, [campaignId]);
+
   return {
     state: presented.state,
     log: presented.log,
@@ -1468,6 +1521,7 @@ export function useSession() {
     restoreDesktopCheckpoint,
     recreateDesktopInvestigator,
     confirmInvestigator,
+    submitDissatisfied,
     pushSystem,
   };
 }

@@ -1,19 +1,30 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import type { Message } from "@renderer/session";
 import { CheckCard, PendingCheckNote } from "./CheckCard";
 import type { WaitLine } from "./pending";
+import {
+  feedbackReducer,
+  initialFeedbackState,
+  isFeedbackSubmissionBlocked,
+} from "./audit-feedback-state";
 
 export function NarrationColumn({
   messages,
   wait,
   draft,
+  onDissatisfied,
 }: {
   messages: Message[];
   wait: WaitLine | null;
   /** 还没过体检的叙述。绝不能写进 messages。 */
   draft: string | null;
+  onDissatisfied?: (
+    message: Message,
+    note?: string,
+  ) => Promise<{ caseId: string; diagnosis?: string }>;
 }) {
   const bottom = useRef<HTMLDivElement>(null);
+  const [feedback, dispatchFeedback] = useReducer(feedbackReducer, initialFeedbackState);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: draft ? "auto" : "smooth" });
@@ -67,6 +78,50 @@ export function NarrationColumn({
                 {message.text}
               </div>
               {message.check ? <CheckCard check={message.check} /> : null}
+              {message.kind !== "notice" && message.narrationId && onDissatisfied ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted">
+                  {message.feedbackCaseId ? (
+                    <span>已进入数据池 · {message.feedbackCaseId}</span>
+                  ) : feedback.status === "saved" && feedback.narrationId === message.narrationId ? (
+                    <span>
+                      已进入数据池 · {feedback.caseId}
+                      {feedback.diagnosis ? ` · ${feedback.diagnosis}` : ""}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={isFeedbackSubmissionBlocked(feedback, message.narrationId)}
+                      className="rounded border border-line/60 px-2 py-1 transition hover:border-blood/60 hover:text-blood disabled:opacity-40"
+                      onClick={() => {
+                        const note = window.prompt("可选：简单说明哪里不满意（不会重新生成回复）", "");
+                        if (note === null) return;
+                        dispatchFeedback({ type: "saving", narrationId: message.narrationId! });
+                        void onDissatisfied(message, note || undefined).then((saved) => {
+                          dispatchFeedback({
+                            type: "saved",
+                            narrationId: message.narrationId!,
+                            caseId: saved.caseId,
+                            diagnosis: saved.diagnosis,
+                          });
+                        }).catch((error) => {
+                          dispatchFeedback({
+                            type: "failed",
+                            narrationId: message.narrationId!,
+                            error: error instanceof Error ? error.message : String(error),
+                          });
+                        });
+                      }}
+                    >
+                      {feedback.status === "saving" && feedback.narrationId === message.narrationId
+                        ? "正在记录…"
+                        : "不满意"}
+                    </button>
+                  )}
+                  {feedback.status === "failed" && feedback.narrationId === message.narrationId ? (
+                    <span className="text-blood">{feedback.error}</span>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           );
         })}

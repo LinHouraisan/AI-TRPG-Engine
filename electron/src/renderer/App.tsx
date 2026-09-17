@@ -21,6 +21,7 @@ import { RoomMap } from "@renderer/ui/RoomMap";
 import { Clues, EventLog, Inventory, StoryFlags } from "@renderer/ui/SidePanels";
 import { Timeline, type TurnMark } from "@renderer/ui/Timeline";
 import { desktopApi } from "@renderer/desktop";
+import { AuditReviewPanel } from "@renderer/ui/AuditReviewPanel";
 
 type MobilePane = "narration" | "sheet" | "scene" | "record";
 
@@ -36,6 +37,7 @@ export default function App() {
   const desktop = Boolean(desktopApi());
   const filePicker = useRef<HTMLInputElement>(null);
   const [mobilePane, setMobilePane] = useState<MobilePane>("narration");
+  const [auditOpen, setAuditOpen] = useState(false);
   const gate = openingGate(session.investigatorProfile != null, pack.manifest.creation != null);
 
   const wait = composeWait({
@@ -87,6 +89,15 @@ export default function App() {
 
         <div className="flex shrink-0 items-center gap-1.5 text-[13px] md:gap-2">
           <ModelSettings />
+          {desktop && session.campaignId ? (
+            <button
+              type="button"
+              onClick={() => setAuditOpen(true)}
+              className="min-h-11 shrink-0 rounded border border-line/70 px-2.5 transition hover:border-brass/60 hover:text-brass md:min-h-0 md:py-1"
+            >
+              数据池
+            </button>
+          ) : null}
           <CheckpointTests
             key={session.campaignId ?? "no-campaign"}
             campaignId={session.campaignId}
@@ -176,6 +187,7 @@ export default function App() {
               messages={session.messages}
               wait={wait}
               draft={session.narrationDraft}
+              onDissatisfied={desktop ? session.submitDissatisfied : undefined}
             />
           </div>
           <div
@@ -259,6 +271,9 @@ export default function App() {
           </button>
         ))}
       </nav> : null}
+      {auditOpen && session.campaignId ? (
+        <AuditReviewPanel campaignId={session.campaignId} onClose={() => setAuditOpen(false)} />
+      ) : null}
     </div>
   );
 }

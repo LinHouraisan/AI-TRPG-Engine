@@ -1,6 +1,12 @@
 /** Electron preload 挂上的桥。浏览器里没有，Demo 继续走自己的 wasm 库。 */
 import type { InvestigatorAllocation, InvestigatorProfile } from "@core/character/types";
 import type { CheckCandidate, Intent } from "@core/engine/types";
+import type {
+  AuditCase,
+  CandidateStatus,
+  DatasetUsage,
+  DiagnosisCode,
+} from "@core/audit/types";
 import type { ModelUsageSummary } from "../shared/api";
 
 export type DesktopResult<T> =
@@ -25,12 +31,67 @@ export type DesktopTurnView = {
   stateVersion: number;
   check?: unknown;
   intent: unknown;
+  turnId?: string;
+  narrationId?: string;
+  traceId?: string;
 };
 
 export type DesktopBranchHistory = {
   recap: string;
-  recentTurns: Array<{ turnId: string; stateVersion: number; player: string; gm: string }>;
+  recentTurns: Array<{
+    turnId: string;
+    narrationId: string;
+    stateVersion: number;
+    player: string;
+    gm: string;
+  }>;
   restoredFrom: string | null;
+};
+
+export type DesktopDiagnosis = {
+  diagnosisId: string;
+  feedbackId: string;
+  source: "rule" | "local_judge";
+  code: DiagnosisCode;
+  confidence: "high" | "medium" | "low";
+  severity: "error" | "warning" | "info";
+  explanation: string;
+  evidenceSpanIds: string[];
+  ruleVersion: string;
+  createdAt: string;
+};
+
+export type DesktopCandidate = {
+  caseId: string;
+  feedbackId: string;
+  traceId: string;
+  status: CandidateStatus;
+  confirmedIssueTags: DiagnosisCode[];
+  reviewNote: string | null;
+  correctedOutput: string | null;
+  datasetUsage: DatasetUsage | null;
+  reviewedAt: string | null;
+  exportBatchId: string | null;
+  diagnoses: DesktopDiagnosis[];
+  createdAt: string;
+  taskTypes: string[];
+  modelIds: string[];
+  promptVersions: string[];
+};
+
+export type DesktopAuditCase = {
+  audit: AuditCase;
+  feedback: {
+    feedbackId: string;
+    traceId: string;
+    turnId: string;
+    narrationId: string;
+    rating: "dissatisfied";
+    note: string | null;
+    createdAt: string;
+  };
+  candidate: DesktopCandidate;
+  finalOutput: string;
 };
 
 export type DesktopCampaignBackup = {
@@ -137,7 +198,7 @@ export interface DesktopApi {
       expectedStateVersion: number;
       commandId: string;
       text: string;
-    }): Promise<DesktopResult<{ operationId: string; turnId?: string }>>;
+    }): Promise<DesktopResult<{ operationId: string; turnId?: string; traceId: string }>>;
   };
   timeline: {
     page(input: {
@@ -145,6 +206,38 @@ export interface DesktopApi {
       branchId: string;
       page: { limit: number };
     }): Promise<DesktopResult<{ items: unknown[]; events?: unknown[] } & Partial<DesktopBranchHistory>>>;
+  };
+  audit: {
+    submitDissatisfied(input: {
+      campaignId: string;
+      narrationId: string;
+      note?: string;
+    }): Promise<DesktopResult<{
+      feedbackId: string;
+      caseId: string;
+      traceId: string;
+      status: CandidateStatus;
+      diagnoses: DesktopDiagnosis[];
+    }>>;
+    listCandidates(input: {
+      campaignId: string;
+      status?: CandidateStatus;
+      cursor?: string;
+      limit: number;
+    }): Promise<DesktopResult<{ items: DesktopCandidate[]; nextCursor: string | null }>>;
+    getCandidate(input: {
+      campaignId: string;
+      caseId: string;
+    }): Promise<DesktopResult<DesktopAuditCase>>;
+    reviewCandidate(input: {
+      campaignId: string;
+      caseId: string;
+      status: "reviewed" | "curated" | "discarded";
+      confirmedIssueTags: DiagnosisCode[];
+      reviewNote?: string;
+      correctedOutput?: string;
+      datasetUsage: DatasetUsage;
+    }): Promise<DesktopResult<DesktopCandidate>>;
   };
   checkpoint: {
     list(input:{campaignId:string}): Promise<DesktopResult<Array<{checkpointId:string;branchId:string;stateVersion:number;eventSequence:number;label:string;createdAt:string;purpose:string|null;passed:boolean|null;stateHash:string;recap:string}>>>;

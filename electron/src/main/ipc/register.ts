@@ -47,6 +47,32 @@ const setSecretSchema = z
   })
   .strict();
 const secretIdSchema = z.object({ credentialId: z.string().min(1) }).strict();
+const candidateStatuses = [
+  "captured",
+  "auto_diagnosed",
+  "pending_review",
+  "reviewed",
+  "curated",
+  "exported",
+  "discarded",
+] as const;
+const diagnosisCodes = [
+  "PROVIDER_FAILURE",
+  "CONTRACT_FAILURE",
+  "GUARD_REJECTION",
+  "STALE_STATE",
+  "ROUTE_INVALID",
+  "ROUTE_UNCERTAIN",
+  "CONTEXT_TRUNCATED",
+  "CONTEXT_MISSING",
+  "RETRIEVAL_MISS",
+  "RETRIEVAL_NOISE",
+  "EVENT_NARRATION_MISMATCH",
+  "GENERATION_DRIFT",
+  "STYLE_OR_PREFERENCE",
+  "UNKNOWN",
+] as const;
+const datasetUsages = ["evaluation_only", "sft", "preference", "discard"] as const;
 
 function wrap(
   fn: (payload: unknown, event: IpcMainInvokeEvent) => Result<unknown> | Promise<Result<unknown>>,
@@ -460,6 +486,70 @@ export function registerIpc(
     }
     composition.turns.unsubscribe(parsed.data.subscriptionId);
     return ok(undefined);
+  });
+
+  handle("audit:submitDissatisfied", (payload) => {
+    const parsed = z.object({
+      campaignId: z.string().min(1),
+      narrationId: z.string().min(1),
+      note: z.string().max(2_000).optional(),
+    }).strict().safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return composition.audits.submitDissatisfied({
+      ...parsed.data,
+      campaignId: asCampaignId(parsed.data.campaignId),
+    });
+  });
+
+  handle("audit:listCandidates", (payload) => {
+    const parsed = z.object({
+      campaignId: z.string().min(1),
+      status: z.enum(candidateStatuses).optional(),
+      cursor: z.string().min(1).optional(),
+      limit: z.number().int().min(1).max(100),
+    }).strict().safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return composition.audits.listCandidates({
+      ...parsed.data,
+      campaignId: asCampaignId(parsed.data.campaignId),
+    });
+  });
+
+  handle("audit:getCandidate", (payload) => {
+    const parsed = z.object({
+      campaignId: z.string().min(1),
+      caseId: z.string().min(1),
+    }).strict().safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return composition.audits.getCandidate({
+      ...parsed.data,
+      campaignId: asCampaignId(parsed.data.campaignId),
+    });
+  });
+
+  handle("audit:reviewCandidate", (payload) => {
+    const parsed = z.object({
+      campaignId: z.string().min(1),
+      caseId: z.string().min(1),
+      status: z.enum(["reviewed", "curated", "discarded"]),
+      confirmedIssueTags: z.array(z.enum(diagnosisCodes)),
+      reviewNote: z.string().max(2_000).optional(),
+      correctedOutput: z.string().max(20_000).optional(),
+      datasetUsage: z.enum(datasetUsages),
+    }).strict().safeParse(payload);
+    if (!parsed.success) {
+      return fail({ code: "IPC_INVALID_REQUEST", messageKey: "ipc.invalid_request", retryable: false });
+    }
+    return composition.audits.reviewCandidate({
+      ...parsed.data,
+      campaignId: asCampaignId(parsed.data.campaignId),
+    });
   });
 
   handle("checkpoint:list", (payload) => {

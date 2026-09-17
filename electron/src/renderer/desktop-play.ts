@@ -111,6 +111,8 @@ export async function submitDesktopTurn(params: {
   const seen = new Set<number>();
   let completed = false;
   let operationId = "";
+  let completedTurnId: string | undefined;
+  let completedNarrationId: string | undefined;
   let resolveDone: (() => void) | undefined;
   const done = new Promise<void>((resolve) => {
     resolveDone = resolve;
@@ -121,6 +123,7 @@ export async function submitDesktopTurn(params: {
       if (event.commandId === commandId) params.onCandidate?.(event.check, event.intent);
       return;
     }
+    if (!operationId) return;
     if (operationId) {
       if (event.type === "narration.delta" && event.operationId !== operationId) return;
       if (event.type === "narration.completed" && event.operationId !== operationId) return;
@@ -133,6 +136,8 @@ export async function submitDesktopTurn(params: {
     }
     if (event.type === "narration.completed") {
       completed = true;
+      completedTurnId = event.turnId;
+      completedNarrationId = event.narrationId;
       resolveDone?.();
     }
   });
@@ -159,10 +164,9 @@ export async function submitDesktopTurn(params: {
       return { error: first.error.messageKey, errorCode: first.error.code };
     }
     const firstView = asTurnView(first.value);
-    if (firstView.kind !== "committed") {
-      if (sub.ok) await params.api.operation.unsubscribe({ subscriptionId: sub.value.subscriptionId });
-      return firstView;
-    }
+    completed = completed || Boolean(firstView.narrationId);
+    completedTurnId = completedTurnId ?? firstView.turnId ?? submitted.value.turnId;
+    completedNarrationId = completedNarrationId ?? firstView.narrationId;
     if (!completed) {
       await Promise.race([
         done,
@@ -177,7 +181,13 @@ export async function submitDesktopTurn(params: {
     });
     if (sub.ok) await params.api.operation.unsubscribe({ subscriptionId: sub.value.subscriptionId });
     if (!op.ok) return { error: op.error.messageKey, errorCode: op.error.code };
-    return asTurnView(op.value);
+    const finalView = asTurnView(op.value);
+    return {
+      ...finalView,
+      traceId: finalView.traceId ?? submitted.value.traceId,
+      turnId: finalView.turnId ?? completedTurnId,
+      narrationId: finalView.narrationId ?? completedNarrationId,
+    };
   } finally {
     stop();
   }
