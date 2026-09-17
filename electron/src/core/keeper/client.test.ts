@@ -117,7 +117,7 @@ test("askKeeper records the exact request and response without credentials", asy
       enabled: true,
       protocol: "openai_compatible",
       baseUrl: "https://api.deepseek.com",
-      apiKey: "sk-test-never-store",
+      apiKey: "sk-audit-sentinel-never-persist",
       disableThinking: true,
       model: "deepseek-v4-flash",
       timeoutMs: 1000,
@@ -158,7 +158,7 @@ test("askKeeper records the exact request and response without credentials", asy
     promptTokens: 8,
     completionTokens: 4,
   });
-  expect(JSON.stringify(recorded)).not.toContain("sk-test-never-store");
+  expect(JSON.stringify(recorded)).not.toContain("sk-audit-sentinel-never-persist");
   expect(JSON.stringify(recorded)).not.toContain("authorization");
 });
 

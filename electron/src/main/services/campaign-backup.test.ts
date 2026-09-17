@@ -5,14 +5,6 @@ import { join } from "node:path";
 import { fixedClock } from "../clock";
 import { CredentialStore } from "../credentials";
 import { resolvePaths } from "../paths";
-import {
-  bindAuditRun,
-  finalizeAuditRun,
-  finishAuditSpan,
-  linkFinalNarration,
-  startAuditRun,
-  startAuditSpan,
-} from "../persist/audit";
 import { openBun } from "../persist/bun-driver";
 import { createCheckpoint } from "../persist/checkpoints";
 import { hashProfile, loadInvestigator } from "../persist/investigator";
@@ -62,74 +54,61 @@ test("desktop campaign backup round-trips profile hash, branch, history, recaps,
       [submitted.value.turnId],
     );
     if (!narration) throw new Error("final narration missing");
-    startAuditRun(sourceDb, {
-      traceId: "trace-backup-1",
-      campaignId: created.value.campaignId,
-      branchId: created.value.headBranchId,
-      operationId: submitted.value.operationId,
-      baseStateVersion: 1,
-      startedAt: now,
-      schemaVersion: "turn-audit-v1",
-    });
-    bindAuditRun(sourceDb, "trace-backup-1", {
-      turnId: submitted.value.turnId,
-      committedStateVersion: 1,
-    });
-    startAuditSpan(sourceDb, {
-      spanId: "span-backup-1",
-      traceId: "trace-backup-1",
-      sequence: 1,
-      kind: "program",
-      stage: "narration.select",
-      taskType: "gm.narrate_result",
-      attempt: 1,
-      causal: true,
-      input: { source: "program" },
-      createdAt: now,
-    });
-    finishAuditSpan(sourceDb, "span-backup-1", {
-      status: "succeeded",
-      output: { narrationId: narration.narration_id },
-      completedAt: now,
-    });
-    linkFinalNarration(sourceDb, "trace-backup-1", narration.narration_id);
-    finalizeAuditRun(sourceDb, "trace-backup-1", {
-      completeness: "complete",
-      gapCodes: [],
-      finalizedAt: now,
-    });
+    const evidenceSpan = sourceDb.get<{ span_id: string }>(
+      "SELECT span_id FROM audit_spans WHERE trace_id = ? AND causal = 1 ORDER BY sequence LIMIT 1",
+      [submitted.value.traceId],
+    );
+    if (!evidenceSpan) throw new Error("causal audit span missing");
     sourceDb.run(
       `INSERT INTO user_feedback (
         feedback_id, trace_id, turn_id, narration_id, rating, note, created_at
-      ) VALUES ('feedback-backup-1', 'trace-backup-1', ?, ?, 'dissatisfied', '上下文偏离', ?)`,
-      [submitted.value.turnId, narration.narration_id, now],
+      ) VALUES ('feedback-backup-1', ?, ?, ?, 'dissatisfied', '上下文偏离', ?)`,
+      [submitted.value.traceId, submitted.value.turnId, narration.narration_id, now],
     );
     sourceDb.run(
       `INSERT INTO diagnosis_results (
         diagnosis_id, feedback_id, source, code, confidence, severity,
         explanation, evidence_span_ids_json, rule_version, created_at
       ) VALUES ('diagnosis-backup-1', 'feedback-backup-1', 'rule', 'UNKNOWN', 'low',
-        'info', '证据不足', '["span-backup-1"]', 'turn-diagnosis-v1', ?)`,
-      [now],
+        'info', '证据不足', ?, 'turn-diagnosis-v1', ?)`,
+      [JSON.stringify([evidenceSpan.span_id]), now],
     );
     sourceDb.run(
       `INSERT INTO dataset_candidates (
         case_id, feedback_id, trace_id, status, confirmed_issue_tags_json,
         review_note, corrected_output, dataset_usage, reviewed_at, export_batch_id
-      ) VALUES ('case-backup-1', 'feedback-backup-1', 'trace-backup-1', 'pending_review',
+      ) VALUES ('case-backup-1', 'feedback-backup-1', ?, 'pending_review',
         '[]', NULL, NULL, NULL, NULL, NULL)`,
+      [submitted.value.traceId],
     );
     createCheckpoint(sourceDb, {
       branchId: created.value.headBranchId,
       label: "备份检查点",
       now: "2026-08-24T00:01:00.000Z",
     });
-    setSetting(fixture.settings, "keeper.apiKey", "sk-must-not-export", now);
+    const credentialSentinel = "sk-audit-sentinel-never-persist";
+    setSetting(fixture.settings, "keeper.apiKey", credentialSentinel, now);
+
+    const auditTables = [
+      "audit_runs",
+      "audit_spans",
+      "user_feedback",
+      "diagnosis_results",
+      "dataset_candidates",
+      "dataset_export_batches",
+    ];
+    const serializedAudit = JSON.stringify(
+      auditTables.flatMap((table) => sourceDb.all(`SELECT * FROM ${table}`)),
+    );
+    expect(serializedAudit).not.toContain(credentialSentinel);
+    expect(serializedAudit.toLowerCase()).not.toContain("authorization");
 
     const exported = fixture.campaigns.exportCampaign(created.value.campaignId);
     expect(exported.ok).toBe(true);
     if (!exported.ok) throw new Error("export failed");
-    expect(JSON.stringify(exported.value)).not.toContain("sk-must-not-export");
+    const serializedBackup = JSON.stringify(exported.value);
+    expect(serializedBackup).not.toContain(credentialSentinel);
+    expect(serializedBackup.toLowerCase()).not.toContain("authorization");
 
     const imported = fixture.campaigns.importCampaign(exported.value);
     expect(imported.ok).toBe(true);
@@ -159,17 +138,22 @@ test("desktop campaign backup round-trips profile hash, branch, history, recaps,
       "SELECT count(*) AS count FROM checkpoint_dialogue_members",
     )?.count).toBe(1);
     expect(importedDb.get<{ campaign_id: string; final_narration_id: string }>(
-      "SELECT campaign_id, final_narration_id FROM audit_runs WHERE trace_id = 'trace-backup-1'",
+      "SELECT campaign_id, final_narration_id FROM audit_runs WHERE trace_id = ?",
+      [submitted.value.traceId],
     )).toEqual({
       campaign_id: imported.value.campaignId,
       final_narration_id: narration.narration_id,
     });
     expect(importedDb.get<{ output_json: string }>(
-      "SELECT output_json FROM audit_spans WHERE span_id = 'span-backup-1'",
-    )?.output_json).toContain(narration.narration_id);
+      "SELECT output_json FROM audit_spans WHERE span_id = ?",
+      [evidenceSpan.span_id],
+    )?.output_json).toBeTruthy();
     expect(importedDb.get<{ code: string; evidence_span_ids_json: string }>(
       "SELECT code, evidence_span_ids_json FROM diagnosis_results WHERE diagnosis_id = 'diagnosis-backup-1'",
-    )).toEqual({ code: "UNKNOWN", evidence_span_ids_json: '["span-backup-1"]' });
+    )).toEqual({
+      code: "UNKNOWN",
+      evidence_span_ids_json: JSON.stringify([evidenceSpan.span_id]),
+    });
     expect(importedDb.get<{ status: string }>(
       "SELECT status FROM dataset_candidates WHERE case_id = 'case-backup-1'",
     )?.status).toBe("pending_review");

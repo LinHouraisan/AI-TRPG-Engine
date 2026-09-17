@@ -6,9 +6,11 @@ import { fixedClock } from "../clock";
 import { CredentialStore } from "../credentials";
 import { loadAuditCase } from "../persist/audit";
 import { openBun } from "../persist/bun-driver";
+import type { Driver } from "../persist/driver";
 import { setSetting } from "../persist/catalog";
 import { applyInit } from "../persist/migrate";
 import { resolvePaths } from "../paths";
+import { parseAuditCaseLine } from "@core/audit/export";
 
 const now = "2026-09-17T10:00:00.000Z";
 const originalFetch = globalThis.fetch;
@@ -211,6 +213,140 @@ test("a deterministic action records commit, context, model, and final selection
   }
 });
 
+test("a disliked guarded retry becomes a curated preference export", async () => {
+  const fixture = await turnFixture();
+  let calls = 0;
+  const selectedText = "你把手伸向窗帘边缘，粗糙布料在指间绷紧。窗框随即轻轻震了一下，积灰从木缝间落下。褪色布面上的针脚仍清晰可辨。";
+  globalThis.fetch = (async () => {
+    calls += 1;
+    const content = calls === 1
+      ? '{"verb":"free","target":"","text":""}'
+      : calls === 2
+        ? JSON.stringify({
+            text: "她看着你。",
+            feedback: "",
+            reaction: "她没有回答。",
+            interactionPoints: ["你可以继续追问。"],
+          })
+        : JSON.stringify({
+            text: selectedText,
+            feedback: "你把手伸向窗帘边缘，粗糙布料在指间绷紧。",
+            reaction: "窗框随即轻轻震了一下，积灰从木缝间落下。",
+            interactionPoints: ["褪色布面上的针脚仍清晰可辨。"],
+          });
+    return new Response(JSON.stringify({ message: { content } }), { status: 200 });
+  }) as unknown as typeof fetch;
+
+  try {
+    const created = fixture.campaigns.create("端到端坏例审计");
+    if (!created.ok) throw new Error("campaign create failed");
+    const confirmed = fixture.campaigns.confirmInvestigator({
+      campaignId: created.value.campaignId,
+      branchId: created.value.headBranchId,
+      allocation: validAllocation(),
+    });
+    if (!confirmed.ok) throw new Error("investigator confirmation failed");
+    fixture.setSetting("keeper.enabled", true);
+    fixture.setSetting("keeper.baseUrl", "http://keeper.test");
+
+    const submitted = await fixture.turns.submit({
+      campaignId: created.value.campaignId,
+      branchId: created.value.headBranchId,
+      actorId: "pc.linwan" as never,
+      controllerId: "player",
+      expectedStateVersion: confirmed.value.stateVersion as never,
+      commandId: "audit-e2e-preference",
+      text: "我拆下窗帘布，试着做一个临时绳索",
+    });
+    if (!submitted.ok) throw new Error("turn failed");
+    await fixture.turns.waitForNarration(submitted.value.operationId);
+    const final = fixture.turns.get(submitted.value.operationId, created.value.campaignId);
+    if (!final.ok || !final.value.narrationId) throw new Error("final narration missing");
+    expect(final.value.narration).toBe(selectedText);
+
+    const db = fixture.campaigns.driver(created.value.campaignId);
+    if (!db) throw new Error("campaign not open");
+    const audit = loadAuditCase(db, submitted.value.traceId);
+    const modelSpans = audit.spans.filter((span) => span.stage === "gm.route" || span.stage === "gm.narrate");
+    expect(new Set(modelSpans.map((span) => span.modelTaskId)).size).toBe(1);
+    expect(audit.spans.filter((span) => span.stage === "guard.quality").map((span) => span.status))
+      .toEqual(["rejected", "succeeded"]);
+    expect(audit.run).toMatchObject({
+      traceId: submitted.value.traceId,
+      turnId: submitted.value.turnId,
+      finalNarrationId: final.value.narrationId,
+    });
+
+    const disliked = fixture.audits.submitDissatisfied({
+      campaignId: created.value.campaignId,
+      narrationId: final.value.narrationId,
+      note: "第二次回复仍不符合我想要的节奏",
+    });
+    if (!disliked.ok) throw new Error("feedback failed");
+    const corrected = "你松开窗帘，先检查布料承重与固定点，再决定是否拆下。";
+    const reviewed = fixture.audits.reviewCandidate({
+      campaignId: created.value.campaignId,
+      caseId: disliked.value.caseId,
+      status: "curated",
+      confirmedIssueTags: ["GUARD_REJECTION"],
+      datasetUsage: "preference",
+      correctedOutput: corrected,
+    });
+    if (!reviewed.ok) throw new Error("review failed");
+    const exported = fixture.audits.exportCandidates({
+      campaignId: created.value.campaignId,
+      caseIds: [disliked.value.caseId],
+    });
+    if (!exported.ok) throw new Error("export failed");
+    const line = parseAuditCaseLine(exported.value.jsonl.trimEnd());
+    expect(line).toMatchObject({
+      case_id: disliked.value.caseId,
+      trace_id: submitted.value.traceId,
+      final_output: selectedText,
+      manual_review: {
+        corrected_output: corrected,
+        dataset_usage: "preference",
+      },
+    });
+  } finally {
+    fixture.close();
+  }
+});
+
+test("one audit span write failure leaves gameplay complete and marks the run partial", async () => {
+  const fixture = await turnFixture(true);
+  try {
+    const created = fixture.campaigns.create("审计失败隔离");
+    if (!created.ok) throw new Error("campaign create failed");
+    const confirmed = fixture.campaigns.confirmInvestigator({
+      campaignId: created.value.campaignId,
+      branchId: created.value.headBranchId,
+      allocation: validAllocation(),
+    });
+    if (!confirmed.ok) throw new Error("investigator confirmation failed");
+    const submitted = await fixture.turns.submit({
+      campaignId: created.value.campaignId,
+      branchId: created.value.headBranchId,
+      actorId: "pc.linwan" as never,
+      controllerId: "player",
+      expectedStateVersion: confirmed.value.stateVersion as never,
+      commandId: "audit-gap-turn",
+      text: "现在几点",
+    });
+    if (!submitted.ok) throw new Error("turn failed");
+    await fixture.turns.waitForNarration(submitted.value.operationId);
+    expect(fixture.turns.get(submitted.value.operationId, created.value.campaignId).ok).toBe(true);
+    const db = fixture.campaigns.driver(created.value.campaignId);
+    if (!db) throw new Error("campaign not open");
+    expect(loadAuditCase(db, submitted.value.traceId).run).toMatchObject({
+      completeness: "partial",
+      gapCodes: ["AUDIT_SPAN_APPEND_FAILED"],
+    });
+  } finally {
+    fixture.close();
+  }
+});
+
 function validAllocation() {
   return {
     name: "林晚",
@@ -220,10 +356,11 @@ function validAllocation() {
   };
 }
 
-async function turnFixture() {
-  const [{ CampaignService }, { TurnService }] = await Promise.all([
+async function turnFixture(failOneAuditSpan = false) {
+  const [{ CampaignService }, { TurnService }, { AuditService }] = await Promise.all([
     import("./campaigns"),
     import("./turns"),
+    import("./audit-service"),
   ]);
   const root = mkdtempSync(join(tmpdir(), "turn-audit-"));
   const clock = fixedClock(now);
@@ -244,7 +381,7 @@ async function turnFixture() {
     settings,
     paths,
     clock,
-    openBun,
+    failOneAuditSpan ? openWithOneAuditSpanFailure : openBun,
     readFileSync(join(sqlDir, "campaign.sql"), "utf8"),
     migrations,
   );
@@ -254,14 +391,31 @@ async function turnFixture() {
     decryptString: () => "",
   });
   const turns = new TurnService(campaigns, credentials, clock);
+  const audits = new AuditService(campaigns, clock);
   return {
     campaigns,
     turns,
+    audits,
     setSetting(key: string, value: unknown) { setSetting(settings, key, value, now); },
     close() {
       campaigns.dispose();
       settings.close();
       try { rmSync(root, { recursive: true, force: true }); } catch { /* SQLite handle */ }
+    },
+  };
+}
+
+function openWithOneAuditSpanFailure(path: string): Driver {
+  const db = openBun(path);
+  let pending = true;
+  return {
+    ...db,
+    run(sql, params) {
+      if (pending && sql.includes("INSERT INTO audit_spans")) {
+        pending = false;
+        throw new Error("simulated audit write failure");
+      }
+      db.run(sql, params);
     },
   };
 }
