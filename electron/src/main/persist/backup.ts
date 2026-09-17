@@ -27,6 +27,12 @@ export const CAMPAIGN_BACKUP_TABLES = [
   "state_entities",
   "rule_decisions",
   "narrations",
+  "audit_runs",
+  "audit_spans",
+  "user_feedback",
+  "diagnosis_results",
+  "dataset_export_batches",
+  "dataset_candidates",
   "snapshots",
   "checkpoints",
   "content_bindings",
@@ -121,6 +127,10 @@ export function importCampaignBackup(
     name,
   }));
   rowsByTable.operations = rowsByTable.operations.map((row) => ({
+    ...row,
+    campaign_id: campaignId,
+  }));
+  rowsByTable.audit_runs = rowsByTable.audit_runs.map((row) => ({
     ...row,
     campaign_id: campaignId,
   }));
@@ -287,7 +297,7 @@ function decodeValue(value: unknown): unknown {
 }
 
 function quoteIdentifier(value: string): string {
-  if (!/^[a-z_]+$/u.test(value)) throw new Error("backup.identifier_invalid");
+  if (!/^[a-z_][a-z0-9_]*$/u.test(value)) throw new Error("backup.identifier_invalid");
   return `"${value}"`;
 }
 

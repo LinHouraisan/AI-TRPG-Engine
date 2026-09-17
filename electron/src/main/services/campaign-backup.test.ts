@@ -5,6 +5,14 @@ import { join } from "node:path";
 import { fixedClock } from "../clock";
 import { CredentialStore } from "../credentials";
 import { resolvePaths } from "../paths";
+import {
+  bindAuditRun,
+  finalizeAuditRun,
+  finishAuditSpan,
+  linkFinalNarration,
+  startAuditRun,
+  startAuditSpan,
+} from "../persist/audit";
 import { openBun } from "../persist/bun-driver";
 import { createCheckpoint } from "../persist/checkpoints";
 import { hashProfile, loadInvestigator } from "../persist/investigator";
@@ -49,6 +57,68 @@ test("desktop campaign backup round-trips profile hash, branch, history, recaps,
     });
     if (!submitted.ok) throw new Error(`turn failed: ${submitted.error.code}`);
     await fixture.turns.waitForNarration(submitted.value.operationId);
+    const narration = sourceDb.get<{ narration_id: string }>(
+      "SELECT narration_id FROM narrations WHERE turn_id = ? AND status = 'final'",
+      [submitted.value.turnId],
+    );
+    if (!narration) throw new Error("final narration missing");
+    startAuditRun(sourceDb, {
+      traceId: "trace-backup-1",
+      campaignId: created.value.campaignId,
+      branchId: created.value.headBranchId,
+      operationId: submitted.value.operationId,
+      baseStateVersion: 1,
+      startedAt: now,
+      schemaVersion: "turn-audit-v1",
+    });
+    bindAuditRun(sourceDb, "trace-backup-1", {
+      turnId: submitted.value.turnId,
+      committedStateVersion: 1,
+    });
+    startAuditSpan(sourceDb, {
+      spanId: "span-backup-1",
+      traceId: "trace-backup-1",
+      sequence: 1,
+      kind: "program",
+      stage: "narration.select",
+      taskType: "gm.narrate_result",
+      attempt: 1,
+      causal: true,
+      input: { source: "program" },
+      createdAt: now,
+    });
+    finishAuditSpan(sourceDb, "span-backup-1", {
+      status: "succeeded",
+      output: { narrationId: narration.narration_id },
+      completedAt: now,
+    });
+    linkFinalNarration(sourceDb, "trace-backup-1", narration.narration_id);
+    finalizeAuditRun(sourceDb, "trace-backup-1", {
+      completeness: "complete",
+      gapCodes: [],
+      finalizedAt: now,
+    });
+    sourceDb.run(
+      `INSERT INTO user_feedback (
+        feedback_id, trace_id, turn_id, narration_id, rating, note, created_at
+      ) VALUES ('feedback-backup-1', 'trace-backup-1', ?, ?, 'dissatisfied', '上下文偏离', ?)`,
+      [submitted.value.turnId, narration.narration_id, now],
+    );
+    sourceDb.run(
+      `INSERT INTO diagnosis_results (
+        diagnosis_id, feedback_id, source, code, confidence, severity,
+        explanation, evidence_span_ids_json, rule_version, created_at
+      ) VALUES ('diagnosis-backup-1', 'feedback-backup-1', 'rule', 'UNKNOWN', 'low',
+        'info', '证据不足', '["span-backup-1"]', 'turn-diagnosis-v1', ?)`,
+      [now],
+    );
+    sourceDb.run(
+      `INSERT INTO dataset_candidates (
+        case_id, feedback_id, trace_id, status, confirmed_issue_tags_json,
+        review_note, corrected_output, dataset_usage, reviewed_at, export_batch_id
+      ) VALUES ('case-backup-1', 'feedback-backup-1', 'trace-backup-1', 'pending_review',
+        '[]', NULL, NULL, NULL, NULL, NULL)`,
+    );
     createCheckpoint(sourceDb, {
       branchId: created.value.headBranchId,
       label: "备份检查点",
@@ -88,6 +158,21 @@ test("desktop campaign backup round-trips profile hash, branch, history, recaps,
     expect(importedDb.get<{ count: number }>(
       "SELECT count(*) AS count FROM checkpoint_dialogue_members",
     )?.count).toBe(1);
+    expect(importedDb.get<{ campaign_id: string; final_narration_id: string }>(
+      "SELECT campaign_id, final_narration_id FROM audit_runs WHERE trace_id = 'trace-backup-1'",
+    )).toEqual({
+      campaign_id: imported.value.campaignId,
+      final_narration_id: narration.narration_id,
+    });
+    expect(importedDb.get<{ output_json: string }>(
+      "SELECT output_json FROM audit_spans WHERE span_id = 'span-backup-1'",
+    )?.output_json).toContain(narration.narration_id);
+    expect(importedDb.get<{ code: string; evidence_span_ids_json: string }>(
+      "SELECT code, evidence_span_ids_json FROM diagnosis_results WHERE diagnosis_id = 'diagnosis-backup-1'",
+    )).toEqual({ code: "UNKNOWN", evidence_span_ids_json: '["span-backup-1"]' });
+    expect(importedDb.get<{ status: string }>(
+      "SELECT status FROM dataset_candidates WHERE case_id = 'case-backup-1'",
+    )?.status).toBe("pending_review");
   } finally {
     fixture.close();
   }
@@ -151,6 +236,7 @@ function campaignFixture() {
     ["0005_checkpoint_recaps", "campaign-0005-checkpoint-recaps.sql"],
     ["0006_checkpoint_dialogue_members", "campaign-0006-checkpoint-dialogue-members.sql"],
     ["0007_investigator_recreation", "campaign-0007-investigator-recreation.sql"],
+    ["0008_turn_audit", "campaign-0008-turn-audit.sql"],
   ].map(([id, file]) => ({ id, sql: readFileSync(join(sqlDir, file), "utf8") }));
   const campaigns = new CampaignService(
     settings,

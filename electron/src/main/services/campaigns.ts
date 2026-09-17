@@ -46,6 +46,7 @@ import {
 } from "../persist/investigator";
 import { appendCommitted } from "../persist/turns";
 import { exportCampaignBackup, importCampaignBackup } from "../persist/backup";
+import { recoverInterruptedAudits } from "../persist/audit";
 
 export type OpenDriver = (path: string) => Driver;
 
@@ -134,6 +135,7 @@ export class CampaignService {
       for (const migration of this.extraMigrations) {
         applyMigration(driver, this.clock, migration.sql, migration.id);
       }
+      recoverInterruptedAudits(driver, this.clock.nowIso());
       this.openCampaigns.set(campaignId, driver);
     }
     touchOpened(this.settings, campaignId, this.clock.nowIso());

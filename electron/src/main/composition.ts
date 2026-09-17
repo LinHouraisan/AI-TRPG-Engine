@@ -44,6 +44,7 @@ export function createComposition(input: {
   const checkpointRecapSql = readFileSync(join(input.sqlDir, "campaign-0005-checkpoint-recaps.sql"), "utf8");
   const checkpointDialogueSql = readFileSync(join(input.sqlDir, "campaign-0006-checkpoint-dialogue-members.sql"), "utf8");
   const investigatorRecreationSql = readFileSync(join(input.sqlDir, "campaign-0007-investigator-recreation.sql"), "utf8");
+  const turnAuditSql = readFileSync(join(input.sqlDir, "campaign-0008-turn-audit.sql"), "utf8");
   const settings = input.openDriver(input.paths.settingsDb);
   applyInit(settings, input.clock, settingsSql, "0001_init");
   ensureDefaultProvider(
@@ -65,6 +66,7 @@ export function createComposition(input: {
       { id: "0005_checkpoint_recaps", sql: checkpointRecapSql },
       { id: "0006_checkpoint_dialogue_members", sql: checkpointDialogueSql },
       { id: "0007_investigator_recreation", sql: investigatorRecreationSql },
+      { id: "0008_turn_audit", sql: turnAuditSql },
     ],
   );
   const credentials = new CredentialStore(

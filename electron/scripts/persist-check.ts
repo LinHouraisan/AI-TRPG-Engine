@@ -67,6 +67,10 @@ const investigatorRecreationSql = readFileSync(
   join(import.meta.dir, "../sql/campaign-0007-investigator-recreation.sql"),
   "utf8",
 );
+const turnAuditSql = readFileSync(
+  join(import.meta.dir, "../sql/campaign-0008-turn-audit.sql"),
+  "utf8",
+);
 
 let failed = 0;
 function assert(cond: boolean, label: string): void {
@@ -104,6 +108,7 @@ try {
     { id: "0005_checkpoint_recaps", sql: checkpointRecapSql },
     { id: "0006_checkpoint_dialogue_members", sql: checkpointDialogueSql },
     { id: "0007_investigator_recreation", sql: investigatorRecreationSql },
+    { id: "0008_turn_audit", sql: turnAuditSql },
   ]);
   const bad = campaigns.create("   ");
   assert(!bad.ok && bad.error.code === "IPC_INVALID_REQUEST", "空名字拒收");

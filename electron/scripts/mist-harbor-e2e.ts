@@ -46,6 +46,7 @@ try {
       { id: "0005_checkpoint_recaps", sql: readFileSync(join(sqlDir, "campaign-0005-checkpoint-recaps.sql"), "utf8") },
       { id: "0006_checkpoint_dialogue_members", sql: readFileSync(join(sqlDir, "campaign-0006-checkpoint-dialogue-members.sql"), "utf8") },
       { id: "0007_investigator_recreation", sql: readFileSync(join(sqlDir, "campaign-0007-investigator-recreation.sql"), "utf8") },
+      { id: "0008_turn_audit", sql: readFileSync(join(sqlDir, "campaign-0008-turn-audit.sql"), "utf8") },
     ],
   );
 
