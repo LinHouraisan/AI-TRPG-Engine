@@ -325,6 +325,7 @@ export type RouteResult = {
   source: "程序" | "模型";
   note?: string;
   sourceSpanId?: string;
+  auditCode?: "PROVIDER_FAILURE" | "ROUTE_INVALID" | "ROUTE_UNCERTAIN" | "STALE_STATE";
 };
 
 /**
@@ -343,7 +344,13 @@ export async function keeperRoute(params: {
   audit?: { sink: AuditSpanSink; modelTaskId: string };
 }): Promise<RouteResult> {
   const { config, state, spoken } = params;
-  if (!config.enabled) return { intent: { kind: "unclear", text: spoken }, source: "程序" };
+  if (!config.enabled) {
+    return {
+      intent: { kind: "unclear", text: spoken },
+      source: "程序",
+      auditCode: "ROUTE_UNCERTAIN",
+    };
+  }
 
   try {
     const { value, auditSpanId } = await askKeeper({
@@ -372,6 +379,7 @@ export async function keeperRoute(params: {
         source: "模型",
         note: `模型候选基于状态版本 ${state.version}，当前版本已经变化，已作废`,
         sourceSpanId: auditSpanId,
+        auditCode: "STALE_STATE",
       };
     }
 
@@ -393,12 +401,23 @@ export async function keeperRoute(params: {
           ? `模型给的调查入口 ${target} 此刻不可用，已作废`
           : `模型给的目标 ${target || "（空）"} 不在场，已作废`,
         sourceSpanId: auditSpanId,
+        auditCode: "ROUTE_INVALID",
       };
     }
-    return { intent, source: "模型", sourceSpanId: auditSpanId };
+    return {
+      intent,
+      source: "模型",
+      sourceSpanId: auditSpanId,
+      ...(intent.kind === "unclear" ? { auditCode: "ROUTE_UNCERTAIN" as const } : {}),
+    };
   } catch (error) {
     const reason = error instanceof KeeperError ? error.message : String(error);
-    return { intent: { kind: "unclear", text: spoken }, source: "程序", note: reason };
+    return {
+      intent: { kind: "unclear", text: spoken },
+      source: "程序",
+      note: reason,
+      auditCode: "PROVIDER_FAILURE",
+    };
   }
 }
 

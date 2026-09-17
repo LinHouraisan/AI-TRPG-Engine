@@ -8,8 +8,12 @@ import type {
   AuditSpanFinish,
   AuditSpanRecord,
   AuditSpanStart,
+  CandidateStatus,
+  DatasetUsage,
+  DiagnosisCode,
   JsonObject,
 } from "@core/audit/types";
+import type { TurnDiagnosis } from "@core/audit/diagnosis";
 import type { Driver } from "./driver";
 
 type AuditRunRow = {
@@ -53,6 +57,36 @@ type AuditSpanRow = {
   created_at: string;
   completed_at: string | null;
   payload_sha256: string;
+};
+
+export type FeedbackRecord = {
+  feedbackId: string;
+  traceId: string;
+  turnId: string;
+  narrationId: string;
+  rating: "dissatisfied";
+  note: string | null;
+  createdAt: string;
+};
+
+export type DiagnosisRecord = TurnDiagnosis & {
+  diagnosisId: string;
+  feedbackId: string;
+  source: "rule" | "local_judge";
+  createdAt: string;
+};
+
+export type DatasetCandidateRecord = {
+  caseId: string;
+  feedbackId: string;
+  traceId: string;
+  status: CandidateStatus;
+  confirmedIssueTags: DiagnosisCode[];
+  reviewNote: string | null;
+  correctedOutput: string | null;
+  datasetUsage: DatasetUsage | null;
+  reviewedAt: string | null;
+  exportBatchId: string | null;
 };
 
 export function startAuditRun(db: Driver, input: AuditRunStart): void {
@@ -210,6 +244,244 @@ export function findAuditTraceByOperation(db: Driver, operationId: string): stri
     "SELECT trace_id FROM audit_runs WHERE operation_id = ? ORDER BY started_at DESC LIMIT 1",
     [operationId],
   )?.trace_id;
+}
+
+export function findAuditCaseByNarration(db: Driver, narrationId: string): AuditCase | undefined {
+  const traceId = db.get<{ trace_id: string }>(
+    "SELECT trace_id FROM audit_runs WHERE final_narration_id = ?",
+    [narrationId],
+  )?.trace_id;
+  return traceId ? loadAuditCase(db, traceId) : undefined;
+}
+
+export function captureDissatisfaction(db: Driver, input: {
+  feedbackId: string;
+  caseId: string;
+  traceId: string;
+  turnId: string;
+  narrationId: string;
+  note?: string;
+  createdAt: string;
+}): { feedback: FeedbackRecord; candidate: DatasetCandidateRecord } {
+  return db.transaction(() => {
+    db.run(
+      `INSERT OR IGNORE INTO user_feedback (
+        feedback_id, trace_id, turn_id, narration_id, rating, note, created_at
+      ) VALUES (?, ?, ?, ?, 'dissatisfied', ?, ?)`,
+      [
+        input.feedbackId,
+        input.traceId,
+        input.turnId,
+        input.narrationId,
+        input.note?.trim() || null,
+        input.createdAt,
+      ],
+    );
+    const feedback = loadFeedbackByNarration(db, input.narrationId);
+    if (!feedback) throw new Error("audit.feedback_insert_failed");
+    db.run(
+      `INSERT OR IGNORE INTO dataset_candidates (
+        case_id, feedback_id, trace_id, status, confirmed_issue_tags_json,
+        review_note, corrected_output, dataset_usage, reviewed_at, export_batch_id
+      ) VALUES (?, ?, ?, 'captured', '[]', NULL, NULL, NULL, NULL, NULL)`,
+      [input.caseId, feedback.feedbackId, feedback.traceId],
+    );
+    const candidate = loadCandidateByFeedback(db, feedback.feedbackId);
+    if (!candidate) throw new Error("audit.candidate_insert_failed");
+    return { feedback, candidate };
+  });
+}
+
+export function saveRuleDiagnoses(db: Driver, input: {
+  feedbackId: string;
+  caseId: string;
+  diagnoses: Array<TurnDiagnosis & { diagnosisId: string }>;
+  createdAt: string;
+}): DatasetCandidateRecord {
+  return db.transaction(() => {
+    for (const diagnosis of input.diagnoses) {
+      db.run(
+        `INSERT INTO diagnosis_results (
+          diagnosis_id, feedback_id, source, code, confidence, severity,
+          explanation, evidence_span_ids_json, rule_version, created_at
+        ) VALUES (?, ?, 'rule', ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          diagnosis.diagnosisId,
+          input.feedbackId,
+          diagnosis.code,
+          diagnosis.confidence,
+          diagnosis.severity,
+          diagnosis.explanation,
+          canonicalJson(diagnosis.evidenceSpanIds),
+          diagnosis.ruleVersion,
+          input.createdAt,
+        ],
+      );
+    }
+    db.run(
+      `UPDATE dataset_candidates SET status = 'pending_review'
+       WHERE case_id = ? AND status = 'captured'`,
+      [input.caseId],
+    );
+    const candidate = loadCandidate(db, input.caseId);
+    if (!candidate) throw new Error("audit.candidate_not_found");
+    return candidate;
+  });
+}
+
+export function loadFeedbackByNarration(db: Driver, narrationId: string): FeedbackRecord | undefined {
+  const row = db.get<{
+    feedback_id: string;
+    trace_id: string;
+    turn_id: string;
+    narration_id: string;
+    rating: "dissatisfied";
+    note: string | null;
+    created_at: string;
+  }>("SELECT * FROM user_feedback WHERE narration_id = ? AND rating = 'dissatisfied'", [narrationId]);
+  return row ? {
+    feedbackId: row.feedback_id,
+    traceId: row.trace_id,
+    turnId: row.turn_id,
+    narrationId: row.narration_id,
+    rating: row.rating,
+    note: row.note,
+    createdAt: row.created_at,
+  } : undefined;
+}
+
+export function loadFeedback(db: Driver, feedbackId: string): FeedbackRecord | undefined {
+  const narrationId = db.get<{ narration_id: string }>(
+    "SELECT narration_id FROM user_feedback WHERE feedback_id = ?",
+    [feedbackId],
+  )?.narration_id;
+  return narrationId ? loadFeedbackByNarration(db, narrationId) : undefined;
+}
+
+export function loadCandidateByFeedback(db: Driver, feedbackId: string): DatasetCandidateRecord | undefined {
+  const caseId = db.get<{ case_id: string }>(
+    "SELECT case_id FROM dataset_candidates WHERE feedback_id = ?",
+    [feedbackId],
+  )?.case_id;
+  return caseId ? loadCandidate(db, caseId) : undefined;
+}
+
+export function loadCandidate(db: Driver, caseId: string): DatasetCandidateRecord | undefined {
+  const row = db.get<{
+    case_id: string;
+    feedback_id: string;
+    trace_id: string;
+    status: CandidateStatus;
+    confirmed_issue_tags_json: string;
+    review_note: string | null;
+    corrected_output: string | null;
+    dataset_usage: DatasetUsage | null;
+    reviewed_at: string | null;
+    export_batch_id: string | null;
+  }>("SELECT * FROM dataset_candidates WHERE case_id = ?", [caseId]);
+  return row ? {
+    caseId: row.case_id,
+    feedbackId: row.feedback_id,
+    traceId: row.trace_id,
+    status: row.status,
+    confirmedIssueTags: JSON.parse(row.confirmed_issue_tags_json) as DiagnosisCode[],
+    reviewNote: row.review_note,
+    correctedOutput: row.corrected_output,
+    datasetUsage: row.dataset_usage,
+    reviewedAt: row.reviewed_at,
+    exportBatchId: row.export_batch_id,
+  } : undefined;
+}
+
+export function listCandidateRecords(db: Driver, input: {
+  status?: CandidateStatus;
+  cursor?: string;
+  limit: number;
+}): { items: DatasetCandidateRecord[]; nextCursor: string | null } {
+  const limit = Math.max(1, Math.min(input.limit, 100));
+  const rows = input.status
+    ? db.all<{ case_id: string }>(
+        `SELECT case_id FROM dataset_candidates
+         WHERE status = ? AND (? IS NULL OR case_id > ?)
+         ORDER BY case_id LIMIT ?`,
+        [input.status, input.cursor ?? null, input.cursor ?? null, limit + 1],
+      )
+    : db.all<{ case_id: string }>(
+        `SELECT case_id FROM dataset_candidates
+         WHERE (? IS NULL OR case_id > ?)
+         ORDER BY case_id LIMIT ?`,
+        [input.cursor ?? null, input.cursor ?? null, limit + 1],
+      );
+  const page = rows.slice(0, limit);
+  return {
+    items: page.map((row) => loadCandidate(db, row.case_id)).filter((item): item is DatasetCandidateRecord => Boolean(item)),
+    nextCursor: rows.length > limit ? page[page.length - 1]?.case_id ?? null : null,
+  };
+}
+
+export function loadDiagnoses(db: Driver, feedbackId: string): DiagnosisRecord[] {
+  return db.all<{
+    diagnosis_id: string;
+    feedback_id: string;
+    source: "rule" | "local_judge";
+    code: DiagnosisCode;
+    confidence: DiagnosisRecord["confidence"];
+    severity: DiagnosisRecord["severity"];
+    explanation: string;
+    evidence_span_ids_json: string;
+    rule_version: typeof import("@core/audit/diagnosis").TURN_DIAGNOSIS_RULE_VERSION;
+    created_at: string;
+  }>(
+    "SELECT * FROM diagnosis_results WHERE feedback_id = ? ORDER BY created_at, diagnosis_id",
+    [feedbackId],
+  ).map((row) => ({
+    diagnosisId: row.diagnosis_id,
+    feedbackId: row.feedback_id,
+    source: row.source,
+    code: row.code,
+    confidence: row.confidence,
+    severity: row.severity,
+    explanation: row.explanation,
+    evidenceSpanIds: JSON.parse(row.evidence_span_ids_json) as string[],
+    ruleVersion: row.rule_version,
+    createdAt: row.created_at,
+  }));
+}
+
+export function updateCandidateReview(db: Driver, input: {
+  caseId: string;
+  status: "reviewed" | "curated" | "discarded";
+  confirmedIssueTags: DiagnosisCode[];
+  reviewNote?: string;
+  correctedOutput?: string;
+  datasetUsage: DatasetUsage;
+  reviewedAt: string;
+}): DatasetCandidateRecord {
+  db.run(
+    `UPDATE dataset_candidates
+     SET status = ?, confirmed_issue_tags_json = ?, review_note = ?, corrected_output = ?,
+         dataset_usage = ?, reviewed_at = ?
+     WHERE case_id = ?`,
+    [
+      input.status,
+      canonicalJson(input.confirmedIssueTags),
+      input.reviewNote?.trim() || null,
+      input.correctedOutput?.trim() || null,
+      input.datasetUsage,
+      input.reviewedAt,
+      input.caseId,
+    ],
+  );
+  const candidate = loadCandidate(db, input.caseId);
+  if (!candidate) throw new Error("audit.candidate_not_found");
+  return candidate;
+}
+
+export function loadFinalNarrationText(db: Driver, narrationId: string): string | undefined {
+  return db.get<{ text: string }>(
+    "SELECT text FROM narrations WHERE narration_id = ? AND status = 'final'",
+    [narrationId],
+  )?.text;
 }
 
 function mapRun(row: AuditRunRow): AuditRunRecord {

@@ -11,11 +11,13 @@ import { applyInit } from "./persist/migrate";
 import { ensureDefaultProvider } from "./persist/providers";
 import { CampaignService, type OpenDriver } from "./services/campaigns";
 import { TurnService } from "./services/turns";
+import { AuditService } from "./services/audit-service";
 
 export interface Composition {
   settings: Driver;
   campaigns: CampaignService;
   turns: TurnService;
+  audits: AuditService;
   credentials: CredentialStore;
   dispose(): void;
 }
@@ -75,10 +77,12 @@ export function createComposition(input: {
     platformSafeStorage(),
   );
   const turns = new TurnService(campaigns, credentials, input.clock);
+  const audits = new AuditService(campaigns, input.clock);
   return {
     settings,
     campaigns,
     turns,
+    audits,
     credentials,
     dispose() {
       campaigns.dispose();

@@ -251,10 +251,60 @@ export class TurnService {
       );
       if (configured.ok) {
         try {
-          intent = (await configured.value).intent;
+          const routed = await configured.value;
+          intent = routed.intent;
+          audit.append({
+            parentSpanId: routed.sourceSpanId,
+            kind: "guard",
+            stage: "route.validate",
+            taskType: "gm.handle_free_turn",
+            attempt: 1,
+            causal: true,
+            modelTaskId: freeTurnTaskId,
+            basedOnStateVersion: state.version,
+            promptVersion: "route-validate-v1",
+            input: { deterministicIntent: { kind: "unclear", text } },
+            status: routed.auditCode ? "rejected" : "succeeded",
+            errorCode: routed.auditCode,
+            output: {
+              finalIntent: routed.intent,
+              source: routed.source,
+              sourceSpanId: routed.sourceSpanId ?? null,
+              uncertain: routed.auditCode === "ROUTE_UNCERTAIN",
+            },
+          });
         } catch {
+          audit.append({
+            kind: "guard",
+            stage: "route.validate",
+            taskType: "gm.handle_free_turn",
+            attempt: 1,
+            causal: true,
+            modelTaskId: freeTurnTaskId,
+            basedOnStateVersion: state.version,
+            promptVersion: "route-validate-v1",
+            input: { deterministicIntent: { kind: "unclear", text } },
+            status: "failed",
+            errorCode: "PROVIDER_FAILURE",
+            output: { finalIntent: intent },
+          });
           // Keep unclear: playTurn will ask a clarification without committing.
         }
+      } else {
+        audit.append({
+          kind: "guard",
+          stage: "route.validate",
+          taskType: "gm.handle_free_turn",
+          attempt: 1,
+          causal: true,
+          modelTaskId: freeTurnTaskId,
+          basedOnStateVersion: state.version,
+          promptVersion: "route-validate-v1",
+          input: { deterministicIntent: { kind: "unclear", text } },
+          status: "failed",
+          errorCode: "PROVIDER_FAILURE",
+          output: { finalIntent: intent },
+        });
       }
     }
     const candidate = checkCandidateForIntent({ intent, state, profile });
