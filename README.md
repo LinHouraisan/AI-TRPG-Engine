@@ -4,11 +4,14 @@
 
 请先阅读 [项目当前状态](docs/CURRENT-STATUS.md)，区分已实现能力、已完成训练、历史评测和未验证效果。
 
+- [V1.0 架构手册：Python 核心、游戏与数据标注](docs/ARCHITECTURE-V1.md)（目标设计，尚未实现）
 - [产品流程图与可编辑源文件](docs/portfolio/product/README.md)
 
 一个本地优先、AI 主持、确定性规则内核的单人 TRPG 引擎：Electron 客户端负责权威游戏状态，FastAPI + LangChain 网关负责模型接入、RAG 检索和有证据约束的规则 Agent。
 
 ## 系统架构
+
+下图及下述职责反映现有桌面核心实现；迁移后的目标结构以 V1.0 架构手册为准。
 
 ![AI TRPG Engine 系统架构](答辩材料/images/system-architecture.png)
 
